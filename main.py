@@ -956,3 +956,27 @@ app.include_router(smart_automation_router)
 # NOORBRAIN V3 D4.3-D4.5 EXECUTION SAFETY ANALYTICS
 from services.smart_automation.routes_extension import router as smart_automation_execution_router
 app.include_router(smart_automation_execution_router)
+
+# NOORBRAIN P1 PRAYER INTELLIGENCE
+from services.prayer_intelligence.routes import router as prayer_intelligence_router
+app.include_router(prayer_intelligence_router)
+
+# NOORBRAIN P2 ISLAMIC REMINDER INTELLIGENCE
+from services.islamic_reminders.routes import router as islamic_reminders_router
+app.include_router(islamic_reminders_router)
+
+# NOORBRAIN P3.1 FAMILY FACE LINKING
+from services.family_linking.routes import router as family_linking_router
+app.include_router(family_linking_router)
+
+# NOORBRAIN P3.2 PERSONALIZED HALO
+from services.personalized_halo.routes import router as personalized_halo_router
+app.include_router(personalized_halo_router)
+
+# NOORBRAIN P3.3 MOBILE NOTIFICATIONS
+from services.mobile_notifications.routes import router as mobile_notifications_router
+app.include_router(mobile_notifications_router)
+
+# NOORBRAIN P3.4-P3.6 FINAL FAMILY MOBILE INTELLIGENCE
+from services.mobile_notifications.routes_final import router as mobile_notifications_final_router
+app.include_router(mobile_notifications_final_router)
