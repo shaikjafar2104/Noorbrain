@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "sessions": {
+    "mobile-companion": {
+      "context": {
+        "last_intent": "conversation",
+        "last_user_text": "ai vision option kidar hai dashboard pe"
+      },
+      "updated_at": "2026-07-27T21:12:51.915349+00:00"
+    },
+    "v3-c2-smoke": {
+      "context": {
+        "last_intent": "conversation",
+        "last_user_text": "And kitchen too"
+      },
+      "updated_at": "2026-07-27T03:14:10.591424+00:00"
+    },
+    "v3-phaseB-pack1-smoke": {
+      "context": {
+        "last_intent": "home",
+        "last_user_text": "Ghar ka status batao"
+      },
+      "updated_at": "2026-07-27T00:02:51.305406+00:00"
+    },
+    "voice-pack3-smoke": {
+      "context": {
+        "last_intent": "home",
+        "last_user_text": "Ghar ka status batao"
+      },
+      "updated_at": "2026-07-27T01:02:53.895319+00:00"
+    }
+  }
+}

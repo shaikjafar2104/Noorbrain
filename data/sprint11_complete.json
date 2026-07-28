@@ -1,0 +1,67 @@
+{
+  "packs": {
+    "pack1": "complete",
+    "pack2": "complete",
+    "pack3": "complete",
+    "pack4": "complete",
+    "pack5": "complete"
+  },
+  "qa": {
+    "checks": [
+      {
+        "detail": true,
+        "name": "device_storage",
+        "status": "PASS"
+      },
+      {
+        "detail": true,
+        "name": "automation_diagnostics",
+        "status": "PASS"
+      },
+      {
+        "detail": true,
+        "name": "backup_validation",
+        "status": "PASS"
+      },
+      {
+        "detail": true,
+        "name": "scene_storage",
+        "status": "PASS"
+      },
+      {
+        "detail": true,
+        "name": "group_storage",
+        "status": "PASS"
+      },
+      {
+        "detail": true,
+        "name": "routine_storage",
+        "status": "PASS"
+      },
+      {
+        "detail": true,
+        "name": "rule_storage",
+        "status": "PASS"
+      },
+      {
+        "detail": true,
+        "name": "esp32_storage",
+        "status": "PASS"
+      },
+      {
+        "detail": true,
+        "name": "mqtt_status",
+        "status": "PASS"
+      }
+    ],
+    "duration_ms": 5.38,
+    "failed": 0,
+    "passed": 9,
+    "status": "PASS"
+  },
+  "ready_for_sprint12": true,
+  "recorded_at": "2026-07-25T20:19:33.981952+00:00",
+  "sprint": "11",
+  "status": "complete",
+  "title": "Smart Home Automation Platform"
+}

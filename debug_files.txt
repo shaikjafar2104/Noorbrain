@@ -1,0 +1,688 @@
+
+====================================================
+shared/detection_manager.py
+====================================================
+"""
+============================================================
+Project : NoorBrain
+Module  : Detection Manager
+Version : 1.0.0
+============================================================
+"""
+
+import threading
+import time
+
+
+class DetectionManager:
+
+    def __init__(self):
+
+        self._lock = threading.Lock()
+
+        self._detections = []
+
+        self._history = []
+
+        self._frame_id = 0
+
+        self._last_update = 0
+
+        self._person_count = 0
+
+        self._total_detections = 0
+
+    # ----------------------------------------------------
+
+    def update(self, detections):
+
+        now = time.time()
+
+        with self._lock:
+
+            self._frame_id += 1
+
+            self._last_update = now
+
+            self._detections = list(detections)
+
+            self._person_count = len(detections)
+
+            self._total_detections += len(detections)
+
+            self._history.append({
+
+                "frame": self._frame_id,
+
+                "timestamp": now,
+
+                "count": len(detections),
+
+                "detections": list(detections)
+
+            })
+
+            if len(self._history) > 500:
+
+                self._history.pop(0)
+    # ----------------------------------------------------
+
+    def latest(self):
+
+        with self._lock:
+
+            return list(self._detections)
+
+    # ----------------------------------------------------
+
+    def history(self):
+
+        with self._lock:
+
+            return list(self._history)
+
+    # ----------------------------------------------------
+
+    def clear(self):
+
+        with self._lock:
+
+            self._detections.clear()
+
+            self._history.clear()
+
+            self._frame_id = 0
+
+            self._person_count = 0
+
+            self._total_detections = 0
+
+            self._last_update = 0
+
+    # ----------------------------------------------------
+
+    def person_count(self):
+
+        with self._lock:
+
+            return self._person_count
+
+    # ----------------------------------------------------
+
+    def frame_count(self):
+
+        with self._lock:
+
+            return self._frame_id
+
+    # ----------------------------------------------------
+
+    def total_detections(self):
+
+        with self._lock:
+
+            return self._total_detections
+
+    # ----------------------------------------------------
+
+    def snapshot(self):
+
+        with self._lock:
+
+            return {
+
+                "frame": self._frame_id,
+
+                "persons": self._person_count,
+
+                "latest": len(self._detections),
+
+                "history": len(self._history),
+
+                "total": self._total_detections,
+
+                "last_update": self._last_update
+
+            }
+
+
+detection_manager = DetectionManager()
+
+====================================================
+services/camera_client/camera_client.py
+====================================================
+"""
+============================================================
+Project : Noor AI Home Platform
+Module  : Camera Client
+Version : 1.0.0
+============================================================
+"""
+
+import threading
+import time
+
+import cv2
+import numpy as np
+import requests
+
+from shared.logger import logger
+from shared.config_manager import load_config
+from shared.frame_buffer import frame_buffer
+
+
+class CameraClient:
+
+    def __init__(self):
+
+        config = load_config()
+
+        camera_node = config.get(
+            "camera_node",
+            {}
+        )
+
+        self.base_url = camera_node.get(
+            "url",
+            "http://127.0.0.1:8000"
+        )
+
+        self.stream_url = (
+            self.base_url +
+            "/video_feed"
+        )
+
+        self.connected = False
+
+        self.running = False
+
+        self.thread = None
+
+        self.session = requests.Session()
+
+        self.frame_count = 0
+
+        self.current_fps = 0.0
+
+        self.last_fps_time = time.time()
+
+        self.last_frame_time = 0
+
+        logger.info(
+
+            f"Camera URL : {self.base_url}"
+
+        )
+    # ----------------------------------------------------
+
+    def connect(self):
+
+        logger.info("=" * 60)
+        logger.info("Connecting to Camera Node")
+        logger.info("=" * 60)
+
+        while self.running:
+
+            try:
+
+                response = self.session.get(
+                    self.stream_url,
+                    stream=True,
+                    timeout=10
+                )
+
+                if response.status_code == 200:
+
+                    self.connected = True
+
+                    logger.info(
+                        "Camera Stream Connected"
+                    )
+
+                    return response
+
+                logger.warning(
+                    f"HTTP {response.status_code}"
+                )
+
+            except Exception as ex:
+
+                logger.warning(
+                    f"Connection Failed : {ex}"
+                )
+
+            self.connected = False
+
+            logger.info(
+                "Retrying in 3 seconds..."
+            )
+
+            time.sleep(3)
+
+        return None
+
+    # ----------------------------------------------------
+
+    def receive_stream(self):
+
+        while self.running:
+
+            response = self.connect()
+
+            if response is None:
+                continue
+
+            try:
+
+                buffer = b""
+
+                for chunk in response.iter_content(4096):
+
+                    if not self.running:
+                        break
+
+                    if not chunk:
+                        continue
+
+                    buffer += chunk
+
+                    while True:
+
+                        start = buffer.find(b"\xff\xd8")
+                        end = buffer.find(b"\xff\xd9")
+
+                        if start == -1 or end == -1:
+                            break
+
+                        jpg = buffer[start:end + 2]
+
+                        buffer = buffer[end + 2:]
+
+                        self.process_frame(jpg)
+
+            except Exception as ex:
+
+                logger.warning(ex)
+
+                self.connected = False
+
+                time.sleep(2)
+
+            finally:
+
+                try:
+                    response.close()
+                except Exception:
+                    pass
+    # ----------------------------------------------------
+
+    def process_frame(self, jpg):
+
+        try:
+
+            image = np.frombuffer(
+
+                jpg,
+
+                dtype=np.uint8
+
+            )
+
+            frame = cv2.imdecode(
+
+                image,
+
+                cv2.IMREAD_COLOR
+
+            )
+
+            if frame is None:
+
+                return
+
+            frame_buffer.update(frame)
+
+            self.frame_count += 1
+
+            self.last_frame_time = time.time()
+
+            elapsed = (
+
+                self.last_frame_time -
+
+                self.last_fps_time
+
+            )
+
+            if elapsed >= 1.0:
+
+                self.current_fps = (
+
+                    self.frame_count / elapsed
+
+                )
+
+                logger.info(
+
+                    f"Camera FPS : "
+
+                    f"{self.current_fps:.2f}"
+
+                )
+
+                self.frame_count = 0
+
+                self.last_fps_time = (
+
+                    self.last_frame_time
+
+                )
+
+        except Exception as ex:
+
+            logger.exception(ex)
+
+    # ----------------------------------------------------
+
+    def get_frame(self):
+
+        return frame_buffer.get()
+
+    # ----------------------------------------------------
+
+    def is_connected(self):
+
+        return self.connected
+
+    # ----------------------------------------------------
+
+    def fps(self):
+
+        return round(
+
+            self.current_fps,
+
+            2
+
+        )
+    # ----------------------------------------------------
+
+    def start(self):
+
+        if self.running:
+
+            return
+
+        logger.info("=" * 60)
+        logger.info("Starting Camera Client")
+        logger.info("=" * 60)
+
+        self.running = True
+
+        self.thread = threading.Thread(
+            target=self.receive_stream,
+            daemon=True,
+            name="CameraClient"
+        )
+
+        self.thread.start()
+
+        logger.info("Camera Client Started")
+
+    # ----------------------------------------------------
+
+    def stop(self):
+
+        logger.info("Stopping Camera Client")
+
+        self.running = False
+
+        if self.thread:
+
+            self.thread.join(timeout=2)
+
+        try:
+
+            self.session.close()
+
+        except Exception:
+            pass
+
+        self.connected = False
+
+        logger.info("Camera Client Stopped")
+
+    # ----------------------------------------------------
+
+    def snapshot(self):
+
+        return {
+
+            "connected": self.connected,
+
+            "stream_url": self.stream_url,
+
+            "fps": round(
+                self.current_fps,
+                2
+            ),
+
+            "running": self.running,
+
+            "last_frame": round(
+                time.time() - self.last_frame_time,
+                2
+            ) if self.last_frame_time else None
+
+        }
+
+
+camera_client = CameraClient()
+
+
+# ---------------------------------------------------------
+
+if __name__ == "__main__":
+
+    try:
+
+        camera_client.start()
+
+        while True:
+
+            time.sleep(1)
+
+            print(
+                camera_client.snapshot()
+            )
+
+    except KeyboardInterrupt:
+
+        pass
+
+    finally:
+
+        camera_client.stop()
+
+====================================================
+services/zone_engine/zone_engine.py
+====================================================
+"""
+============================================================
+Project : NoorBrain
+Module  : Zone Engine
+Version : 0.2.0
+Purpose : Maps a bounding box (person location) to a named zone.
+          Zones can be loaded from file and saved from dashboard.
+============================================================
+"""
+
+import yaml
+from pathlib import Path
+
+from shared.logger import logger
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+ZONES_FILE = PROJECT_ROOT / "config" / "zones.yaml"
+
+
+class ZoneEngine:
+
+    def __init__(self):
+
+        self.zones = []
+        self.load_zones()
+
+    def load_zones(self):
+
+        if not ZONES_FILE.exists():
+            self.zones = []
+            return
+
+        with open(ZONES_FILE, "r") as file:
+            data = yaml.safe_load(file) or {}
+
+        self.zones = data.get("zones", [])
+
+        logger.info(f"Loaded {len(self.zones)} zones")
+
+    def save_zones(self, zones):
+
+        data = {"zones": zones}
+
+        with open(ZONES_FILE, "w") as file:
+            yaml.dump(data, file, default_flow_style=False)
+
+        self.zones = zones
+
+        logger.info(f"Saved {len(zones)} zones")
+
+    def get_zone_for_box(self, box):
+        """
+        box = [x1, y1, x2, y2] of the detected person.
+        Uses the center point of the box to decide the zone.
+        """
+
+        x1, y1, x2, y2 = box
+
+        center_x = (x1 + x2) / 2
+        center_y = (y1 + y2) / 2
+
+        for zone in self.zones:
+
+            if (zone["x1"] <= center_x <= zone["x2"] and
+                    zone["y1"] <= center_y <= zone["y2"]):
+
+                return zone["name"]
+
+        return "Unknown"
+
+    def get_all_zones(self):
+        return self.zones
+
+
+zone_engine = ZoneEngine()
+
+====================================================
+services/reminder_engine/reminder_engine.py
+====================================================
+"""
+============================================================
+Project : NoorBrain
+Module  : Reminder Engine
+Version : 0.1.0
+Purpose : Plays a spoken reminder when a person enters a zone.
+          Uses offline TTS (espeak via pyttsx3).
+============================================================
+"""
+
+import threading
+import queue
+import time
+from pathlib import Path
+
+import pyttsx3
+import yaml
+
+from shared.logger import logger
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+REMINDERS_FILE = PROJECT_ROOT / "config" / "reminders.yaml"
+
+
+class ReminderEngine:
+
+    def __init__(self):
+
+        self.reminders = {}
+        self.cooldown_seconds = 30
+
+        self.load_reminders()
+
+        self.last_zone = None
+        self.last_played = {}
+
+        self.speech_queue = queue.Queue()
+
+        self.thread = threading.Thread(
+            target=self._worker,
+            daemon=True
+        )
+        self.thread.start()
+
+    def load_reminders(self):
+
+        if not REMINDERS_FILE.exists():
+            self.reminders = {}
+            return
+
+        with open(REMINDERS_FILE, "r") as file:
+            data = yaml.safe_load(file) or {}
+
+        self.reminders = data.get("reminders", {}) or {}
+        self.cooldown_seconds = data.get("cooldown_seconds", 30)
+
+        logger.info(f"Loaded {len(self.reminders)} reminders")
+
+    def _worker(self):
+
+        engine = pyttsx3.init()
+        engine.setProperty("rate", 150)
+
+        while True:
+
+            text = self.speech_queue.get()
+
+            try:
+                engine.say(text)
+                engine.runAndWait()
+
+            except Exception as e:
+                logger.error(f"TTS Error: {e}")
+
+    def on_zone_detected(self, zone_name):
+
+        if not zone_name or zone_name == "Unknown":
+            return
+
+        if zone_name == self.last_zone:
+            return
+
+        now = time.time()
+        last_time = self.last_played.get(zone_name, 0)
+
+        if now - last_time < self.cooldown_seconds:
+            self.last_zone = zone_name
+            return
+
+        message = self.reminders.get(zone_name)
+
+        if message:
+            logger.info(f"Reminder triggered: {zone_name} -> \"{message}\"")
+            self.speech_queue.put(message)
+            self.last_played[zone_name] = now
+
+        self.last_zone = zone_name
+
+
+reminder_engine = ReminderEngine()

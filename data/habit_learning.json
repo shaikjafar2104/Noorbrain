@@ -1,0 +1,48 @@
+{
+  "observations": [
+    {
+      "created_at": "2026-07-28T01:37:14.586588+00:00",
+      "event_type": "person_entered",
+      "id": "b35232728ffd4ad59d2f2099206ae04e",
+      "metadata": {},
+      "person_id": "smoke-person",
+      "value": "Entered Hall",
+      "zone": "Hall"
+    },
+    {
+      "created_at": "2026-07-28T01:37:14.608050+00:00",
+      "event_type": "person_entered",
+      "id": "346169fdd8a94755ac4bec830bc8c30b",
+      "metadata": {},
+      "person_id": "smoke-person",
+      "value": "Entered Hall",
+      "zone": "Hall"
+    }
+  ],
+  "patterns": [
+    {
+      "confidence": 0.55,
+      "description": "person_entered often occurs in Hall around 01:00.",
+      "event_type": "person_entered",
+      "hour": 1,
+      "id": "smoke-person:Hall:person_entered:1",
+      "occurrences": 2,
+      "person_id": "smoke-person",
+      "zone": "Hall"
+    }
+  ],
+  "schema_version": 1,
+  "suggestions": [
+    {
+      "created_at": "2026-07-28T01:37:14.662263+00:00",
+      "id": "224258f30b384788995ba939466f29b3",
+      "kind": "habit_reminder",
+      "message": "person_entered often occurs in Hall around 01:00.",
+      "pattern_id": "smoke-person:Hall:person_entered:1",
+      "person_id": "smoke-person",
+      "priority": 0.55,
+      "status": "new",
+      "zone": "Hall"
+    }
+  ]
+}

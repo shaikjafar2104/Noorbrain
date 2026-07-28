@@ -1,0 +1,40 @@
+from __future__ import annotations
+import json
+import threading
+from pathlib import Path
+from typing import Any, Dict
+from .models import SettingsUpdate, VoiceSettings
+
+
+class VoiceSettingsStore:
+    def __init__(self, project_root: Path | None = None) -> None:
+        self.project_root = project_root or Path(__file__).resolve().parents[2]
+        self.path = self.project_root / "data" / "voice_settings.json"
+        self._lock = threading.RLock()
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        if not self.path.exists():
+            self.save(VoiceSettings())
+
+    def load(self) -> VoiceSettings:
+        with self._lock:
+            try:
+                return VoiceSettings.model_validate(json.loads(self.path.read_text(encoding="utf-8")))
+            except Exception:
+                defaults = VoiceSettings()
+                self.save(defaults)
+                return defaults
+
+    def save(self, settings: VoiceSettings) -> VoiceSettings:
+        with self._lock:
+            temp = self.path.with_suffix(".tmp")
+            temp.write_text(json.dumps(settings.model_dump(), indent=2), encoding="utf-8")
+            temp.replace(self.path)
+            return settings
+
+    def update(self, update: SettingsUpdate | Dict[str, Any]) -> VoiceSettings:
+        patch = update.model_dump(exclude_none=True) if isinstance(update, SettingsUpdate) else {
+            k: v for k, v in update.items() if v is not None
+        }
+        current = self.load().model_dump()
+        current.update(patch)
+        return self.save(VoiceSettings.model_validate(current))

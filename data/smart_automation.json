@@ -1,0 +1,80 @@
+{
+  "rules": [],
+  "runs": [
+    {
+      "context": {
+        "event_type": null,
+        "metadata": {},
+        "person_id": null,
+        "zone": "Hall"
+      },
+      "created_at": "2026-07-28T02:40:02.549507+00:00",
+      "id": "443f2850e0194355a76783cff7a045e5",
+      "results": [
+        {
+          "action": {
+            "arguments": {
+              "text": "D4 execution smoke test."
+            },
+            "kind": "halo",
+            "name": "speak"
+          },
+          "index": 0,
+          "result": {
+            "item": {
+              "created_at": 1785206402.5454154,
+              "id": "1cfe12ec1c0343b2ad225d38e32fd828",
+              "metadata": {
+                "source": "smart_automation"
+              },
+              "priority": 10,
+              "status": "queued",
+              "text": "D4 execution smoke test."
+            },
+            "status": "queued"
+          },
+          "safety": {
+            "requires_confirmation": false,
+            "risk": "low"
+          },
+          "status": "completed"
+        }
+      ],
+      "rule_id": "1dc66ec93dd948e9a5ae478aa5e6be56",
+      "rule_name": "D4 Execution Smoke",
+      "status": "completed"
+    },
+    {
+      "context": {
+        "event_type": null,
+        "metadata": {},
+        "person_id": null,
+        "zone": "Hall"
+      },
+      "created_at": "2026-07-28T02:40:02.686925+00:00",
+      "id": "cefd9cac0ab541f88725bb0d6c7cdeca",
+      "results": [
+        {
+          "action": {
+            "arguments": {
+              "name": "Hall Light",
+              "state": "on"
+            },
+            "kind": "device",
+            "name": "set_device_state"
+          },
+          "index": 0,
+          "safety": {
+            "requires_confirmation": true,
+            "risk": "high"
+          },
+          "status": "needs_confirmation"
+        }
+      ],
+      "rule_id": "9fd4059d7f444eb3960087c11e7168e8",
+      "rule_name": "D4 Safety Smoke",
+      "status": "needs_confirmation"
+    }
+  ],
+  "schema_version": 1
+}

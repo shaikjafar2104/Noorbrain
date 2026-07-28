@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "sessions": {
+    "c2-planner-smoke": {
+      "context": {},
+      "created_at": "2026-07-27T03:28:59.008242+00:00",
+      "id": "c2-planner-smoke",
+      "pending_clarification": null,
+      "status": "active",
+      "turns": [],
+      "updated_at": "2026-07-27T03:28:59.008277+00:00"
+    },
+    "mobile-companion": {
+      "context": {
+        "last_intent": "conversation",
+        "last_resolved_text": "ai vision option kidar hai dashboard pe",
+        "last_user_text": "ai vision option kidar hai dashboard pe"
+      },
+      "created_at": "2026-07-27T20:25:57.565563+00:00",
+      "id": "mobile-companion",
+      "pending_clarification": null,
+      "status": "active",
+      "turns": [
+        {
+          "id": "d3b4009f0d3646cdb00646d3f9fed95b",
+          "intent": null,
+          "metadata": {},
+          "role": "user",
+          "text": "hello",
+          "timestamp": "2026-07-27T20:25:57.574243+00:00"
+        },
+        {
+          "id": "7bd42b1840d7462497dc1ff5d1a43eda",
+          "intent": "conversation",
+          "metadata": {
+            "halo_result_status": "ok",
+            "resolution": {
+              "changes": {},
+              "original_text": "hello",
+              "resolved_text": "hello"
+            }
+          },
+          "role": "assistant",
+          "text": "Hello. How can I help?",
+          "timestamp": "2026-07-27T20:25:57.596689+00:00"
+        },
+        {
+          "id": "3a86f84ec5d343ff9821e34a1a3c9508",
+          "intent": null,
+          "metadata": {},
+          "role": "user",
+          "text": "please call jafar",
+          "timestamp": "2026-07-27T20:26:09.178347+00:00"
+        },
+        {
+          "id": "9a5c1ec354954be2b5739b7a09cdc1e0",
+          "intent": "conversation",
+          "metadata": {
+            "halo_result_status": "ok",
+            "resolution": {
+              "changes": {},
+              "original_text": "please call jafar",
+              "resolved_text": "please call jafar"
+            }
+          },
+          "role": "assistant",
+          "text": "I'm happy to help! However, I need more context about who Jafar is and what you want me to do with that name. Are you trying to reach someone or looking for information about a specific topic?",
+          "timestamp": "2026-07-27T20:26:23.946622+00:00"
+        },
+        {
+          "id": "ea57d320217a4268ba663b97f88ea8df",
+          "intent": null,
+          "metadata": {},
+          "role": "user",
+          "text": "ai vision option kidar hai dashboard pe",
+          "timestamp": "2026-07-27T21:12:39.374781+00:00"
+        },
+        {
+          "id": "ad834d3e89db408492777b27ed84a916",
+          "intent": "conversation",
+          "metadata": {
+            "halo_result_status": "ok",
+            "resolution": {
+              "changes": {},
+              "original_text": "ai vision option kidar hai dashboard pe",
+              "resolved_text": "ai vision option kidar hai dashboard pe"
+            }
+          },
+          "role": "assistant",
+          "text": "I'm happy to help! For AI Vision options on the Kidaro dashboard, you can explore features like Object Detection, Facial Recognition, and Scene Analysis to enhance your video analytics experience.",
+          "timestamp": "2026-07-27T21:12:51.922737+00:00"
+        }
+      ],
+      "updated_at": "2026-07-27T21:12:51.930443+00:00"
+    }
+  }
+}

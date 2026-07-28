@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "language": "en-US",
+  "listen_seconds": 5.0,
+  "noise_filter_enabled": true,
+  "require_wake_word": false,
+  "sample_rate": 16000,
+  "save_transcripts": true,
+  "speech_rate": 165,
+  "stt_engine": "auto",
+  "tts_engine": "auto",
+  "vad_enabled": true,
+  "voice_name": null,
+  "volume": 1.0,
+  "wake_word": "Hey Noor"
+}

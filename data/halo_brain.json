@@ -1,0 +1,125 @@
+{
+  "decisions": [
+    {
+      "action": {
+        "arguments": {},
+        "kind": "skill",
+        "name": "home",
+        "requires_confirmation": false
+      },
+      "context_summary": {
+        "active_people": 1,
+        "family_profiles": 1,
+        "today_events": 11,
+        "vision_status": "unavailable"
+      },
+      "created_at": "2026-07-28T01:19:24.103260+00:00",
+      "decision_id": "8d8a8d45c5334f14ae843eb396a0ef7b",
+      "id": "4b237f0e4b5c4657b421a3a4497d8c5c",
+      "memory_matches": 0,
+      "metadata": {},
+      "person_id": "smoke-person",
+      "reason": "Home-status intent detected.",
+      "signal": "What is the home status?",
+      "zone": "Hall"
+    },
+    {
+      "action": {
+        "arguments": {
+          "kind": "user_note",
+          "value": "testing is complete"
+        },
+        "kind": "memory",
+        "name": "remember",
+        "requires_confirmation": false
+      },
+      "context_summary": {
+        "active_people": 1,
+        "family_profiles": 1,
+        "today_events": 11,
+        "vision_status": "unavailable"
+      },
+      "created_at": "2026-07-28T01:19:24.119913+00:00",
+      "decision_id": "cf1a7784cd4746519ddf9877d9fd2b7c",
+      "id": "c736eff03a204950b67dd56d3ed9aa37",
+      "memory_matches": 0,
+      "metadata": {},
+      "person_id": "smoke-person",
+      "reason": "Explicit memory request detected.",
+      "signal": "Remember testing is complete",
+      "zone": "Hall"
+    }
+  ],
+  "executions": [
+    {
+      "action": {
+        "arguments": {
+          "kind": "user_note",
+          "value": "testing is complete"
+        },
+        "kind": "memory",
+        "name": "remember",
+        "requires_confirmation": false
+      },
+      "created_at": "2026-07-28T01:19:24.135146+00:00",
+      "decision_id": "cf1a7784cd4746519ddf9877d9fd2b7c",
+      "id": "ea0413a06edf4e2b8a05a48894564425",
+      "result": {
+        "memory": {
+          "created_at": "2026-07-28T01:19:24.127873+00:00",
+          "id": "33c20baba29149f0a999b12a19440e5a",
+          "importance": 0.8,
+          "kind": "user_note",
+          "metadata": {
+            "source": "halo_brain"
+          },
+          "person_id": "smoke-person",
+          "value": "testing is complete",
+          "zone": "Hall"
+        },
+        "status": "ok"
+      },
+      "status": "completed"
+    }
+  ],
+  "memories": [
+    {
+      "created_at": "2026-07-28T01:19:24.082360+00:00",
+      "id": "c8b816d495534fd8a776c86eb92e332d",
+      "importance": 0.9,
+      "kind": "user_note",
+      "metadata": {},
+      "person_id": "smoke-person",
+      "value": "Smoke-test memory",
+      "zone": "Hall"
+    },
+    {
+      "created_at": "2026-07-28T01:19:24.127873+00:00",
+      "id": "33c20baba29149f0a999b12a19440e5a",
+      "importance": 0.8,
+      "kind": "user_note",
+      "metadata": {
+        "source": "halo_brain"
+      },
+      "person_id": "smoke-person",
+      "value": "testing is complete",
+      "zone": "Hall"
+    }
+  ],
+  "schema_version": 1,
+  "signals": [
+    {
+      "created_at": "2026-07-28T01:19:24.146193+00:00",
+      "id": "817c1ae0d03c40bd967a114400543bfe",
+      "kind": "proactive_evaluation",
+      "suggestion_count": 1,
+      "suggestions": [
+        {
+          "kind": "presence",
+          "message": "1 person(s) currently present.",
+          "priority": 0.4
+        }
+      ]
+    }
+  ]
+}

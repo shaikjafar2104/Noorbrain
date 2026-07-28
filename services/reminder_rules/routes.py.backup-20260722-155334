@@ -1,0 +1,187 @@
+"""
+============================================================
+Project : NoorBrain
+Module  : Reminder Rules API
+Purpose : Dashboard API for creating and managing reminders
+============================================================
+"""
+
+from typing import Optional
+
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, Field
+
+from services.reminder_rules.reminder_rules import reminder_rules
+
+
+router = APIRouter(tags=["Reminder Rules"])
+
+
+# ---------------------------------------------------------
+# Request Models
+# ---------------------------------------------------------
+class ReminderRulePayload(BaseModel):
+    name: str = "Reminder Rule"
+    trigger: str = "entered_zone"
+    zone: Optional[str] = None
+    message: str
+    cooldown_seconds: int = Field(
+        default=1800,
+        ge=0
+    )
+    speak: bool = True
+    media_id: Optional[str] = None
+    enabled: bool = True
+
+
+class ReminderTogglePayload(BaseModel):
+    enabled: bool
+
+
+# ---------------------------------------------------------
+# Error Helpers
+# ---------------------------------------------------------
+def rule_not_found():
+    return HTTPException(
+        status_code=404,
+        detail="Reminder rule not found"
+    )
+
+
+def invalid_rule(error: Exception):
+    return HTTPException(
+        status_code=400,
+        detail=str(error)
+    )
+
+
+# ---------------------------------------------------------
+# List Rules and History
+# ---------------------------------------------------------
+@router.get("/reminder-rules")
+def get_reminder_rules(
+    history_limit: int = Query(
+        default=50,
+        ge=1,
+        le=300
+    )
+):
+    return reminder_rules.snapshot(
+        history_limit=history_limit
+    )
+
+
+# ---------------------------------------------------------
+# Create Rule
+# ---------------------------------------------------------
+@router.post("/reminder-rules", status_code=201)
+def create_reminder_rule(
+    payload: ReminderRulePayload
+):
+    try:
+        rule = reminder_rules.create_rule(
+            payload.model_dump()
+        )
+
+        return {
+            "status": "created",
+            "rule": rule
+        }
+
+    except ValueError as error:
+        raise invalid_rule(error)
+
+
+# ---------------------------------------------------------
+# Update Rule
+# ---------------------------------------------------------
+@router.put("/reminder-rules/{rule_id}")
+def update_reminder_rule(
+    rule_id: str,
+    payload: ReminderRulePayload
+):
+    try:
+        rule = reminder_rules.update_rule(
+            rule_id,
+            payload.model_dump()
+        )
+
+        return {
+            "status": "updated",
+            "rule": rule
+        }
+
+    except KeyError:
+        raise rule_not_found()
+
+    except ValueError as error:
+        raise invalid_rule(error)
+
+
+# ---------------------------------------------------------
+# Delete Rule
+# ---------------------------------------------------------
+@router.delete("/reminder-rules/{rule_id}")
+def delete_reminder_rule(rule_id: str):
+    try:
+        return reminder_rules.delete_rule(rule_id)
+
+    except KeyError:
+        raise rule_not_found()
+
+
+# ---------------------------------------------------------
+# Enable / Disable Rule
+# ---------------------------------------------------------
+@router.patch(
+    "/reminder-rules/{rule_id}/toggle"
+)
+def toggle_reminder_rule(
+    rule_id: str,
+    payload: ReminderTogglePayload
+):
+    try:
+        rule = reminder_rules.toggle_rule(
+            rule_id,
+            payload.enabled
+        )
+
+        return {
+            "status": "updated",
+            "rule": rule
+        }
+
+    except KeyError:
+        raise rule_not_found()
+
+    except ValueError as error:
+        raise invalid_rule(error)
+
+
+# ---------------------------------------------------------
+# Test Rule
+# ---------------------------------------------------------
+@router.post(
+    "/reminder-rules/{rule_id}/test"
+)
+def test_reminder_rule(rule_id: str):
+    try:
+        record = reminder_rules.test_rule(
+            rule_id
+        )
+
+        return {
+            "status": "tested",
+            "result": record
+        }
+
+    except KeyError:
+        raise rule_not_found()
+
+
+# ---------------------------------------------------------
+# Clear Reminder History
+# ---------------------------------------------------------
+@router.post("/reminder-history/clear")
+def clear_reminder_history():
+    return reminder_rules.clear_history()

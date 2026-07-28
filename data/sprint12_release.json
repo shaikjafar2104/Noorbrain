@@ -1,0 +1,57 @@
+{
+  "packs": {
+    "pack1": "complete",
+    "pack2": "complete",
+    "pack3": "complete",
+    "pack4": "complete",
+    "pack5": "complete"
+  },
+  "qa": {
+    "checks": [
+      {
+        "detail": true,
+        "name": "memory_store",
+        "status": "PASS"
+      },
+      {
+        "detail": true,
+        "name": "skill_engine",
+        "status": "PASS"
+      },
+      {
+        "detail": true,
+        "name": "planner_store",
+        "status": "PASS"
+      },
+      {
+        "detail": true,
+        "name": "fusion_store",
+        "status": "PASS"
+      },
+      {
+        "detail": true,
+        "name": "family_profiles",
+        "status": "PASS"
+      },
+      {
+        "detail": true,
+        "name": "metrics",
+        "status": "PASS"
+      },
+      {
+        "detail": true,
+        "name": "performance",
+        "status": "PASS"
+      }
+    ],
+    "duration_ms": 1.02,
+    "failed": 0,
+    "passed": 7,
+    "status": "PASS"
+  },
+  "ready_for_v1": true,
+  "recorded_at": "2026-07-26T06:39:20.277556+00:00",
+  "release": "NoorBrain v1.0 RC",
+  "sprint": "12",
+  "status": "ready"
+}

@@ -1,0 +1,39 @@
+{
+  "active_tracks": {
+    "smoke-1": {
+      "track_id": "smoke-1",
+      "first_seen": "2026-07-27T23:47:28.240854+00:00",
+      "last_seen": "2026-07-27T23:47:28.320571+00:00",
+      "camera_id": "primary",
+      "zone": "Kitchen",
+      "previous_zone": "Hall",
+      "confidence": 0.94,
+      "person_id": null,
+      "status": "active",
+      "transition_count": 1,
+      "metadata": {}
+    }
+  },
+  "events": [
+    {
+      "created_at": "2026-07-27T23:47:28.270658+00:00",
+      "event_type": "person_entered",
+      "track_id": "smoke-1",
+      "zone": "Hall",
+      "previous_zone": null,
+      "person_id": null,
+      "confidence": 0.96,
+      "message": "Track smoke-1 entered."
+    },
+    {
+      "created_at": "2026-07-27T23:47:28.330894+00:00",
+      "event_type": "zone_transition",
+      "track_id": "smoke-1",
+      "zone": "Kitchen",
+      "previous_zone": "Hall",
+      "person_id": null,
+      "confidence": 0.94,
+      "message": "Track smoke-1 moved from Hall to Kitchen."
+    }
+  ]
+}

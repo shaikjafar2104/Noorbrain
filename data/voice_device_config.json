@@ -1,0 +1,9 @@
+{
+  "channels": 1,
+  "input_device": null,
+  "language": "en-US",
+  "output_device": null,
+  "sample_rate": 16000,
+  "stt_backend": "auto",
+  "tts_backend": "auto"
+}

@@ -1,0 +1,20 @@
+{
+  "motion_events": [
+    {
+      "camera_id": "primary",
+      "confidence": 0.95,
+      "created_at": "2026-07-27T21:10:01.168952+00:00",
+      "id": "41e1af5a3762490291eb866c0c1c981b",
+      "metadata": {
+        "test": true
+      },
+      "source": "smoke_test",
+      "x": 0.5,
+      "y": 0.5,
+      "zone_id": "959c3b60de3e4fcc9ed397664310dd5f",
+      "zone_name": "Hall"
+    }
+  ],
+  "schema_version": 1,
+  "zones": []
+}

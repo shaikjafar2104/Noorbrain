@@ -1,0 +1,13 @@
+{
+  "profiles": [
+    {
+      "id": "shaik",
+      "name": "Shaik",
+      "role": "owner",
+      "language": "en",
+      "voice_profile": null,
+      "preferences": {}
+    }
+  ],
+  "preferences": {}
+}

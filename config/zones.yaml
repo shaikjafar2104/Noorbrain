@@ -1,0 +1,12 @@
+zones:
+  - name: Kitchen
+    x1: 0
+    y1: 0
+    x2: 640
+    y2: 720
+
+  - name: Hall
+    x1: 640
+    y1: 0
+    x2: 1280
+    y2: 720

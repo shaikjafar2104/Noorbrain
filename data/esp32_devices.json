@@ -1,0 +1,24 @@
+{
+  "devices": [
+    {
+      "capabilities": [
+        "relay",
+        "temperature"
+      ],
+      "created_at": "2026-07-25T16:30:25.565770+00:00",
+      "firmware": "1.0.0",
+      "id": "esp32-smoke-test",
+      "ip_address": null,
+      "last_seen": "2026-07-25T16:30:25.580725+00:00",
+      "mac_address": null,
+      "metadata": {},
+      "name": "ESP32 Smoke Test",
+      "online": true,
+      "room": "Lab",
+      "temperature": 24.5,
+      "updated_at": "2026-07-25T16:30:25.580725+00:00"
+    }
+  ],
+  "schema_version": 1,
+  "updated_at": "2026-07-25T16:30:25.580725+00:00"
+}

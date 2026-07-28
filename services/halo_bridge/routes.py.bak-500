@@ -1,0 +1,132 @@
+from __future__ import annotations
+
+import json
+import logging
+import os
+import urllib.error
+import urllib.request
+
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
+
+logger = logging.getLogger("NoorBrain.HALO")
+
+router = APIRouter(prefix="/api/halo", tags=["HALO"])
+
+OLLAMA_URL = os.getenv(
+    "OLLAMA_GENERATE_URL",
+    "http://127.0.0.1:11434/api/generate",
+)
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3:latest")
+
+
+class HaloChatRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=8000)
+
+
+@router.get("/health")
+def halo_health() -> dict:
+    return {
+        "status": "healthy",
+        "service": "halo_bridge",
+        "model": OLLAMA_MODEL,
+        "ollama_url": OLLAMA_URL,
+    }
+
+
+@router.post("/chat")
+def halo_chat(payload: HaloChatRequest) -> dict:
+    message = payload.message.strip()
+
+    if not message:
+        raise HTTPException(
+            status_code=400,
+            detail="Message cannot be empty.",
+        )
+
+    ollama_payload = {
+        "model": OLLAMA_MODEL,
+        "prompt": (
+            "You are HALO, the NoorBrain home AI assistant. "
+            "Give a clear, helpful and concise response.\n\n"
+            f"User: {message}\n"
+            "HALO:"
+        ),
+        "stream": False,
+    }
+
+    request = urllib.request.Request(
+        OLLAMA_URL,
+        data=json.dumps(ollama_payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(
+            request,
+            timeout=120,
+        ) as response:
+            raw = response.read().decode("utf-8")
+            result = json.loads(raw)
+
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode(
+            "utf-8",
+            errors="replace",
+        )
+        logger.exception(
+            "Ollama HTTP error: %s %s",
+            exc.code,
+            body,
+        )
+        raise HTTPException(
+            status_code=502,
+            detail=f"Ollama HTTP error {exc.code}: {body[:500]}",
+        ) from exc
+
+    except urllib.error.URLError as exc:
+        logger.exception("Cannot connect to Ollama")
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "HALO cannot connect to Ollama at "
+                f"{OLLAMA_URL}: {exc.reason}"
+            ),
+        ) from exc
+
+    except TimeoutError as exc:
+        logger.exception("Ollama request timed out")
+        raise HTTPException(
+            status_code=504,
+            detail="Ollama response timed out after 120 seconds.",
+        ) from exc
+
+    except Exception as exc:
+        logger.exception("HALO generation failed")
+        raise HTTPException(
+            status_code=500,
+            detail=f"HALO generation failed: {exc}",
+        ) from exc
+
+    reply = str(result.get("response", "")).strip()
+
+    if not reply:
+        raise HTTPException(
+            status_code=502,
+            detail="Ollama returned an empty response.",
+        )
+
+    logger.info(
+        "HALO response generated: input=%d output=%d",
+        len(message),
+        len(reply),
+    )
+
+    return {
+        "status": "ok",
+        "response": reply,
+        "reply": reply,
+        "model": result.get("model", OLLAMA_MODEL),
+        "done": result.get("done", True),
+    }

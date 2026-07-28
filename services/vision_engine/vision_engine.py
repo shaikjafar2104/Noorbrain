@@ -1,0 +1,760 @@
+"""
+============================================================
+Project : NoorBrain
+Module  : Vision Engine
+Version : 3.1.0
+Purpose : CPU-limited, zone-aware person detection
+============================================================
+"""
+
+import threading
+import time
+
+import cv2
+from ultralytics import YOLO
+
+from shared.config_manager import load_config
+from shared.detection_manager import detection_manager
+from shared.logger import logger
+from shared.person_history import person_history
+from shared.person_tracker import person_tracker
+from shared.scene_memory import scene_memory
+
+from services.activity_engine import activity_engine
+from services.camera_client import camera_client
+from services.habit_engine import habit_engine
+from services.sprint7_half1 import sprint7_intelligence
+from services.reminder_rules import reminder_rules
+from services.zone_engine import zone_engine
+
+
+class VisionEngine:
+    """
+    Runs YOLO person detection on the latest camera frame.
+
+    Responsibilities:
+    - Detect people.
+    - Maintain stable detection track IDs.
+    - Assign each detection to a configured zone.
+    - Update scene, person history and activity engines.
+    - Render bounding boxes, track IDs and zones.
+    - Preserve the existing reminder pipeline.
+
+    Important:
+    Legacy detection-based EventEngine updates are intentionally
+    removed. Recognized-person events are generated separately by
+    IdentityEngine through EventEngine.update_people().
+    """
+
+    def __init__(self):
+        config = load_config()
+        vision = config.get("vision", {})
+
+        self.model_path = vision.get(
+            "model",
+            "yolov8n.pt",
+        )
+        self.confidence = float(
+            vision.get(
+                "confidence",
+                0.30,
+            )
+        )
+
+        self.target_fps = max(
+            0.5,
+            float(
+                vision.get(
+                    "target_fps",
+                    3.0,
+                )
+            ),
+        )
+
+        self.image_size = max(
+            160,
+            int(
+                vision.get(
+                    "image_size",
+                    640,
+                )
+            ),
+        )
+
+        self.model = YOLO(self.model_path)
+
+        self.running = False
+        self.thread = None
+
+        self._lock = threading.RLock()
+
+        self.latest_frame = None
+        self.latest_detections = []
+
+        self.frame_counter = 0
+        self.current_fps = 0.0
+        self.last_fps_time = time.monotonic()
+
+        logger.info("=" * 60)
+        logger.info("Vision Engine Initialized")
+        logger.info("YOLO Model      : %s", self.model_path)
+        logger.info("Confidence      : %.2f", self.confidence)
+        logger.info("Target FPS      : %.2f", self.target_fps)
+        logger.info("Inference Size  : %s", self.image_size)
+        logger.info("Zone Count      : %s", len(zone_engine.get_all_zones()))
+        logger.info("Legacy detection events disabled")
+        logger.info("=" * 60)
+
+    # ----------------------------------------------------
+    def start(self):
+        if self.running:
+            return
+
+        logger.info("=" * 60)
+        logger.info("Starting Vision Engine")
+        logger.info("=" * 60)
+
+        if not camera_client.running:
+            camera_client.start()
+
+        self.running = True
+
+        self.thread = threading.Thread(
+            target=self.process_loop,
+            daemon=True,
+            name="VisionEngine",
+        )
+        self.thread.start()
+
+        logger.info("Vision Engine Started")
+
+    # ----------------------------------------------------
+    def stop(self):
+        if not self.running:
+            return
+
+        logger.info("Stopping Vision Engine")
+
+        self.running = False
+
+        if self.thread and self.thread.is_alive():
+            self.thread.join(timeout=3)
+
+        self.thread = None
+
+        # Camera lifecycle remains controlled by main.py.
+        logger.info("Vision Engine Stopped")
+
+    # ----------------------------------------------------
+    @staticmethod
+    def _normalize_box(box, frame_width, frame_height):
+        """
+        Clamp a detection box to valid frame boundaries.
+        """
+
+        x1, y1, x2, y2 = map(int, box)
+
+        x1 = max(0, min(x1, frame_width - 1))
+        y1 = max(0, min(y1, frame_height - 1))
+        x2 = max(0, min(x2, frame_width - 1))
+        y2 = max(0, min(y2, frame_height - 1))
+
+        if x2 < x1:
+            x1, x2 = x2, x1
+
+        if y2 < y1:
+            y1, y2 = y2, y1
+
+        return [x1, y1, x2, y2]
+
+    # ----------------------------------------------------
+    @staticmethod
+    def _clean_zone(zone):
+        if zone is None:
+            return "Unknown"
+
+        zone = str(zone).strip()
+
+        if not zone or zone.lower() in {
+            "none",
+            "null",
+        }:
+            return "Unknown"
+
+        return zone
+
+    # ----------------------------------------------------
+    def _create_detections(self, results, frame):
+        detections = []
+
+        frame_height, frame_width = frame.shape[:2]
+
+        if results.boxes is None:
+            return detections
+
+        for result_box in results.boxes:
+            try:
+                confidence = float(
+                    result_box.conf[0]
+                )
+
+                if confidence < self.confidence:
+                    continue
+
+                raw_box = result_box.xyxy[0].tolist()
+
+                box = self._normalize_box(
+                    raw_box,
+                    frame_width,
+                    frame_height,
+                )
+
+                zone = self._clean_zone(
+                    zone_engine.get_zone_for_box(
+                        box
+                    )
+                )
+
+                detections.append(
+                    {
+                        "label": "person",
+                        "confidence": round(
+                            confidence,
+                            4,
+                        ),
+                        "box": box,
+                        "zone": zone,
+                    }
+                )
+
+            except Exception:
+                logger.exception(
+                    "Failed to process YOLO detection"
+                )
+
+        return detections
+
+    # ----------------------------------------------------
+    def _process_activity_events(self):
+        """
+        Deliver each activity event exactly once to habit and
+        reminder engines.
+        """
+
+        for activity_event in activity_engine.drain_events():
+            try:
+                habit_engine.observe(
+                    activity_event
+                )
+            except Exception:
+                logger.exception(
+                    "Habit Engine event handling failed"
+                )
+
+            try:
+                sprint7_intelligence.observe(
+                    activity_event
+                )
+            except Exception:
+                logger.exception(
+                    "Sprint 7 Intelligence event handling failed"
+                )
+
+            try:
+                fired_reminders = (
+                    reminder_rules.handle_event(
+                        activity_event
+                    )
+                )
+
+                if fired_reminders:
+                    logger.info(
+                        "REMINDER RULES : %s fired for "
+                        "%s person=%s zone=%s",
+                        len(fired_reminders),
+                        activity_event.get("type"),
+                        activity_event.get("person_id"),
+                        activity_event.get("zone"),
+                    )
+
+            except Exception:
+                logger.exception(
+                    "Reminder Rules event handling failed"
+                )
+
+    # ----------------------------------------------------
+    def process_loop(self):
+        logger.info("Vision Processing Loop Started")
+
+        frame_interval = 1.0 / self.target_fps
+        next_run = time.monotonic()
+
+        while self.running:
+            now = time.monotonic()
+
+            if now < next_run:
+                time.sleep(
+                    min(
+                        next_run - now,
+                        0.05,
+                    )
+                )
+                continue
+
+            started = time.monotonic()
+
+            frame = camera_client.get_frame()
+
+            if frame is None:
+                time.sleep(0.10)
+                next_run = (
+                    time.monotonic()
+                    + frame_interval
+                )
+                continue
+
+            try:
+                results = self.model.predict(
+                    source=frame,
+                    conf=self.confidence,
+                    classes=[0],
+                    imgsz=self.image_size,
+                    verbose=False,
+                )[0]
+
+            except Exception:
+                logger.exception(
+                    "YOLO inference failed"
+                )
+
+                time.sleep(0.5)
+
+                next_run = (
+                    time.monotonic()
+                    + frame_interval
+                )
+                continue
+
+            detections = self._create_detections(
+                results,
+                frame,
+            )
+
+            try:
+                tracked_detections = (
+                    person_tracker.update(
+                        detections
+                    )
+                )
+            except Exception:
+                logger.exception(
+                    "Person Tracker update failed"
+                )
+                tracked_detections = detections
+
+            # Only confirmed tracks are allowed to generate
+            # activity, habit and reminder events.
+            active_detections = [
+                detection
+                for detection in tracked_detections
+                if detection.get("status") == "active"
+            ]
+
+            try:
+                detection_manager.update(
+                    tracked_detections
+                )
+            except Exception:
+                logger.exception(
+                    "Detection Manager update failed"
+                )
+
+            try:
+                scene_memory.update(
+                    active_detections
+                )
+            except Exception:
+                logger.exception(
+                    "Scene Memory update failed"
+                )
+
+            try:
+                person_history.update(
+                    active_detections
+                )
+            except Exception:
+                logger.exception(
+                    "Person History update failed"
+                )
+
+            # Do not call:
+            #
+            # event_engine.update(active_detections)
+            #
+            # That was the legacy detection-centric event path
+            # responsible for messages such as:
+            #
+            # EVENT : Entered Unknown
+            #
+            # Recognized-person events are now generated by:
+            #
+            # IdentityEngine
+            #     -> EventEngine.update_people(...)
+            #
+            # This leaves one authoritative person event system.
+
+            try:
+                activity_engine.update(
+                    active_detections
+                )
+            except Exception:
+                logger.exception(
+                    "Activity Engine update failed"
+                )
+
+            self._process_activity_events()
+
+            rendered = self.render(
+                frame,
+                tracked_detections,
+            )
+
+            with self._lock:
+                self.latest_detections = [
+                    dict(detection)
+                    for detection in tracked_detections
+                ]
+                self.latest_frame = rendered
+
+            self.update_fps()
+
+            elapsed = (
+                time.monotonic()
+                - started
+            )
+
+            next_run = (
+                time.monotonic()
+                + max(
+                    0.0,
+                    frame_interval - elapsed,
+                )
+            )
+
+        logger.info(
+            "Vision Processing Loop Exited"
+        )
+
+    # ----------------------------------------------------
+    def update_fps(self):
+        self.frame_counter += 1
+
+        now = time.monotonic()
+        elapsed = (
+            now
+            - self.last_fps_time
+        )
+
+        if elapsed >= 2.0:
+            self.current_fps = (
+                self.frame_counter
+                / elapsed
+            )
+
+            self.frame_counter = 0
+            self.last_fps_time = now
+
+    # ----------------------------------------------------
+    def draw_detections(
+        self,
+        frame,
+        detections,
+    ):
+        frame_height = frame.shape[0]
+
+        for detection in detections:
+            box = detection.get("box")
+
+            if (
+                not isinstance(box, (list, tuple))
+                or len(box) != 4
+            ):
+                continue
+
+            x1, y1, x2, y2 = map(
+                int,
+                box,
+            )
+
+            confidence = float(
+                detection.get(
+                    "confidence",
+                    0.0,
+                )
+                or 0.0
+            )
+
+            zone = self._clean_zone(
+                detection.get("zone")
+            )
+
+            person_id = detection.get(
+                "person_id",
+                detection.get(
+                    "id",
+                    "pending",
+                ),
+            )
+
+            status = detection.get(
+                "status",
+                "pending",
+            )
+
+            cv2.rectangle(
+                frame,
+                (x1, y1),
+                (x2, y2),
+                (0, 255, 0),
+                2,
+            )
+
+            identity_text = (
+                f"Person ID:{person_id} "
+                f"{confidence:.2f}"
+            )
+
+            cv2.putText(
+                frame,
+                identity_text,
+                (
+                    x1,
+                    max(
+                        25,
+                        y1 - 10,
+                    ),
+                ),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.60,
+                (0, 255, 0),
+                2,
+            )
+
+            zone_text = (
+                f"Zone: {zone} | {status}"
+            )
+
+            cv2.putText(
+                frame,
+                zone_text,
+                (
+                    x1,
+                    min(
+                        frame_height - 10,
+                        y2 + 22,
+                    ),
+                ),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.55,
+                (0, 200, 255),
+                2,
+            )
+
+    # ----------------------------------------------------
+    def draw_zones(self, frame):
+        for zone in zone_engine.get_all_zones():
+            try:
+                x1 = int(zone["x1"])
+                y1 = int(zone["y1"])
+                x2 = int(zone["x2"])
+                y2 = int(zone["y2"])
+                name = str(
+                    zone.get(
+                        "name",
+                        "Unnamed Zone",
+                    )
+                )
+
+                cv2.rectangle(
+                    frame,
+                    (x1, y1),
+                    (x2, y2),
+                    (255, 180, 0),
+                    2,
+                )
+
+                cv2.putText(
+                    frame,
+                    name,
+                    (x1 + 6, y1 + 22),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.60,
+                    (255, 180, 0),
+                    2,
+                )
+
+            except Exception:
+                logger.exception(
+                    "Failed to render zone"
+                )
+
+    # ----------------------------------------------------
+    def render(
+        self,
+        frame,
+        detections,
+    ):
+        output = frame.copy()
+
+        self.draw_zones(output)
+
+        self.draw_detections(
+            output,
+            detections,
+        )
+
+        active_count = sum(
+            1
+            for detection in detections
+            if detection.get("status") == "active"
+        )
+
+        cv2.putText(
+            output,
+            f"Vision FPS: {self.current_fps:.2f}",
+            (20, 30),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.70,
+            (0, 255, 255),
+            2,
+        )
+
+        cv2.putText(
+            output,
+            f"Persons: {len(detections)}",
+            (20, 60),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.70,
+            (255, 255, 0),
+            2,
+        )
+
+        cv2.putText(
+            output,
+            f"Active: {active_count}",
+            (20, 90),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.70,
+            (255, 255, 0),
+            2,
+        )
+
+        return output
+
+    # ----------------------------------------------------
+    def get_frame(self):
+        with self._lock:
+            return self.latest_frame
+
+    # ----------------------------------------------------
+    def get_detections(self):
+        with self._lock:
+            return [
+                dict(detection)
+                for detection
+                in self.latest_detections
+            ]
+
+    # ----------------------------------------------------
+    def get_person_count(self):
+        with self._lock:
+            return len(
+                self.latest_detections
+            )
+
+    # ----------------------------------------------------
+    def snapshot(self):
+        with self._lock:
+            persons = len(
+                self.latest_detections
+            )
+
+            zones = {}
+
+            for detection in self.latest_detections:
+                zone = self._clean_zone(
+                    detection.get("zone")
+                )
+
+                zones[zone] = (
+                    zones.get(zone, 0)
+                    + 1
+                )
+
+        return {
+            "running": self.running,
+            "model": self.model_path,
+            "confidence": self.confidence,
+            "target_fps": self.target_fps,
+            "image_size": self.image_size,
+            "fps": round(
+                self.current_fps,
+                2,
+            ),
+            "persons": persons,
+            "zones": zones,
+            "configured_zones": (
+                zone_engine.get_all_zones()
+            ),
+            "camera_connected": (
+                camera_client.is_connected()
+            ),
+            "camera": (
+                camera_client.snapshot()
+            ),
+            "detection_manager": (
+                detection_manager.snapshot()
+            ),
+            "person_tracker": (
+                person_tracker.snapshot()
+            ),
+            "activity_engine": (
+                activity_engine.snapshot(
+                    limit=20
+                )
+            ),
+            "reminder_rules": {
+                "rule_count": len(
+                    reminder_rules.list_rules()
+                ),
+                "recent_history": (
+                    reminder_rules.history(
+                        limit=10
+                    )
+                ),
+            },
+        }
+
+
+vision_engine = VisionEngine()
+
+
+if __name__ == "__main__":
+    try:
+        camera_client.start()
+        vision_engine.start()
+
+        while True:
+            time.sleep(2)
+            print(
+                vision_engine.snapshot()
+            )
+
+    except KeyboardInterrupt:
+        logger.info(
+            "Vision Engine Interrupted"
+        )
+
+    finally:
+        vision_engine.stop()
+        camera_client.stop()

@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "tasks": [
+    {
+      "created_at": "2026-07-26T23:51:08.913779+00:00",
+      "id": "fa31cd979e43486186c38de16881b473",
+      "status": "approved",
+      "steps": [
+        {
+          "index": 0,
+          "name": "Evening",
+          "status": "pending",
+          "type": "scene"
+        },
+        {
+          "index": 1,
+          "name": "Home status",
+          "status": "pending",
+          "type": "report"
+        }
+      ],
+      "title": "Evening preparation",
+      "updated_at": "2026-07-26T23:51:08.925068+00:00"
+    }
+  ]
+}

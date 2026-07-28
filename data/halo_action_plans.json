@@ -1,0 +1,304 @@
+{
+  "plans": [
+    {
+      "id": "3ba54340b9764798aad9c84f06b04322",
+      "status": "planned",
+      "original_text": "Home status and camera status",
+      "step_count": 2,
+      "requires_confirmation": false,
+      "steps": [
+        {
+          "kind": "skill",
+          "name": "home",
+          "arguments": {},
+          "status": "pending",
+          "requires_confirmation": false,
+          "index": 0
+        },
+        {
+          "kind": "skill",
+          "name": "camera",
+          "arguments": {},
+          "status": "pending",
+          "requires_confirmation": false,
+          "index": 1
+        }
+      ],
+      "created_at": "2026-07-27T03:28:59.027786+00:00",
+      "updated_at": "2026-07-27T03:28:59.045602+00:00",
+      "execution": {
+        "status": "completed",
+        "plan_id": "3ba54340b9764798aad9c84f06b04322",
+        "completed_steps": 2,
+        "total_steps": 2,
+        "results": [
+          {
+            "kind": "skill",
+            "name": "home",
+            "arguments": {},
+            "status": "completed",
+            "requires_confirmation": false,
+            "index": 0,
+            "result": {
+              "status": "healthy",
+              "devices": {
+                "status": "ok",
+                "count": 0,
+                "devices": [],
+                "cached_for_seconds": 2
+              },
+              "camera": {
+                "status": "online",
+                "connected": true,
+                "stream_url": "http://192.168.2.29:8000/video_feed",
+                "fps": 61.49,
+                "running": true,
+                "last_frame": 0.01,
+                "identity_worker": {
+                  "running": true,
+                  "interval_seconds": 1.0
+                }
+              },
+              "vision": {
+                "status": "running",
+                "running": true,
+                "model": "yolov8n.pt",
+                "confidence": 0.3,
+                "target_fps": 3.0,
+                "image_size": 640,
+                "fps": 0.05,
+                "persons": 0,
+                "zones": {},
+                "configured_zones": [
+                  {
+                    "name": "Kitchen",
+                    "x1": 0,
+                    "y1": 0,
+                    "x2": 640,
+                    "y2": 720
+                  },
+                  {
+                    "name": "Hall",
+                    "x1": 640,
+                    "y1": 0,
+                    "x2": 1280,
+                    "y2": 720
+                  }
+                ],
+                "camera_connected": true,
+                "camera": {
+                  "connected": true,
+                  "stream_url": "http://192.168.2.29:8000/video_feed",
+                  "fps": 61.49,
+                  "running": true,
+                  "last_frame": 0.01,
+                  "identity_worker": {
+                    "running": true,
+                    "interval_seconds": 1.0
+                  }
+                },
+                "detection_manager": {
+                  "frame": 5,
+                  "persons": 0,
+                  "latest": 0,
+                  "history": 5,
+                  "total": 0,
+                  "last_update": 1785122938.7466755
+                },
+                "person_tracker": {
+                  "active_tracks": 0,
+                  "next_id": 1,
+                  "maximum_distance": 180,
+                  "missing_timeout": 2.5,
+                  "tracks": []
+                },
+                "activity_engine": {
+                  "status": "running",
+                  "mode": "single_camera",
+                  "zones_enabled": false,
+                  "supported_events": [
+                    "appeared",
+                    "stayed",
+                    "disappeared"
+                  ],
+                  "active_count": 0,
+                  "event_count": 0,
+                  "disappearance_timeout": 3.5,
+                  "stay_interval": 60.0,
+                  "active_people": [],
+                  "events": []
+                },
+                "reminder_rules": {
+                  "rule_count": 1,
+                  "recent_history": []
+                }
+              },
+              "activity": {
+                "status": "running",
+                "mode": "single_camera",
+                "zones_enabled": false,
+                "supported_events": [
+                  "appeared",
+                  "stayed",
+                  "disappeared"
+                ],
+                "active_count": 0,
+                "event_count": 0,
+                "disappearance_timeout": 3.5,
+                "stay_interval": 60.0,
+                "active_people": [],
+                "events": []
+              },
+              "automation": {
+                "status": "healthy",
+                "service": "automation",
+                "mode": "non_blocking",
+                "checks": {
+                  "device_storage": true,
+                  "rule_storage": true,
+                  "scene_storage": true,
+                  "group_storage": true,
+                  "routine_storage": true,
+                  "esp32_storage": true,
+                  "paho_mqtt_installed": true
+                },
+                "counts": {
+                  "devices": 0,
+                  "esp32": 1,
+                  "rules": 0,
+                  "scenes": 0,
+                  "groups": 0,
+                  "routines": 0
+                },
+                "storage": {
+                  "devices": {
+                    "path": "/home/jshome/Projects/NoorBrain/data/devices.json",
+                    "exists": true,
+                    "readable": true,
+                    "count": 0,
+                    "size_bytes": 95,
+                    "error": null
+                  },
+                  "esp32": {
+                    "path": "/home/jshome/Projects/NoorBrain/data/esp32_devices.json",
+                    "exists": true,
+                    "readable": true,
+                    "count": 1,
+                    "size_bytes": 586,
+                    "error": null
+                  },
+                  "rules": {
+                    "path": "/home/jshome/Projects/NoorBrain/data/automation_rules.json",
+                    "exists": true,
+                    "readable": true,
+                    "count": 0,
+                    "size_bytes": 93,
+                    "error": null
+                  },
+                  "scenes": {
+                    "path": "/home/jshome/Projects/NoorBrain/data/automation_scenes.json",
+                    "exists": true,
+                    "readable": true,
+                    "count": 0,
+                    "size_bytes": 94,
+                    "error": null
+                  },
+                  "groups": {
+                    "path": "/home/jshome/Projects/NoorBrain/data/device_groups.json",
+                    "exists": true,
+                    "readable": true,
+                    "count": 0,
+                    "size_bytes": 94,
+                    "error": null
+                  },
+                  "routines": {
+                    "path": "/home/jshome/Projects/NoorBrain/data/automation_routines.json",
+                    "exists": true,
+                    "readable": true,
+                    "count": 0,
+                    "size_bytes": 96,
+                    "error": null
+                  }
+                },
+                "mqtt": {
+                  "package_installed": true,
+                  "connection_probe": "deferred",
+                  "hardware_probe": "disabled"
+                }
+              },
+              "reports": {
+                "status": "healthy",
+                "learning_events": 1,
+                "learning_integrity": "ok",
+                "report_integrity": "ok"
+              },
+              "alerts": []
+            }
+          },
+          {
+            "kind": "skill",
+            "name": "camera",
+            "arguments": {},
+            "status": "completed",
+            "requires_confirmation": false,
+            "index": 1,
+            "result": {
+              "status": "online",
+              "connected": true,
+              "stream_url": "http://192.168.2.29:8000/video_feed",
+              "fps": 61.49,
+              "running": true,
+              "last_frame": 0.01,
+              "identity_worker": {
+                "running": true,
+                "interval_seconds": 1.0
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "c4b7cb9f0f0e48069fe639c93bc3b2d0",
+      "status": "planned",
+      "original_text": "Turn Hall Light on",
+      "step_count": 1,
+      "requires_confirmation": true,
+      "steps": [
+        {
+          "kind": "device_action",
+          "name": "set_device_state",
+          "arguments": {
+            "name": "hall light",
+            "state": "on"
+          },
+          "status": "pending",
+          "requires_confirmation": true,
+          "index": 0
+        }
+      ],
+      "created_at": "2026-07-27T03:28:59.061436+00:00",
+      "updated_at": "2026-07-27T03:28:59.074576+00:00",
+      "execution": {
+        "status": "needs_confirmation",
+        "plan_id": "c4b7cb9f0f0e48069fe639c93bc3b2d0",
+        "completed_steps": 0,
+        "total_steps": 1,
+        "results": [
+          {
+            "kind": "device_action",
+            "name": "set_device_state",
+            "arguments": {
+              "name": "hall light",
+              "state": "on"
+            },
+            "status": "needs_confirmation",
+            "requires_confirmation": true,
+            "index": 0,
+            "result": null
+          }
+        ]
+      }
+    }
+  ]
+}

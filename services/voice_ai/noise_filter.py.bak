@@ -1,0 +1,34 @@
+from __future__ import annotations
+import audioop
+import wave
+from pathlib import Path
+from typing import Any, Dict
+
+
+class NoiseFilter:
+    """Dependency-free normalization and low-level noise gate for PCM WAV."""
+
+    def process(self, source: Path, destination: Path, gate_rms: int = 180, target_rms: int = 1800) -> Dict[str, Any]:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        with wave.open(str(source), "rb") as src:
+            params = src.getparams()
+            if params.nchannels != 1 or params.sampwidth != 2:
+                return {"status": "unsupported", "reason": "WAV must be mono 16-bit PCM"}
+            frames = src.readframes(params.nframes)
+        current_rms = audioop.rms(frames, 2) if frames else 0
+        gated = audioop.mul(frames, 2, 0.0) if current_rms < gate_rms else frames
+        normalized_rms = audioop.rms(gated, 2) if gated else 0
+        if normalized_rms > 0:
+            factor = min(4.0, target_rms / normalized_rms)
+            gated = audioop.mul(gated, 2, factor)
+        with wave.open(str(destination), "wb") as dst:
+            dst.setparams(params)
+            dst.writeframes(gated)
+        return {
+            "status": "ok",
+            "source": str(source),
+            "output": str(destination),
+            "input_rms": current_rms,
+            "gate_rms": gate_rms,
+            "target_rms": target_rms,
+        }

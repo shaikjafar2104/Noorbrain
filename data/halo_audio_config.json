@@ -1,0 +1,10 @@
+{
+  "block_size": 1600,
+  "channels": 1,
+  "input_device": null,
+  "input_gain": 1.0,
+  "monitor_enabled": false,
+  "output_device": null,
+  "output_volume": 1.0,
+  "sample_rate": 16000
+}

@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "events": [
+    {
+      "id": "cd3aeaf5c464482d967bf489d5e26401",
+      "created_at": "2026-07-27T20:56:31.987165+00:00",
+      "event_type": "person_detected",
+      "source": "smoke_test",
+      "zone": "Hall",
+      "confidence": 0.95,
+      "message": "Smoke-test person detected.",
+      "metadata": {
+        "test": true
+      }
+    },
+    {
+      "id": "0ba9ceeaff1842e48e7a377c18d088c8",
+      "created_at": "2026-07-27T20:56:32.045886+00:00",
+      "event_type": "vision_snapshot",
+      "source": "vision_engine",
+      "zone": null,
+      "person_id": null,
+      "confidence": null,
+      "message": "0 person(s) currently detected.",
+      "snapshot_path": null,
+      "metadata": {
+        "person_count": 0,
+        "fps": null,
+        "zones": []
+      }
+    },
+    {
+      "id": "c32ef84ba98c46bab5fcf65acd6fbb05",
+      "created_at": "2026-07-27T21:10:01.175926+00:00",
+      "event_type": "motion_detected",
+      "source": "smoke_test",
+      "zone": "Hall",
+      "person_id": null,
+      "confidence": 0.95,
+      "message": "Motion detected in Hall.",
+      "snapshot_path": null,
+      "metadata": {
+        "zone_id": "959c3b60de3e4fcc9ed397664310dd5f",
+        "x": 0.5,
+        "y": 0.5,
+        "test": true
+      }
+    },
+    {
+      "id": "7e813b334efd48ed9f6dbce781c534db",
+      "created_at": "2026-07-27T23:47:28.288676+00:00",
+      "event_type": "person_entered",
+      "source": "person_presence",
+      "zone": "Hall",
+      "person_id": null,
+      "confidence": 0.96,
+      "message": "Track smoke-1 entered.",
+      "snapshot_path": null,
+      "metadata": {
+        "track_id": "smoke-1",
+        "previous_zone": null
+      }
+    },
+    {
+      "id": "976e88eb8e0d436d96e70296eb68a9d9",
+      "created_at": "2026-07-27T23:47:28.351571+00:00",
+      "event_type": "zone_transition",
+      "source": "person_presence",
+      "zone": "Kitchen",
+      "person_id": null,
+      "confidence": 0.94,
+      "message": "Track smoke-1 moved from Hall to Kitchen.",
+      "snapshot_path": null,
+      "metadata": {
+        "track_id": "smoke-1",
+        "previous_zone": "Hall"
+      }
+    },
+    {
+      "id": "a11f4a6b54274030beb5eaca292c407a",
+      "created_at": "2026-07-28T00:28:10.302484+00:00",
+      "event_type": "face_recognized",
+      "source": "face_identity",
+      "zone": "Hall",
+      "person_id": "589dcac328514b5bbda5947e90696bc2",
+      "confidence": 1.0,
+      "message": "Recognized Smoke Test Person.",
+      "snapshot_path": null,
+      "metadata": {
+        "track_id": "face-smoke-track"
+      }
+    },
+    {
+      "id": "756182ca1e66447c9eb368061dcda726",
+      "created_at": "2026-07-28T00:28:10.357888+00:00",
+      "event_type": "unknown_face",
+      "source": "face_identity",
+      "zone": "Hall",
+      "person_id": null,
+      "confidence": 0.0,
+      "message": "Unknown face detected.",
+      "snapshot_path": null,
+      "metadata": {
+        "track_id": null
+      }
+    }
+  ]
+}

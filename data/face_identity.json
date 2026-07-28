@@ -1,0 +1,31 @@
+{
+  "persons": [],
+  "recognition_events": [
+    {
+      "confidence": 1.0,
+      "created_at": "2026-07-28T00:28:10.293857+00:00",
+      "id": "548480c603b6461583f5f421c33e20d4",
+      "metadata": {},
+      "person_id": "589dcac328514b5bbda5947e90696bc2",
+      "person_name": "Smoke Test Person",
+      "recognized": true,
+      "threshold": 0.82,
+      "track_id": "face-smoke-track",
+      "zone": "Hall"
+    },
+    {
+      "confidence": 0.0,
+      "created_at": "2026-07-28T00:28:10.341038+00:00",
+      "id": "3a732295b5994b959aae24853c0768f4",
+      "metadata": {},
+      "person_id": null,
+      "person_name": null,
+      "recognized": false,
+      "threshold": 0.95,
+      "track_id": null,
+      "zone": "Hall"
+    }
+  ],
+  "samples": [],
+  "schema_version": 1
+}

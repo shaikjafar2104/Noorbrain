@@ -1,0 +1,175 @@
+{
+  "status": "PASS",
+  "generated_at": "2026-07-25T09:25:53.431625+00:00",
+  "include_hardware": false,
+  "tests_total": 9,
+  "tests_passed": 9,
+  "tests_failed": 0,
+  "required_failed": 0,
+  "duration_ms": 51.21,
+  "checks": [
+    {
+      "name": "health",
+      "required": true,
+      "passed": true,
+      "duration_ms": 37.37,
+      "detail": {
+        "status": "healthy",
+        "service": "voice_ai",
+        "version": "10.4.1",
+        "packs": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "enabled": true,
+        "wake_word": "Hey Noor",
+        "audio": {
+          "available": true,
+          "backend": "sounddevice",
+          "package_installed": true,
+          "device_probe": "deferred",
+          "input_devices": [],
+          "last_recording": null,
+          "last_error": null
+        },
+        "stt": {
+          "available": false,
+          "engine": "vosk",
+          "package_installed": true,
+          "model_path": "/home/jshome/Projects/NoorBrain/models/vosk",
+          "model_present": false,
+          "last_error": null
+        },
+        "tts": {
+          "available": true,
+          "engine": "pyttsx3"
+        },
+        "speaker": {
+          "available": true,
+          "backend": "sounddevice",
+          "package_installed": true,
+          "device_probe": "deferred",
+          "output_devices": []
+        },
+        "memory": {
+          "available": true,
+          "database": "/home/jshome/Projects/NoorBrain/data/learning.db"
+        },
+        "database": "/home/jshome/Projects/NoorBrain/data/voice.db",
+        "last_result": null
+      },
+      "reason": null
+    },
+    {
+      "name": "settings",
+      "required": true,
+      "passed": true,
+      "duration_ms": 0.12,
+      "detail": {
+        "enabled": true,
+        "wake_word": "Hey Noor",
+        "language": "en-US",
+        "sample_rate": 16000,
+        "listen_seconds": 5.0,
+        "stt_engine": "auto",
+        "tts_engine": "auto",
+        "voice_name": null,
+        "speech_rate": 165,
+        "volume": 1.0,
+        "require_wake_word": false,
+        "save_transcripts": true,
+        "vad_enabled": true,
+        "noise_filter_enabled": true
+      },
+      "reason": null
+    },
+    {
+      "name": "conversation_database",
+      "required": true,
+      "passed": true,
+      "duration_ms": 5.53,
+      "detail": {
+        "path": "/home/jshome/Projects/NoorBrain/data/voice.db",
+        "integrity": "ok",
+        "table_count": 3
+      },
+      "reason": null
+    },
+    {
+      "name": "stt_status",
+      "required": true,
+      "passed": true,
+      "duration_ms": 0.08,
+      "detail": {
+        "available": false,
+        "engine": "vosk",
+        "package_installed": true,
+        "model_path": "/home/jshome/Projects/NoorBrain/models/vosk",
+        "model_present": false,
+        "last_error": null
+      },
+      "reason": null
+    },
+    {
+      "name": "tts_status",
+      "required": true,
+      "passed": true,
+      "duration_ms": 0.0,
+      "detail": {
+        "available": true,
+        "engine": "pyttsx3"
+      },
+      "reason": null
+    },
+    {
+      "name": "speaker_status",
+      "required": true,
+      "passed": true,
+      "duration_ms": 0.11,
+      "detail": {
+        "available": true,
+        "backend": "sounddevice",
+        "package_installed": true,
+        "device_probe": "deferred",
+        "output_devices": []
+      },
+      "reason": null
+    },
+    {
+      "name": "memory_status",
+      "required": true,
+      "passed": true,
+      "duration_ms": 0.01,
+      "detail": {
+        "available": true,
+        "database": "/home/jshome/Projects/NoorBrain/data/learning.db"
+      },
+      "reason": null
+    },
+    {
+      "name": "python314_compatibility",
+      "required": true,
+      "passed": true,
+      "duration_ms": 7.75,
+      "detail": {
+        "audioop_imports": [],
+        "compatible": true
+      },
+      "reason": null
+    },
+    {
+      "name": "optional_packages",
+      "required": false,
+      "passed": true,
+      "duration_ms": 0.12,
+      "detail": {
+        "sounddevice": true,
+        "vosk": true,
+        "pyttsx3": true
+      },
+      "reason": null
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
+from .esp32_registry import esp32_registry
+from .group_manager import group_manager
+from .manager import device_manager
+from .mqtt_service import mqtt_service
+from .routine_scheduler import routine_scheduler
+from .rule_engine import rule_engine
+from .scene_manager import scene_manager
+
+
+def file_status(path: Path) -> dict[str, Any]:
+    return {
+        "path": str(path),
+        "exists": path.exists(),
+        "size_bytes": path.stat().st_size if path.exists() else 0,
+    }
+
+
+class AutomationDiagnostics:
+    def snapshot(self) -> dict[str, Any]:
+        project = Path(__file__).resolve().parents[2]
+        files = [
+            project / "data" / "devices.json",
+            project / "data" / "esp32_devices.json",
+            project / "data" / "automation_rules.json",
+            project / "data" / "automation_scenes.json",
+            project / "data" / "device_groups.json",
+            project / "data" / "automation_routines.json",
+        ]
+
+        device_stats = device_manager.stats()
+        mqtt = mqtt_service.status()
+
+        checks = {
+            "device_storage": device_stats["storage"]["status"] == "ok",
+            "mqtt_module_available": mqtt["available"],
+            "scene_storage_readable": isinstance(scene_manager.list(), list),
+            "group_storage_readable": isinstance(group_manager.list(), list),
+            "routine_storage_readable": isinstance(routine_scheduler.list(), list),
+            "rule_storage_readable": isinstance(rule_engine.list(), list),
+            "esp32_storage_readable": isinstance(esp32_registry.list(), list),
+        }
+
+        return {
+            "status": "healthy" if all(
+                value for key, value in checks.items()
+                if key != "mqtt_module_available"
+            ) else "degraded",
+            "checks": checks,
+            "counts": {
+                "devices": device_stats["total"],
+                "esp32": len(esp32_registry.list()),
+                "rules": len(rule_engine.list()),
+                "scenes": len(scene_manager.list()),
+                "groups": len(group_manager.list()),
+                "routines": len(routine_scheduler.list()),
+            },
+            "mqtt": mqtt,
+            "files": [file_status(path) for path in files],
+        }
+
+
+automation_diagnostics = AutomationDiagnostics()

@@ -1,0 +1,8 @@
+{
+  "auto_start_tts_worker": false,
+  "auto_start_voice_runtime": false,
+  "component_timeout_seconds": 8.0,
+  "enable_recovery": true,
+  "heartbeat_interval_seconds": 2.0,
+  "max_recovery_attempts": 3
+}

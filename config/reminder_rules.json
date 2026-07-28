@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "rules": [
+    {
+      "id": "f0feedaf-54c3-44ac-bf46-1f7f757b6ffe",
+      "name": "My Reminder",
+      "enabled": true,
+      "trigger": "appeared",
+      "zone": null,
+      "message": "As salam alikum",
+      "cooldown_seconds": 1800,
+      "speak": true,
+      "created_at": 1784684666.5933206
+    }
+  ],
+  "mode": "single_camera"
+}

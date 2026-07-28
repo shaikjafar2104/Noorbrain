@@ -1,0 +1,101 @@
+from __future__ import annotations
+import threading
+from pathlib import Path
+from typing import Any, Dict, Optional
+from .audio_manager import AudioManager
+from .command_router import LocalCommandRouter
+from .context_manager import ContextManager
+from .conversation import ConversationEngine
+from .memory_bridge import MemoryBridge
+from .pipeline import AudioPipeline
+from .settings import VoiceSettingsStore
+from .speaker_manager import SpeakerManager
+from .stt_engine import SpeechToTextEngine
+from .tts_engine import TextToSpeechEngine
+
+
+class VoiceOrchestrator:
+    def __init__(self, project_root: Path | None = None) -> None:
+        self.project_root = project_root or Path(__file__).resolve().parents[2]
+        self.settings_store = VoiceSettingsStore(self.project_root)
+        self.audio = AudioManager(self.project_root)
+        self.stt = SpeechToTextEngine(self.project_root)
+        self.conversation = ConversationEngine(self.project_root)
+        self.tts = TextToSpeechEngine()
+        self.pipeline = AudioPipeline()
+        self.context = ContextManager(self.project_root)
+        self.memory = MemoryBridge(self.project_root)
+        self.commands = LocalCommandRouter()
+        self.speaker = SpeakerManager()
+        self._lock = threading.Lock()
+        self.last_result: Optional[Dict[str, Any]] = None
+
+    def health(self) -> Dict[str, Any]:
+        settings = self.settings_store.load()
+        return {"status": "healthy", "service": "voice_ai", "version": "10.4.0",
+                "packs": [1, 2, 3, 4], "enabled": settings.enabled, "wake_word": settings.wake_word,
+                "audio": self.audio.snapshot(), "stt": self.stt.status(), "tts": self.tts.status(),
+                "speaker": self.speaker.status(), "memory": self.memory.status(),
+                "database": str(self.conversation.db_path), "last_result": self.last_result}
+
+    def process_text(self, text: str, person_id: str | None = None, room: str | None = None,
+                     metadata: Dict[str, Any] | None = None, speak: bool = False) -> Dict[str, Any]:
+        settings = self.settings_store.load()
+        normalized = " ".join(text.strip().split())
+        wake_detected = settings.wake_word.lower() in normalized.lower()
+        if settings.require_wake_word and not wake_detected:
+            result = {"status": "ignored", "reason": "wake_word_required", "wake_word": settings.wake_word}
+            self.last_result = result
+            return result
+        if wake_detected:
+            index = normalized.lower().find(settings.wake_word.lower())
+            normalized = (normalized[:index] + normalized[index + len(settings.wake_word):]).strip(" ,.!?") or "hello"
+        routed = self.commands.route(normalized)
+        if routed["handled"]:
+            result = self.conversation.save_turn(normalized, routed["response"], routed["intent"], person_id, room, metadata)
+        else:
+            result = self.conversation.reply(normalized, person_id=person_id, room=room, metadata=metadata)
+        result["wake_word_detected"] = wake_detected
+        result["local_command"] = routed["handled"]
+        if person_id:
+            self.context.set(f"last_intent:{person_id}", result.get("intent"), person_id=person_id, room=room)
+        if speak:
+            result["speech"] = self.tts.speak(result["response"], rate=settings.speech_rate,
+                                               volume=settings.volume, voice_name=settings.voice_name)
+        self.last_result = result
+        return result
+
+    def listen_once(self, seconds: float | None = None, speak: bool = True) -> Dict[str, Any]:
+        with self._lock:
+            settings = self.settings_store.load()
+            duration = seconds if seconds is not None else settings.listen_seconds
+            try:
+                raw_path = self.audio.record(duration, settings.sample_rate)
+            except Exception as exc:
+                result = {"status": "unavailable", "stage": "record", "reason": str(exc)}
+                self.last_result = result
+                return result
+            prepared: Dict[str, Any] = {"status": "skipped", "audio_path": str(raw_path)}
+            audio_path = raw_path
+            if settings.noise_filter_enabled or settings.vad_enabled:
+                prepared = self.pipeline.prepare(raw_path)
+                if prepared.get("status") == "ok":
+                    audio_path = Path(prepared["audio_path"])
+                    if settings.vad_enabled and not prepared.get("vad", {}).get("speech_detected", True):
+                        result = {"status": "no_speech", "stage": "vad", "pipeline": prepared}
+                        self.last_result = result
+                        return result
+            transcription = self.stt.transcribe_wav(audio_path)
+            if transcription.get("status") != "ok" or not transcription.get("text"):
+                result = {"status": transcription.get("status", "unavailable"), "stage": "transcribe",
+                          "pipeline": prepared, "transcription": transcription}
+                self.last_result = result
+                return result
+            result = self.process_text(str(transcription["text"]), speak=speak)
+            result["pipeline"] = prepared
+            result["transcription"] = transcription
+            self.last_result = result
+            return result
+
+
+voice_orchestrator = VoiceOrchestrator()

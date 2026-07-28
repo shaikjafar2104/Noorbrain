@@ -1,0 +1,32 @@
+2026-07-14 21:17:49,707 | INFO | ============================================================
+2026-07-14 21:17:49,707 | INFO | Logger Initialized
+2026-07-14 21:17:49,708 | INFO | ============================================================
+2026-07-14 21:17:49,828 | INFO | Ollama Model : llama3:latest
+2026-07-14 21:17:49,830 | INFO | Camera URL : http://192.168.2.29:8000
+2026-07-14 21:17:51,289 | INFO | Loaded 2 zones
+2026-07-14 21:17:51,340 | INFO | ============================================================
+INFO:NoorBrain:============================================================
+2026-07-14 21:17:51,340 | INFO | Vision Engine Initialized
+INFO:NoorBrain:Vision Engine Initialized
+2026-07-14 21:17:51,340 | INFO | YOLO Model : yolov8n.pt
+INFO:NoorBrain:YOLO Model : yolov8n.pt
+2026-07-14 21:17:51,341 | INFO | Confidence : 0.3
+INFO:NoorBrain:Confidence : 0.3
+2026-07-14 21:17:51,341 | INFO | ============================================================
+INFO:NoorBrain:============================================================
+2026-07-14 21:17:51,341 | INFO | HALO Initialized
+INFO:NoorBrain:HALO Initialized
+/home/jshome/Projects/NoorBrain/main.py:58: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/home/jshome/Projects/NoorBrain/main.py:73: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")

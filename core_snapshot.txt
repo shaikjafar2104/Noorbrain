@@ -1,0 +1,1880 @@
+
+==================== FILE: main.py ====================
+"""
+============================================================
+Project : NoorBrain
+Module  : Main Application
+Version : 1.0.0
+============================================================
+"""
+
+from typing import List
+from pathlib import Path
+import threading
+import time
+
+import cv2
+from ai.halo import halo
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse, StreamingResponse, FileResponse
+from pydantic import BaseModel
+from fastapi.staticfiles import StaticFiles
+
+from shared.logger import logger
+from shared.config_manager import load_config
+
+from services.camera_client import camera_client
+from services.vision_engine import vision_engine
+from services.zone_engine import zone_engine
+from services.event_engine import event_engine
+from shared.database import database
+
+
+# ---------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------
+config = load_config()
+
+
+# ---------------------------------------------------------
+# FastAPI
+# ---------------------------------------------------------
+app = FastAPI(
+    title="NoorBrain",
+    version="1.0.0"
+)
+
+PROJECT_ROOT = Path(__file__).resolve().parent
+DASHBOARD_DIR = PROJECT_ROOT / "dashboard"
+app.mount(
+    "/dashboard-static",
+    StaticFiles(directory=str(DASHBOARD_DIR)),
+    name="dashboard-static"
+)
+
+
+# ---------------------------------------------------------
+# Models
+# ---------------------------------------------------------
+class ChatRequest(BaseModel):
+    message: str
+
+
+class ZoneModel(BaseModel):
+    name: str
+    x1: int
+    y1: int
+    x2: int
+    y2: int
+
+
+class VisionSettings(BaseModel):
+    confidence: float
+
+
+# ---------------------------------------------------------
+# Startup
+# ---------------------------------------------------------
+@app.on_event("startup")
+def startup():
+    logger.info("=" * 60)
+    logger.info("Starting NoorBrain")
+    logger.info("=" * 60)
+    
+    camera_client.start()
+    vision_engine.start()
+    logger.info("Vision Snapshot After Start")
+    logger.info(vision_engine.snapshot())
+    
+    logger.info("NoorBrain Ready")
+
+
+# ---------------------------------------------------------
+# Shutdown
+# ---------------------------------------------------------
+@app.on_event("shutdown")
+def shutdown():
+    logger.info("=" * 60)
+    logger.info("Stopping NoorBrain")
+    logger.info("=" * 60)
+    
+    vision_engine.stop()
+    camera_client.stop()
+    
+    logger.info("Shutdown Complete")
+
+
+# ---------------------------------------------------------
+# Home
+# ---------------------------------------------------------
+@app.get("/")
+def home():
+    return HTMLResponse("""
+    <html>
+    <head>
+        <title>NoorBrain</title>
+        <style>
+        body{
+            background:#101114;
+            color:white;
+            text-align:center;
+            font-family:Arial;
+        }
+        img{
+            width:900px;
+            border-radius:12px;
+            border:2px solid #00d084;
+        }
+        a{
+            color:#00d084;
+            margin:15px;
+            text-decoration:none;
+            font-weight:bold;
+        }
+        </style>
+    </head>
+    <body>
+        <h1>NoorBrain</h1>
+        <img src="/vision_feed">
+        <br><br>
+        <a href="/detections">Detections</a>
+        <a href="/zones">Zones</a>
+        <a href="/camera">Camera</a>
+        <a href="/dashboard/zones">Dashboard</a>
+    </body>
+    </html>
+    """)
+
+
+# ---------------------------------------------------------
+# Health
+# ---------------------------------------------------------
+@app.get("/health")
+def health():
+    return {
+        "status": "healthy",
+        "camera": camera_client.snapshot(),
+        "vision": vision_engine.snapshot()
+    }
+
+
+# ---------------------------------------------------------
+# Camera
+# ---------------------------------------------------------
+@app.get("/camera")
+def camera():
+    return camera_client.snapshot()
+
+
+@app.get("/camera/stats")
+def camera_stats():
+    return {
+        "camera": camera_client.snapshot(),
+        "vision": vision_engine.snapshot()
+    }
+
+
+# ---------------------------------------------------------
+# Detections
+# ---------------------------------------------------------
+@app.get("/detections")
+def detections():
+    people = vision_engine.get_detections()
+    return {
+        "count": len(people),
+        "people": people
+    }
+
+
+# ---------------------------------------------------------
+# Zones
+# ---------------------------------------------------------
+@app.get("/zones")
+def zones():
+    all_zones = zone_engine.get_all_zones()
+    return {
+        "count": len(all_zones),
+        "zones": all_zones
+    }
+
+
+# ---------------------------------------------------------
+# Save Zones
+# ---------------------------------------------------------
+@app.post("/zones/save")
+def save_zones(zones: List[ZoneModel]):
+    zone_engine.save_zones([
+        zone.model_dump()
+        for zone in zones
+    ])
+    return {
+        "status": "saved",
+        "count": len(zones)
+    }
+
+
+# ---------------------------------------------------------
+# Frame Size
+# ---------------------------------------------------------
+@app.get("/frame_size")
+def frame_size():
+    frame = vision_engine.get_frame()
+    if frame is None:
+        return {
+            "width": 1280,
+            "height": 720
+        }
+    height, width = frame.shape[:2]
+    return {
+        "width": width,
+        "height": height
+    }
+
+
+# ---------------------------------------------------------
+# MJPEG Generator
+# ---------------------------------------------------------
+def generate():
+    while True:
+        frame = vision_engine.get_frame()
+        if frame is None:
+            time.sleep(0.02)
+            continue
+        
+        success, buffer = cv2.imencode(".jpg", frame)
+        if not success:
+            continue
+        
+        yield (
+            b"--frame\r\n"
+            b"Content-Type: image/jpeg\r\n\r\n"
+            + buffer.tobytes()
+            + b"\r\n"
+        )
+
+
+# ---------------------------------------------------------
+# Vision Feed
+# ---------------------------------------------------------
+@app.get("/vision_feed")
+def vision_feed():
+    return StreamingResponse(
+        generate(),
+        media_type="multipart/x-mixed-replace; boundary=frame"
+    )
+
+
+# ---------------------------------------------------------
+# Halo Chat
+# ---------------------------------------------------------
+@app.post("/halo")
+def halo_chat(request: ChatRequest):
+    reply = halo.ask(request.message)
+    return {
+        "success": True,
+        "reply": reply
+    }
+
+
+
+
+# ---------------------------------------------------------
+# NoorBrain AI Studio
+# ---------------------------------------------------------
+@app.get("/studio", include_in_schema=False)
+def studio():
+    return FileResponse(DASHBOARD_DIR / "index.html")
+
+
+# ---------------------------------------------------------
+# Event API
+# ---------------------------------------------------------
+@app.get("/events")
+def events(limit: int = 50):
+    limit = max(1, min(limit, 500))
+    rows = database.recent_events(limit)
+    return {
+        "count": len(rows),
+        "events": [
+            {
+                "time": row[0],
+                "event": row[1],
+                "zone": row[2],
+                "source": row[3],
+                "destination": row[4]
+            }
+            for row in rows
+        ]
+    }
+
+
+# ---------------------------------------------------------
+# Runtime Controls
+# ---------------------------------------------------------
+@app.post("/control/vision/start")
+def control_vision_start():
+    vision_engine.start()
+    return {"success": True, "message": "Vision engine started."}
+
+
+@app.post("/control/vision/stop")
+def control_vision_stop():
+    vision_engine.stop()
+    return {"success": True, "message": "Vision engine stopped."}
+
+
+@app.post("/control/vision/restart")
+def control_vision_restart():
+    def restart_worker():
+        vision_engine.stop()
+        time.sleep(1)
+        vision_engine.start()
+
+    threading.Thread(target=restart_worker, daemon=True).start()
+    return {"success": True, "message": "Vision engine is restarting."}
+
+
+@app.post("/control/camera/reconnect")
+def control_camera_reconnect():
+    def reconnect_worker():
+        camera_client.stop()
+        time.sleep(1)
+        camera_client.start()
+
+    threading.Thread(target=reconnect_worker, daemon=True).start()
+    return {"success": True, "message": "Camera client is reconnecting."}
+
+
+# ---------------------------------------------------------
+# Settings API
+# ---------------------------------------------------------
+@app.get("/settings/vision")
+def get_vision_settings():
+    return {
+        "model": vision_engine.model_path,
+        "confidence": vision_engine.confidence
+    }
+
+
+@app.post("/settings/vision")
+def save_vision_settings(settings: VisionSettings):
+    if not 0.05 <= settings.confidence <= 0.95:
+        return {
+            "success": False,
+            "message": "Confidence must be between 0.05 and 0.95."
+        }
+
+    vision_engine.confidence = float(settings.confidence)
+    return {
+        "success": True,
+        "message": f"Vision confidence set to {vision_engine.confidence:.2f}.",
+        "confidence": vision_engine.confidence
+    }
+
+
+# ---------------------------------------------------------
+# Dashboard
+# ---------------------------------------------------------
+@app.get("/dashboard/zones")
+def dashboard_zones():
+    return HTMLResponse("""
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Noor AI Studio</title>
+<style>
+body{
+    margin:0;
+    background:#101114;
+    color:white;
+    font-family:Arial;
+}
+header{
+    background:#18191d;
+    padding:18px;
+    text-align:center;
+    font-size:28px;
+    font-weight:bold;
+}
+#container{
+    width:940px;
+    margin:30px auto;
+}
+#stage{
+    position:relative;
+}
+#video{
+    width:900px;
+    display:block;
+    border-radius:12px;
+    border:2px solid #00d084;
+}
+#overlay{
+    position:absolute;
+    left:0;
+    top:0;
+    cursor:crosshair;
+}
+#toolbar{
+    margin-top:18px;
+}
+button{
+    background:#00d084;
+    border:none;
+    color:#111;
+    padding:10px 18px;
+    border-radius:8px;
+    cursor:pointer;
+    font-weight:bold;
+    margin-right:10px;
+}
+button:hover{
+    opacity:.9;
+}
+button.danger{
+    background:#ff4d4d;
+    color:white;
+}
+#zoneList{
+    margin-top:20px;
+}
+.zone{
+    background:#1c1d22;
+    padding:12px;
+    border-radius:8px;
+    margin-top:8px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+</style>
+</head>
+<body>
+<header>Noor AI Studio</header>
+<div id="container">
+    <div id="stage">
+        <img id="video" src="/vision_feed">
+        <canvas id="overlay"></canvas>
+    </div>
+    <div id="toolbar">
+        <button onclick="saveZones()">Save Zones</button>
+        <button class="danger" onclick="clearZones()">Clear</button>
+    </div>
+    <div id="zoneList"></div>
+</div>
+
+<script>
+// ============================================================
+// VARIABLES
+// ============================================================
+let zones = [];
+let drawing = false;
+let startX = 0;
+let startY = 0;
+let temp = null;
+let actualWidth = 1280;
+let actualHeight = 720;
+const displayWidth = 900;
+let displayHeight = 506;
+
+const video = document.getElementById("video");
+const canvas = document.getElementById("overlay");
+const ctx = canvas.getContext("2d");
+
+// ============================================================
+// CANVAS SETUP
+// ============================================================
+async function setupCanvas() {
+    const response = await fetch("/frame_size");
+    const size = await response.json();
+    actualWidth = size.width;
+    actualHeight = size.height;
+    displayHeight = Math.round(
+        displayWidth *
+        actualHeight /
+        actualWidth
+    );
+    canvas.width = displayWidth;
+    canvas.height = displayHeight;
+    canvas.style.width = displayWidth + "px";
+    canvas.style.height = displayHeight + "px";
+}
+
+// ============================================================
+// COORDINATE CONVERSION
+// ============================================================
+function toActual(value, scale) {
+    return Math.round(value * scale);
+}
+
+function toDisplay(value, scale) {
+    return Math.round(value / scale);
+}
+
+// ============================================================
+// DRAWING
+// ============================================================
+function redraw() {
+    ctx.clearRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+    for (const zone of zones) {
+        drawZone(zone);
+    }
+    if (temp) {
+        drawZone(temp, "#00d084");
+    }
+}
+
+function drawZone(zone, color = "#ffb400") {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(
+        zone.x1,
+        zone.y1,
+        zone.x2 - zone.x1,
+        zone.y2 - zone.y1
+    );
+    ctx.fillStyle = color;
+    ctx.font = "16px Arial";
+    ctx.fillText(
+        zone.name,
+        zone.x1 + 6,
+        zone.y1 + 20
+    );
+}
+
+// ============================================================
+// MOUSE EVENTS
+// ============================================================
+canvas.onmousedown = function(e) {
+    const rect = canvas.getBoundingClientRect();
+    drawing = true;
+    startX = e.clientX - rect.left;
+    startY = e.clientY - rect.top;
+};
+
+canvas.onmousemove = function(e) {
+    if (!drawing) {
+        return;
+    }
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    temp = {
+        name: "",
+        x1: Math.min(startX, x),
+        y1: Math.min(startY, y),
+        x2: Math.max(startX, x),
+        y2: Math.max(startY, y)
+    };
+    redraw();
+};
+
+canvas.onmouseup = function() {
+    if (!drawing) {
+        return;
+    }
+    drawing = false;
+    if (!temp) {
+        return;
+    }
+    const name = prompt("Zone Name");
+    if (name) {
+        temp.name = name;
+        zones.push(temp);
+    }
+    temp = null;
+    redraw();
+    renderZoneList();
+};
+
+// ============================================================
+// ZONE LIST
+// ============================================================
+function renderZoneList() {
+    const container = document.getElementById("zoneList");
+    container.innerHTML = "";
+    zones.forEach((zone, index) => {
+        const item = document.createElement("div");
+        item.className = "zone";
+        item.innerHTML = `
+            <span>${zone.name}</span>
+            <button class="danger"
+                    onclick="deleteZone(${index})">
+                Delete
+            </button>
+        `;
+        container.appendChild(item);
+    });
+}
+
+// ============================================================
+// DELETE
+// ============================================================
+function deleteZone(index) {
+    zones.splice(index, 1);
+    redraw();
+    renderZoneList();
+}
+
+// ============================================================
+// CLEAR
+// ============================================================
+function clearZones() {
+    if (!confirm("Delete all zones?")) {
+        return;
+    }
+    zones = [];
+    redraw();
+    renderZoneList();
+}
+
+// ============================================================
+// SAVE
+// ============================================================
+async function saveZones() {
+    const sx = actualWidth / displayWidth;
+    const sy = actualHeight / displayHeight;
+    const payload = zones.map(z => ({
+        name: z.name,
+        x1: Math.round(z.x1 * sx),
+        y1: Math.round(z.y1 * sy),
+        x2: Math.round(z.x2 * sx),
+        y2: Math.round(z.y2 * sy)
+    }));
+    const response = await fetch(
+        "/zones/save",
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+        }
+    );
+    const result = await response.json();
+    alert(
+        "Saved "
+        + result.count +
+        " zones."
+    );
+}
+
+// ============================================================
+// LOAD EXISTING ZONES
+// ============================================================
+async function loadZones() {
+    const response = await fetch("/zones");
+    const result = await response.json();
+    const sx = actualWidth / displayWidth;
+    const sy = actualHeight / displayHeight;
+    zones = result.zones.map(z => ({
+        name: z.name,
+        x1: Math.round(z.x1 / sx),
+        y1: Math.round(z.y1 / sy),
+        x2: Math.round(z.x2 / sx),
+        y2: Math.round(z.y2 / sy)
+    }));
+    redraw();
+    renderZoneList();
+}
+
+// ============================================================
+// STARTUP
+// ============================================================
+window.onload = async () => {
+    await setupCanvas();
+    await loadZones();
+    redraw();
+};
+</script>
+</body>
+</html>
+    """)
+
+==================== FILE: services/camera_client/camera_client.py ====================
+"""
+============================================================
+Project : Noor AI Home Platform
+Module  : Camera Client
+Version : 1.0.0
+============================================================
+"""
+
+import threading
+import time
+
+import cv2
+import numpy as np
+import requests
+
+from shared.logger import logger
+from shared.config_manager import load_config
+from shared.frame_buffer import frame_buffer
+
+
+class CameraClient:
+
+    def __init__(self):
+
+        config = load_config()
+
+        camera_node = config.get(
+            "camera_node",
+            {}
+        )
+
+        self.base_url = camera_node.get(
+            "url",
+            "http://127.0.0.1:8000"
+        )
+
+        self.stream_url = (
+            self.base_url +
+            "/video_feed"
+        )
+
+        self.connected = False
+
+        self.running = False
+
+        self.thread = None
+
+        self.session = requests.Session()
+
+        self.frame_count = 0
+
+        self.current_fps = 0.0
+
+        self.last_fps_time = time.time()
+
+        self.last_frame_time = 0
+
+        logger.info(
+
+            f"Camera URL : {self.base_url}"
+
+        )
+    # ----------------------------------------------------
+
+    def connect(self):
+
+        logger.info("=" * 60)
+        logger.info("Connecting to Camera Node")
+        logger.info("=" * 60)
+
+        while self.running:
+
+            try:
+
+                response = self.session.get(
+                    self.stream_url,
+                    stream=True,
+                    timeout=10
+                )
+
+                if response.status_code == 200:
+
+                    self.connected = True
+
+                    logger.info(
+                        "Camera Stream Connected"
+                    )
+
+                    return response
+
+                logger.warning(
+                    f"HTTP {response.status_code}"
+                )
+
+            except Exception as ex:
+
+                logger.warning(
+                    f"Connection Failed : {ex}"
+                )
+
+            self.connected = False
+
+            logger.info(
+                "Retrying in 3 seconds..."
+            )
+
+            time.sleep(3)
+
+        return None
+
+    # ----------------------------------------------------
+
+    def receive_stream(self):
+
+        while self.running:
+
+            response = self.connect()
+
+            if response is None:
+                continue
+
+            try:
+
+                buffer = b""
+
+                for chunk in response.iter_content(4096):
+
+                    if not self.running:
+                        break
+
+                    if not chunk:
+                        continue
+
+                    buffer += chunk
+
+                    while True:
+
+                        start = buffer.find(b"\xff\xd8")
+                        end = buffer.find(b"\xff\xd9")
+
+                        if start == -1 or end == -1:
+                            break
+
+                        jpg = buffer[start:end + 2]
+
+                        buffer = buffer[end + 2:]
+
+                        self.process_frame(jpg)
+
+            except Exception as ex:
+
+                logger.warning(ex)
+
+                self.connected = False
+
+                time.sleep(2)
+
+            finally:
+
+                try:
+                    response.close()
+                except Exception:
+                    pass
+    # ----------------------------------------------------
+
+    def process_frame(self, jpg):
+
+        try:
+
+            image = np.frombuffer(
+
+                jpg,
+
+                dtype=np.uint8
+
+            )
+
+            frame = cv2.imdecode(
+
+                image,
+
+                cv2.IMREAD_COLOR
+
+            )
+
+            if frame is None:
+
+                return
+
+            frame_buffer.update(frame)
+
+            self.frame_count += 1
+
+            self.last_frame_time = time.time()
+
+            elapsed = (
+
+                self.last_frame_time -
+
+                self.last_fps_time
+
+            )
+
+            if elapsed >= 1.0:
+
+                self.current_fps = (
+
+                    self.frame_count / elapsed
+
+                )
+
+                logger.info(
+
+                    f"Camera FPS : "
+
+                    f"{self.current_fps:.2f}"
+
+                )
+
+                self.frame_count = 0
+
+                self.last_fps_time = (
+
+                    self.last_frame_time
+
+                )
+
+        except Exception as ex:
+
+            logger.exception(ex)
+
+    # ----------------------------------------------------
+
+    def get_frame(self):
+
+        return frame_buffer.get()
+
+    # ----------------------------------------------------
+
+    def is_connected(self):
+
+        return self.connected
+
+    # ----------------------------------------------------
+
+    def fps(self):
+
+        return round(
+
+            self.current_fps,
+
+            2
+
+        )
+    # ----------------------------------------------------
+
+    def start(self):
+
+        if self.running:
+
+            return
+
+        logger.info("=" * 60)
+        logger.info("Starting Camera Client")
+        logger.info("=" * 60)
+
+        self.running = True
+
+        self.thread = threading.Thread(
+            target=self.receive_stream,
+            daemon=True,
+            name="CameraClient"
+        )
+
+        self.thread.start()
+
+        logger.info("Camera Client Started")
+
+    # ----------------------------------------------------
+
+    def stop(self):
+
+        logger.info("Stopping Camera Client")
+
+        self.running = False
+
+        if self.thread:
+
+            self.thread.join(timeout=2)
+
+        try:
+
+            self.session.close()
+
+        except Exception:
+            pass
+
+        self.connected = False
+
+        logger.info("Camera Client Stopped")
+
+    # ----------------------------------------------------
+
+    def snapshot(self):
+
+        return {
+
+            "connected": self.connected,
+
+            "stream_url": self.stream_url,
+
+            "fps": round(
+                self.current_fps,
+                2
+            ),
+
+            "running": self.running,
+
+            "last_frame": round(
+                time.time() - self.last_frame_time,
+                2
+            ) if self.last_frame_time else None
+
+        }
+
+
+camera_client = CameraClient()
+
+
+# ---------------------------------------------------------
+
+if __name__ == "__main__":
+
+    try:
+
+        camera_client.start()
+
+        while True:
+
+            time.sleep(1)
+
+            print(
+                camera_client.snapshot()
+            )
+
+    except KeyboardInterrupt:
+
+        pass
+
+    finally:
+
+        camera_client.stop()
+
+==================== FILE: services/vision_engine/vision_engine.py ====================
+"""
+============================================================
+Project : NoorBrain
+Module  : Vision Engine
+Version : 2.0.0
+============================================================
+"""
+
+import threading
+import time
+
+import cv2
+from ultralytics import YOLO
+
+from shared.scene_memory import scene_memory
+from shared.logger import logger
+from shared.config_manager import load_config
+from shared.detection_manager import detection_manager
+from shared.person_history import person_history
+
+from services.camera_client import camera_client
+from services.zone_engine import zone_engine
+from services.reminder_engine import reminder_engine
+from services.event_engine import event_engine
+# from services.person_tracker import person_tracker
+
+
+class VisionEngine:
+
+    def __init__(self):
+        config = load_config()
+        vision = config.get("vision", {})
+        model_path = vision.get("model", "yolov8n.pt")
+        confidence = vision.get("confidence", 0.30)
+
+        self.model_path = model_path
+        self.confidence = confidence
+        self.model = YOLO(self.model_path)
+        self.running = False
+        self.thread = None
+        self.latest_frame = None
+        self.latest_detections = []
+        self.frame_counter = 0
+        self.current_fps = 0.0
+        self.last_fps_time = time.time()
+
+        logger.info("=" * 60)
+        logger.info("Vision Engine Initialized")
+        logger.info(f"YOLO Model : {self.model_path}")
+        logger.info(f"Confidence : {self.confidence}")
+        logger.info("=" * 60)
+
+    # ----------------------------------------------------
+    def start(self):
+        if self.running:
+            return
+
+        logger.info("=" * 60)
+        logger.info("Starting Vision Engine")
+        logger.info("=" * 60)
+
+        camera_client.start()
+        self.running = True
+        self.thread = threading.Thread(
+            target=self.process_loop,
+            daemon=True,
+            name="VisionEngine"
+        )
+        self.thread.start()
+
+        logger.info("Vision Engine Started")
+
+    # ----------------------------------------------------
+    def stop(self):
+        logger.info("Stopping Vision Engine")
+        self.running = False
+
+        if self.thread:
+            self.thread.join(timeout=2)
+
+        camera_client.stop()
+        logger.info("Vision Engine Stopped")
+
+    # ----------------------------------------------------
+    def process_loop(self):
+        logger.info("Vision Processing Loop Started")
+
+        while self.running:
+            frame = camera_client.get_frame()
+
+            if frame is None:
+                time.sleep(0.01)
+                continue
+
+            frame = frame.copy()
+
+            try:
+                results = self.model(frame, verbose=False)[0]
+            except Exception as ex:
+                logger.exception(ex)
+                time.sleep(0.1)
+                continue
+
+            detections = []
+
+            for box in results.boxes:
+                cls_id = int(box.cls[0])
+                label = self.model.names[cls_id]
+                confidence = float(box.conf[0])
+
+                if label != "person":
+                    continue
+
+                if confidence < self.confidence:
+                    continue
+
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                zone = zone_engine.get_zone_for_box([x1, y1, x2, y2])
+
+                detections.append({
+                    "label": label,
+                    "confidence": round(confidence, 2),
+                    "box": [x1, y1, x2, y2],
+                    "zone": zone
+                })
+
+            # Track people across frames
+            # detections = person_tracker.update(detections)
+            detections = detections
+
+            self.latest_detections = detections
+            detection_manager.update(detections)
+            scene_memory.update(detections)
+            person_history.update(detections)
+            event_engine.update(detections)
+
+            self.update_fps()
+            self.latest_frame = self.render(frame)
+
+    # ----------------------------------------------------
+    def update_fps(self):
+        self.frame_counter += 1
+        now = time.time()
+        elapsed = now - self.last_fps_time
+
+        if elapsed >= 1.0:
+            self.current_fps = self.frame_counter / elapsed
+            self.frame_counter = 0
+            self.last_fps_time = now
+
+    # ----------------------------------------------------
+    def draw_detections(self, frame, detections):
+        for detection in detections:
+            x1, y1, x2, y2 = detection["box"]
+            label = detection["label"]
+            confidence = detection["confidence"]
+            zone = detection["zone"]
+            person_id = detection.get("id", 0)
+
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv2.putText(
+                frame,
+                f"{label} {confidence:.2f} ID:{person_id}",
+                (x1, max(25, y1 - 10)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (0, 255, 0),
+                2
+            )
+            cv2.putText(
+                frame,
+                f"Zone : {zone}",
+                (x1, y2 + 20),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.55,
+                (0, 200, 255),
+                2
+            )
+
+            if zone != "Unknown":
+                reminder_engine.on_zone_detected(zone)
+
+    # ----------------------------------------------------
+    def draw_zones(self, frame):
+        for zone in zone_engine.get_all_zones():
+            x1 = zone["x1"]
+            y1 = zone["y1"]
+            x2 = zone["x2"]
+            y2 = zone["y2"]
+
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 180, 0), 2)
+            cv2.putText(
+                frame,
+                zone["name"],
+                (x1 + 6, y1 + 22),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (255, 180, 0),
+                2
+            )
+
+    # ----------------------------------------------------
+    def render(self, frame):
+        output = frame.copy()
+        self.draw_zones(output)
+        self.draw_detections(output, self.latest_detections)
+
+        cv2.putText(
+            output,
+            f"FPS : {self.current_fps:.2f}",
+            (20, 30),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (0, 255, 255),
+            2
+        )
+        cv2.putText(
+            output,
+            f"Persons : {len(self.latest_detections)}",
+            (20, 60),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (255, 255, 0),
+            2
+        )
+
+        return output
+
+    # ----------------------------------------------------
+    def get_frame(self):
+        return self.latest_frame
+
+    # ----------------------------------------------------
+    def get_detections(self):
+        return list(self.latest_detections)
+
+    # ----------------------------------------------------
+    def get_person_count(self):
+        return len(self.latest_detections)
+
+    # ----------------------------------------------------
+    def snapshot(self):
+        return {
+            "running": self.running,
+            "model": self.model_path,
+            "confidence": self.confidence,
+            "fps": round(self.current_fps, 2),
+            "persons": len(self.latest_detections),
+            "camera_connected": camera_client.is_connected(),
+            "camera": camera_client.snapshot(),
+            "detection_manager": detection_manager.snapshot()
+        }
+
+
+# ============================================================
+vision_engine = VisionEngine()
+# ============================================================
+
+if __name__ == "__main__":
+    try:
+        vision_engine.start()
+        while True:
+            time.sleep(2)
+            print("=" * 60)
+            print(vision_engine.snapshot())
+    except KeyboardInterrupt:
+        logger.info("Vision Engine Interrupted")
+    finally:
+        vision_engine.stop()
+
+==================== FILE: services/vision_engine/__init__.py ====================
+from .vision_engine import vision_engine
+
+__all__ = ["vision_engine"]
+
+==================== FILE: services/event_engine/event_engine.py ====================
+"""
+============================================================
+Project : NoorBrain
+Module  : Event Engine
+Version : 1.0.0
+Purpose : Tracks movement and events over time
+============================================================
+"""
+
+import time
+
+from shared.logger import logger
+from shared.database import database
+
+
+class EventEngine:
+
+    def __init__(self):
+
+        self.events = []
+        self.current_zone = None
+        self.last_seen = None
+
+    # ----------------------------------------------------
+
+    def update(self, detections):
+
+        now = time.time()
+
+        if not detections:
+
+            if self.current_zone is not None:
+
+                self.events.append({
+                    "time": now,
+                    "event": "left",
+                    "zone": self.current_zone
+                })
+
+                database.add_event(
+                    now,
+                    "left",
+                    zone=self.current_zone
+                )
+
+                logger.info(f"EVENT : Left {self.current_zone}")
+
+                self.current_zone = None
+
+            return
+
+        zone = detections[0].get("zone", "Unknown")
+
+        if self.current_zone is None:
+
+            self.current_zone = zone
+
+            self.events.append({
+                "time": now,
+                "event": "entered",
+                "zone": zone
+            })
+
+            database.add_event(
+                now,
+                "entered",
+                zone=zone
+            )
+
+            logger.info(f"EVENT : Entered {zone}")
+
+        elif zone != self.current_zone:
+
+            old = self.current_zone
+
+            self.current_zone = zone
+
+            self.events.append({
+                "time": now,
+                "event": "moved",
+                "from": old,
+                "to": zone
+            })
+
+            database.add_event(
+                now,
+                "moved",
+                source=old,
+                destination=zone
+            )
+
+            logger.info(f"EVENT : {old} -> {zone}")
+
+        self.last_seen = now
+
+    # ----------------------------------------------------
+
+    def recent(self, count=20):
+
+        return self.events[-count:]
+
+    # ----------------------------------------------------
+
+    def history(self):
+        return list(self.events)
+
+    # ----------------------------------------------------
+
+    def current(self):
+
+        return self.current_zone
+
+    # ----------------------------------------------------
+
+    def snapshot(self):
+
+        return {
+            "current_zone": self.current_zone,
+            "events": len(self.events),
+            "last_seen": self.last_seen
+        }
+
+
+event_engine = EventEngine()
+
+==================== FILE: services/zone_engine/zone_engine.py ====================
+"""
+============================================================
+Project : NoorBrain
+Module  : Zone Engine
+Version : 0.2.0
+Purpose : Maps a bounding box (person location) to a named zone.
+          Zones can be loaded from file and saved from dashboard.
+============================================================
+"""
+
+import yaml
+from pathlib import Path
+
+from shared.logger import logger
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+ZONES_FILE = PROJECT_ROOT / "config" / "zones.yaml"
+
+
+class ZoneEngine:
+
+    def __init__(self):
+
+        self.zones = []
+        self.load_zones()
+
+    def load_zones(self):
+
+        if not ZONES_FILE.exists():
+            self.zones = []
+            return
+
+        with open(ZONES_FILE, "r") as file:
+            data = yaml.safe_load(file) or {}
+
+        self.zones = data.get("zones", [])
+
+        logger.info(f"Loaded {len(self.zones)} zones")
+
+    def save_zones(self, zones):
+
+        data = {"zones": zones}
+
+        with open(ZONES_FILE, "w") as file:
+            yaml.dump(data, file, default_flow_style=False)
+
+        self.zones = zones
+
+        logger.info(f"Saved {len(zones)} zones")
+
+    def get_zone_for_box(self, box):
+        """
+        box = [x1, y1, x2, y2] of the detected person.
+        Uses the center point of the box to decide the zone.
+        """
+
+        x1, y1, x2, y2 = box
+
+        center_x = (x1 + x2) / 2
+        center_y = (y1 + y2) / 2
+
+        for zone in self.zones:
+
+            if (zone["x1"] <= center_x <= zone["x2"] and
+                    zone["y1"] <= center_y <= zone["y2"]):
+
+                return zone["name"]
+
+        return "Unknown"
+
+    def get_all_zones(self):
+        return self.zones
+
+
+zone_engine = ZoneEngine()
+
+==================== FILE: shared/frame_buffer.py ====================
+import threading
+
+
+class FrameBuffer:
+
+    def __init__(self):
+
+        self._frame = None
+        self._lock = threading.Lock()
+
+    def update(self, frame):
+
+        with self._lock:
+            self._frame = frame
+
+    def get(self):
+
+        with self._lock:
+            return self._frame
+
+
+frame_buffer = FrameBuffer()
+
+==================== FILE: shared/detection_manager.py ====================
+"""
+============================================================
+Project : NoorBrain
+Module  : Detection Manager
+Version : 1.0.0
+============================================================
+"""
+
+import threading
+import time
+
+
+class DetectionManager:
+
+    def __init__(self):
+
+        self._lock = threading.Lock()
+
+        self._detections = []
+
+        self._history = []
+
+        self._frame_id = 0
+
+        self._last_update = 0
+
+        self._person_count = 0
+
+        self._total_detections = 0
+
+    # ----------------------------------------------------
+
+    def update(self, detections):
+
+        now = time.time()
+
+        with self._lock:
+
+            self._frame_id += 1
+
+            self._last_update = now
+
+            self._detections = list(detections)
+
+            self._person_count = len(detections)
+
+            self._total_detections += len(detections)
+
+            self._history.append({
+
+                "frame": self._frame_id,
+
+                "timestamp": now,
+
+                "count": len(detections),
+
+                "detections": list(detections)
+
+            })
+
+            if len(self._history) > 500:
+
+                self._history.pop(0)
+    # ----------------------------------------------------
+
+    def latest(self):
+
+        with self._lock:
+
+            return list(self._detections)
+
+    # ----------------------------------------------------
+
+    def history(self):
+
+        with self._lock:
+
+            return list(self._history)
+
+    # ----------------------------------------------------
+
+    def clear(self):
+
+        with self._lock:
+
+            self._detections.clear()
+
+            self._history.clear()
+
+            self._frame_id = 0
+
+            self._person_count = 0
+
+            self._total_detections = 0
+
+            self._last_update = 0
+
+    # ----------------------------------------------------
+
+    def person_count(self):
+
+        with self._lock:
+
+            return self._person_count
+
+    # ----------------------------------------------------
+
+    def frame_count(self):
+
+        with self._lock:
+
+            return self._frame_id
+
+    # ----------------------------------------------------
+
+    def total_detections(self):
+
+        with self._lock:
+
+            return self._total_detections
+
+    # ----------------------------------------------------
+
+    def snapshot(self):
+
+        with self._lock:
+
+            return {
+
+                "frame": self._frame_id,
+
+                "persons": self._person_count,
+
+                "latest": len(self._detections),
+
+                "history": len(self._history),
+
+                "total": self._total_detections,
+
+                "last_update": self._last_update
+
+            }
+
+
+detection_manager = DetectionManager()
+
+==================== FILE: dashboard/index.html ====================
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NoorBrain AI Studio</title>
+  <link rel="stylesheet" href="/dashboard-static/css/style.css?v=3">
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-mark">N</span><div><strong>NoorBrain</strong><small>AI Studio</small></div></div>
+    <nav id="nav">
+      <button class="nav-item active" data-page="dashboard">🏠 <span>Dashboard</span></button>
+      <button class="nav-item" data-page="vision">🎥 <span>Vision</span></button>
+      <button class="nav-item" data-page="people">👤 <span>People</span></button>
+      <button class="nav-item" data-page="zones">🗺️ <span>Zones</span></button>
+      <button class="nav-item" data-page="timeline">📜 <span>Timeline</span></button>
+      <button class="nav-item" data-page="halo">🤖 <span>HALO</span></button>
+      <button class="nav-item" data-page="settings">⚙️ <span>Settings</span></button>
+    </nav>
+    <div class="sidebar-footer"><span id="backendDot" class="dot"></span><span id="backendText">Connecting…</span></div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div><h1 id="pageTitle">Dashboard</h1><p id="pageSubtitle">Live NoorBrain status</p></div>
+      <div class="top-actions"><button id="refreshBtn" class="button secondary">Refresh</button><span id="clock"></span></div>
+    </header>
+
+    <section id="page-dashboard" class="page active">
+      <div class="cards">
+        <article class="card metric"><span>Camera</span><strong id="cameraStatus">—</strong><small id="cameraAge">Waiting</small></article>
+        <article class="card metric"><span>Persons</span><strong id="personCount">0</strong><small id="currentZone">No active zone</small></article>
+        <article class="card metric"><span>Vision FPS</span><strong id="visionFps">0.0</strong><small id="cameraFps">Camera 0.0 FPS</small></article>
+        <article class="card metric"><span>Model</span><strong id="modelName">—</strong><small id="confidenceText">Confidence —</small></article>
+      </div>
+      <div class="grid two">
+        <article class="card">
+          <div class="card-head"><div><h2>Live Vision</h2><p>Raspberry Pi camera with NoorBrain overlays</p></div><span id="streamBadge" class="badge">Connecting</span></div>
+          <div class="stream-wrap"><img class="stream" data-stream src="/vision_feed?studio=dashboard" alt="Live NoorBrain vision"></div>
+        </article>
+        <article class="card"><div class="card-head"><div><h2>Recent Events</h2><p>Latest activity</p></div><button class="text-button" data-page-jump="timeline">View all</button></div><div id="recentEvents" class="event-list empty">No events yet.</div></article>
+      </div>
+    </section>
+
+    <section id="page-vision" class="page">
+      <div class="grid vision-layout">
+        <article class="card"><div class="card-head"><div><h2>Vision Feed</h2><p>Live processed stream</p></div><span id="visionStateBadge" class="badge">—</span></div><div class="stream-wrap large"><img class="stream" data-stream src="/vision_feed?studio=vision" alt="Vision feed"></div></article>
+        <article class="card control-card"><h2>Vision Controls</h2><button class="button success" data-action="vision-start">Start Vision</button><button class="button warning" data-action="vision-restart">Restart Vision</button><button class="button danger" data-action="vision-stop">Stop Vision</button><button class="button secondary" data-action="camera-reconnect">Reconnect Camera</button><div id="actionMessage" class="message"></div></article>
+      </div>
+    </section>
+
+    <section id="page-people" class="page">
+      <article class="card"><div class="card-head"><div><h2>Detected People</h2><p>Live detections from YOLO</p></div><span id="peopleBadge" class="badge">0 people</span></div><div class="table-wrap"><table><thead><tr><th>ID</th><th>Label</th><th>Zone</th><th>Confidence</th><th>Bounding box</th></tr></thead><tbody id="peopleTable"><tr><td colspan="5" class="muted">No detections</td></tr></tbody></table></div></article>
+    </section>
+
+    <section id="page-zones" class="page">
+      <div class="grid zones-layout">
+        <article class="card"><div class="card-head"><div><h2>Zone Editor</h2><p>Drag on the camera image to add a zone</p></div></div><div id="zoneStage" class="zone-stage"><img id="zoneVideo" class="stream" data-stream src="/vision_feed?studio=zones" alt="Zone editor"><canvas id="zoneCanvas"></canvas></div><div class="toolbar"><button id="saveZonesBtn" class="button success">Save Zones</button><button id="clearZonesBtn" class="button danger">Clear All</button><button id="reloadZonesBtn" class="button secondary">Reload</button></div></article>
+        <article class="card"><h2>Configured Zones</h2><div id="zoneList" class="zone-list empty">No zones configured.</div></article>
+      </div>
+    </section>
+
+    <section id="page-timeline" class="page">
+      <article class="card"><div class="card-head"><div><h2>Event Timeline</h2><p>Persistent events from SQLite</p></div><button id="timelineRefresh" class="button secondary">Refresh</button></div><div id="timelineList" class="timeline empty">No stored events.</div></article>
+    </section>
+
+    <section id="page-halo" class="page">
+      <article class="card chat-card"><div class="card-head"><div><h2>HALO Chat</h2><p>Ask about live vision and remembered events</p></div><span id="haloBadge" class="badge">Ready</span></div><div id="chatMessages" class="chat-messages"><div class="bubble assistant">Assalamu Alaikum. I am HALO. What would you like to know?</div></div><form id="haloForm" class="chat-form"><input id="haloInput" autocomplete="off" placeholder="Ask HALO…"><button class="button success" type="submit">Send</button></form></article>
+    </section>
+
+    <section id="page-settings" class="page">
+      <div class="grid two">
+        <article class="card"><h2>Vision Settings</h2><label>YOLO confidence <strong id="confidenceValue">0.30</strong></label><input id="confidenceSlider" type="range" min="0.10" max="0.90" step="0.05" value="0.30"><button id="saveSettingsBtn" class="button success">Save Confidence</button><div id="settingsMessage" class="message"></div></article>
+        <article class="card"><h2>System Information</h2><dl class="details"><dt>Camera URL</dt><dd id="settingsCameraUrl">—</dd><dt>Model</dt><dd id="settingsModel">—</dd><dt>Backend</dt><dd>http://127.0.0.1:8001</dd><dt>Studio</dt><dd>/studio</dd></dl></article>
+      </div>
+    </section>
+  </main>
+</div>
+<script src="/dashboard-static/js/app.js?v=3"></script>
+</body>
+</html>
+
+==================== FILE: dashboard/js/app.js ====================
+const API = window.location.origin;
+const state = { health:null, detections:[], zones:[], events:[], frameSize:{width:1280,height:720}, drawing:false, startX:0, startY:0, temp:null };
+const $ = (id) => document.getElementById(id);
+const pages = {dashboard:['Dashboard','Live NoorBrain status'],vision:['Vision','Camera stream and vision controls'],people:['People','Current YOLO detections'],zones:['Zones','Draw and manage camera zones'],timeline:['Timeline','Stored movement events'],halo:['HALO','Chat with NoorBrain'],settings:['Settings','Vision and system configuration']};
+async function api(path, options={}){const r=await fetch(API+path,{cache:'no-store',...options,headers:{'Content-Type':'application/json',...(options.headers||{})}});if(!r.ok)throw new Error(`${r.status} ${await r.text()}`);return r.json();}
+function showPage(name){document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(x=>x.classList.toggle('active',x.dataset.page===name));$(`page-${name}`).classList.add('active');$('pageTitle').textContent=pages[name][0];$('pageSubtitle').textContent=pages[name][1];if(name==='zones')setTimeout(setupZoneCanvas,250);if(name==='timeline')loadEvents();if(name==='people')loadDetections();}
+document.querySelectorAll('[data-page]').forEach(b=>b.addEventListener('click',()=>showPage(b.dataset.page)));document.querySelectorAll('[data-page-jump]').forEach(b=>b.addEventListener('click',()=>showPage(b.dataset.pageJump)));
+function statusOnline(ok){$('backendDot').className='dot '+(ok?'online':'offline');$('backendText').textContent=ok?'Backend online':'Backend offline';}
+async function refreshHealth(){try{const d=await api('/health');state.health=d;statusOnline(true);$('cameraStatus').textContent=d.camera.connected?'Connected':'Disconnected';$('cameraAge').textContent=d.camera.last_frame==null?'No frame':`Last frame ${d.camera.last_frame}s ago`;$('personCount').textContent=d.vision.persons;$('visionFps').textContent=Number(d.vision.fps||0).toFixed(1);$('cameraFps').textContent=`Camera ${Number(d.camera.fps||0).toFixed(1)} FPS`;$('modelName').textContent=d.vision.model;$('confidenceText').textContent=`Confidence ${Number(d.vision.confidence).toFixed(2)}`;$('currentZone').textContent=d.vision.persons? 'Person detected':'No active person';$('visionStateBadge').textContent=d.vision.running?'Running':'Stopped';$('settingsCameraUrl').textContent=d.camera.stream_url;$('settingsModel').textContent=d.vision.model;$('confidenceSlider').value=d.vision.confidence;$('confidenceValue').textContent=Number(d.vision.confidence).toFixed(2);$('streamBadge').textContent=d.camera.connected?'Live':'Waiting';}catch(e){statusOnline(false);$('cameraStatus').textContent='Offline';}}
+async function loadDetections(){try{const d=await api('/detections');state.detections=d.people||[];$('peopleBadge').textContent=`${d.count} people`;const body=$('peopleTable');body.innerHTML=state.detections.length?state.detections.map((p,i)=>`<tr><td>${p.id ?? i+1}</td><td>${p.label||'person'}</td><td>${p.zone||'Unknown'}</td><td>${Math.round((p.confidence||0)*100)}%</td><td>${(p.box||[]).join(', ')}</td></tr>`).join(''):'<tr><td colspan="5" class="muted">No detections</td></tr>'; }catch(e){console.error(e);}}
+function describeEvent(e){if(e.event==='entered')return `Person entered ${e.zone}`;if(e.event==='left')return `Person left ${e.zone}`;if(e.event==='moved')return `Person moved ${e.source} → ${e.destination}`;return e.event;}
+async function loadEvents(){try{const d=await api('/events?limit=100');state.events=d.events||[];const html=state.events.length?state.events.map(e=>`<div class="timeline-item"><strong>${describeEvent(e)}</strong><time>${new Date(e.time*1000).toLocaleString()}</time></div>`).join(''):'No stored events.';$('timelineList').innerHTML=html;$('timelineList').classList.toggle('empty',!state.events.length);$('recentEvents').innerHTML=state.events.slice(0,7).map(e=>`<div class="event"><strong>${describeEvent(e)}</strong><time>${new Date(e.time*1000).toLocaleTimeString()}</time></div>`).join('')||'No events yet.';}catch(e){console.error(e);}}
+async function runAction(action){const msg=$('actionMessage');msg.textContent='Working…';try{const paths={'vision-start':'/control/vision/start','vision-stop':'/control/vision/stop','vision-restart':'/control/vision/restart','camera-reconnect':'/control/camera/reconnect'};const d=await api(paths[action],{method:'POST'});msg.textContent=d.message||'Done';setTimeout(refreshHealth,600);}catch(e){msg.textContent=e.message;}}
+document.querySelectorAll('[data-action]').forEach(b=>b.addEventListener('click',()=>runAction(b.dataset.action)));
+$('haloForm').addEventListener('submit',async e=>{e.preventDefault();const input=$('haloInput');const q=input.value.trim();if(!q)return;const box=$('chatMessages');box.insertAdjacentHTML('beforeend',`<div class="bubble user"></div>`);box.lastElementChild.textContent=q;input.value='';$('haloBadge').textContent='Thinking…';try{const d=await api('/halo',{method:'POST',body:JSON.stringify({message:q})});box.insertAdjacentHTML('beforeend','<div class="bubble assistant"></div>');box.lastElementChild.textContent=d.reply;$('haloBadge').textContent='Ready';}catch(err){box.insertAdjacentHTML('beforeend','<div class="bubble assistant"></div>');box.lastElementChild.textContent='HALO error: '+err.message;$('haloBadge').textContent='Error';}box.scrollTop=box.scrollHeight;});
+$('confidenceSlider').addEventListener('input',e=>$('confidenceValue').textContent=Number(e.target.value).toFixed(2));$('saveSettingsBtn').addEventListener('click',async()=>{const value=Number($('confidenceSlider').value);try{const d=await api('/settings/vision',{method:'POST',body:JSON.stringify({confidence:value})});$('settingsMessage').textContent=d.message;}catch(e){$('settingsMessage').textContent=e.message;}});
+async function loadZones(){const [z,s]=await Promise.all([api('/zones'),api('/frame_size')]);state.zones=z.zones||[];state.frameSize=s;renderZoneList();setupZoneCanvas();}
+function renderZoneList(){const box=$('zoneList');box.innerHTML=state.zones.length?state.zones.map((z,i)=>`<div class="zone-row"><span><strong>${z.name}</strong><br><small>${z.x1},${z.y1} → ${z.x2},${z.y2}</small></span><button class="button danger" onclick="removeZone(${i})">Delete</button></div>`).join(''):'No zones configured.';box.classList.toggle('empty',!state.zones.length);}
+window.removeZone=i=>{state.zones.splice(i,1);renderZoneList();drawZones();};
+function setupZoneCanvas(){const img=$('zoneVideo'),canvas=$('zoneCanvas');if(!img||!canvas)return;const resize=()=>{canvas.width=img.clientWidth;canvas.height=img.clientHeight;drawZones();};if(img.complete)resize();img.onload=resize;window.addEventListener('resize',resize,{once:true});canvas.onmousedown=e=>{const r=canvas.getBoundingClientRect();state.drawing=true;state.startX=e.clientX-r.left;state.startY=e.clientY-r.top;};canvas.onmousemove=e=>{if(!state.drawing)return;const r=canvas.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;state.temp={name:'New zone',x1:Math.min(state.startX,x),y1:Math.min(state.startY,y),x2:Math.max(state.startX,x),y2:Math.max(state.startY,y),display:true};drawZones();};canvas.onmouseup=()=>{if(!state.drawing||!state.temp)return;state.drawing=false;const name=prompt('Zone name:','New Zone');if(name){const sx=state.frameSize.width/canvas.width,sy=state.frameSize.height/canvas.height;state.zones.push({name,x1:Math.round(state.temp.x1*sx),y1:Math.round(state.temp.y1*sy),x2:Math.round(state.temp.x2*sx),y2:Math.round(state.temp.y2*sy)});}state.temp=null;renderZoneList();drawZones();};}
+function drawZones(){const c=$('zoneCanvas');if(!c)return;const ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);const sx=c.width/state.frameSize.width,sy=c.height/state.frameSize.height;for(const z of state.zones){ctx.strokeStyle='#ffbd59';ctx.lineWidth=2;ctx.strokeRect(z.x1*sx,z.y1*sy,(z.x2-z.x1)*sx,(z.y2-z.y1)*sy);ctx.fillStyle='#ffbd59';ctx.font='15px sans-serif';ctx.fillText(z.name,z.x1*sx+6,z.y1*sy+19);}if(state.temp){ctx.strokeStyle='#22d3a0';ctx.strokeRect(state.temp.x1,state.temp.y1,state.temp.x2-state.temp.x1,state.temp.y2-state.temp.y1);}}
+$('saveZonesBtn').addEventListener('click',async()=>{try{await api('/zones/save',{method:'POST',body:JSON.stringify(state.zones)});alert('Zones saved.');}catch(e){alert(e.message);}});$('clearZonesBtn').addEventListener('click',()=>{if(confirm('Clear all zones?')){state.zones=[];renderZoneList();drawZones();}});$('reloadZonesBtn').addEventListener('click',loadZones);$('timelineRefresh').addEventListener('click',loadEvents);$('refreshBtn').addEventListener('click',()=>Promise.all([refreshHealth(),loadDetections(),loadEvents()]));
+function recoverStreams(){document.querySelectorAll('[data-stream]').forEach(img=>{img.onerror=()=>setTimeout(()=>img.src=`/vision_feed?retry=${Date.now()}`,1500);});}
+setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString();},1000);setInterval(refreshHealth,1500);setInterval(loadDetections,2000);setInterval(loadEvents,10000);recoverStreams();refreshHealth();loadDetections();loadEvents();loadZones();
+
+==================== FILE: dashboard/css/style.css ====================
+:root{--bg:#0b0e13;--panel:#151a22;--panel2:#1c232e;--line:#293240;--text:#f4f7fa;--muted:#8f9aaa;--green:#22d3a0;--red:#ff6577;--amber:#ffbd59;--sidebar:245px}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Arial,sans-serif}.shell{min-height:100vh}.sidebar{position:fixed;inset:0 auto 0 0;width:var(--sidebar);background:#11161e;border-right:1px solid var(--line);padding:22px 16px;display:flex;flex-direction:column}.brand{display:flex;align-items:center;gap:12px;padding:4px 10px 25px}.brand-mark{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#16b884,var(--green));color:#07110e;font-size:21px;font-weight:900}.brand strong,.brand small{display:block}.brand small{color:var(--muted);margin-top:2px}.sidebar nav{display:flex;flex-direction:column;gap:7px}.nav-item{border:0;background:transparent;color:#bdc6d1;padding:13px 14px;text-align:left;border-radius:10px;font-size:15px;cursor:pointer;display:flex;gap:11px}.nav-item:hover{background:#1a212b;color:white}.nav-item.active{background:#1c2d2a;color:var(--green);font-weight:700}.sidebar-footer{margin-top:auto;padding:15px 10px;color:var(--muted);font-size:13px;display:flex;align-items:center;gap:9px}.dot{width:9px;height:9px;border-radius:50%;background:var(--amber)}.dot.online{background:var(--green);box-shadow:0 0 12px rgba(34,211,160,.6)}.dot.offline{background:var(--red)}.main{margin-left:var(--sidebar);padding:28px 32px 50px;max-width:1700px}.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:25px}.topbar h1{margin:0 0 5px;font-size:28px}.topbar p{margin:0;color:var(--muted)}.top-actions{display:flex;align-items:center;gap:14px;color:var(--muted)}.page{display:none}.page.active{display:block}.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:17px}.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:0 10px 30px rgba(0,0,0,.12)}.metric span{display:block;color:var(--muted);font-size:13px}.metric strong{display:block;font-size:28px;margin:9px 0 3px}.metric small{color:var(--muted)}.grid{display:grid;gap:17px}.grid.two{grid-template-columns:minmax(0,2fr) minmax(300px,1fr)}.vision-layout{grid-template-columns:minmax(0,3fr) minmax(260px,1fr)}.zones-layout{grid-template-columns:minmax(0,3fr) minmax(270px,1fr)}.card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:15px}.card h2{font-size:18px;margin:0 0 5px}.card-head p{margin:0;color:var(--muted);font-size:13px}.stream-wrap{position:relative;background:#050608;border-radius:12px;min-height:260px;overflow:hidden;display:flex;align-items:center;justify-content:center}.stream-wrap.large{min-height:520px}.stream{display:block;width:100%;height:auto;max-height:72vh;object-fit:contain;background:#050608}.badge{display:inline-flex;padding:6px 10px;border-radius:999px;background:#24302e;color:var(--green);font-size:12px}.button{border:0;border-radius:9px;padding:10px 14px;font-weight:700;cursor:pointer;color:#07110e}.button.success{background:var(--green)}.button.warning{background:var(--amber)}.button.danger{background:var(--red);color:white}.button.secondary{background:#26303d;color:white}.text-button{border:0;background:transparent;color:var(--green);cursor:pointer}.control-card{display:flex;flex-direction:column;gap:12px;align-self:start}.message{min-height:22px;color:var(--muted);font-size:13px}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse}th,td{padding:13px;text-align:left;border-bottom:1px solid var(--line);font-size:14px}th{color:var(--muted);font-weight:600}.muted,.empty{color:var(--muted)}.event-list,.timeline{display:flex;flex-direction:column;gap:10px}.event,.timeline-item{background:var(--panel2);border:1px solid var(--line);padding:12px;border-radius:10px}.event time,.timeline-item time{display:block;color:var(--muted);font-size:12px;margin-top:4px}.zone-stage{position:relative;background:#050608;border-radius:12px;overflow:hidden}.zone-stage img{display:block;width:100%}.zone-stage canvas{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair}.toolbar{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}.zone-list{display:flex;flex-direction:column;gap:9px}.zone-row{display:flex;align-items:center;justify-content:space-between;background:var(--panel2);border:1px solid var(--line);padding:11px;border-radius:10px}.chat-card{max-width:1100px}.chat-messages{height:55vh;overflow:auto;background:#0e1218;border:1px solid var(--line);border-radius:12px;padding:17px;display:flex;flex-direction:column;gap:12px}.bubble{max-width:78%;padding:12px 14px;border-radius:13px;line-height:1.45}.bubble.assistant{align-self:flex-start;background:#1b2530}.bubble.user{align-self:flex-end;background:#1b493e}.chat-form{display:flex;gap:10px;margin-top:14px}.chat-form input{flex:1;border:1px solid var(--line);background:#0e1218;color:white;border-radius:10px;padding:13px;font-size:15px}.details{display:grid;grid-template-columns:120px 1fr;gap:12px;margin:0}.details dt{color:var(--muted)}.details dd{margin:0;word-break:break-all}input[type=range]{width:100%;margin:18px 0}@media(max-width:1000px){:root{--sidebar:190px}.cards{grid-template-columns:repeat(2,1fr)}.grid.two,.vision-layout,.zones-layout{grid-template-columns:1fr}.main{padding:20px}}@media(max-width:700px){.sidebar{position:static;width:100%;height:auto}.sidebar nav{display:grid;grid-template-columns:repeat(2,1fr)}.sidebar-footer{display:none}.main{margin-left:0;padding:16px}.cards{grid-template-columns:1fr}.topbar{align-items:flex-start;gap:12px}.top-actions{flex-direction:column;align-items:flex-end}}
+
+==================== FILE: start_noorbrain.sh ====================
+#!/usr/bin/env bash
+set -u
+ROOT="$HOME/Projects/NoorBrain"
+LOG="$ROOT/logs/noorbrain.log"
+URL="http://127.0.0.1:8001"
+mkdir -p "$ROOT/logs"
+cd "$ROOT" || exit 1
+OLD_PID="$(lsof -tiTCP:8001 -sTCP:LISTEN 2>/dev/null | head -n1 || true)"
+if [ -n "$OLD_PID" ]; then
+  if curl -fsS "$URL/health" >/dev/null 2>&1; then
+    xdg-open "$URL/studio?v=$(date +%s)" >/dev/null 2>&1 &
+    echo "NoorBrain is already running: $URL/studio"
+    exit 0
+  fi
+  kill "$OLD_PID" 2>/dev/null || true
+  sleep 2
+  kill -9 "$OLD_PID" 2>/dev/null || true
+fi
+source "$ROOT/venv/bin/activate"
+: > "$LOG"
+nohup python -m uvicorn main:app --host 0.0.0.0 --port 8001 > "$LOG" 2>&1 &
+PID=$!
+for _ in $(seq 1 90); do
+  if ! kill -0 "$PID" 2>/dev/null; then echo "NoorBrain failed:"; tail -80 "$LOG"; exit 1; fi
+  if curl -fsS "$URL/health" >/dev/null 2>&1 && curl -fsS "$URL/studio" >/dev/null 2>&1; then
+    xdg-open "$URL/studio?v=$(date +%s)" >/dev/null 2>&1 &
+    echo "NoorBrain ready: $URL/studio"
+    exit 0
+  fi
+  sleep 1
+done
+echo "Startup timeout"; tail -80 "$LOG"; exit 1
+
+==================== FILE: restart_noorbrain.sh ====================
+#!/usr/bin/env bash
+ROOT="$HOME/Projects/NoorBrain"
+"$ROOT/stop_noorbrain.sh"
+sleep 2
+"$ROOT/start_noorbrain.sh"
+
+==================== FILE: stop_noorbrain.sh ====================
+#!/usr/bin/env bash
+PID="$(lsof -tiTCP:8001 -sTCP:LISTEN 2>/dev/null | head -n1 || true)"
+if [ -z "$PID" ]; then echo "NoorBrain is already stopped."; exit 0; fi
+kill "$PID" 2>/dev/null || true
+for _ in $(seq 1 10); do kill -0 "$PID" 2>/dev/null || { echo "NoorBrain stopped."; exit 0; }; sleep 1; done
+kill -9 "$PID" 2>/dev/null || true
+echo "NoorBrain force-stopped."
+
+==================== FILE: config/brain.yaml ====================
+brain:
+  name: NoorBrain
+
+server:
+  host: 0.0.0.0
+  port: 8001
+
+camera_node:
+  url: http://192.168.2.29:8000
+
+system:
+  log_level: INFO

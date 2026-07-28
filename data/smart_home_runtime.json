@@ -1,0 +1,19 @@
+{
+  "rooms": [
+    {
+      "id": "hall",
+      "name": "Hall"
+    }
+  ],
+  "devices": [
+    {
+      "id": "hall-light",
+      "name": "Hall Light",
+      "room": "Hall",
+      "type": "light",
+      "state": "off",
+      "online": true
+    }
+  ],
+  "scenes": []
+}
