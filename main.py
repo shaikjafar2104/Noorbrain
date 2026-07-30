@@ -1,3 +1,4 @@
+
 """
 ============================================================
 Project : NoorBrain
@@ -980,3 +981,43 @@ app.include_router(mobile_notifications_router)
 # NOORBRAIN P3.4-P3.6 FINAL FAMILY MOBILE INTELLIGENCE
 from services.mobile_notifications.routes_final import router as mobile_notifications_final_router
 app.include_router(mobile_notifications_final_router)
+
+# NOORBRAIN UI RECOVERY
+from services.ui_recovery.routes import router as ui_recovery_router
+app.include_router(ui_recovery_router)
+
+# NOORBRAIN HALO ONE CLICK
+from services.halo_oneclick.routes import router as halo_oneclick_router
+app.include_router(halo_oneclick_router)
+
+# NOORBRAIN HALO VOICE
+from services.halo_voice.routes import router as halo_voice_router
+app.include_router(halo_voice_router)
+
+# HALO VOICE SELECTOR
+from services.halo_voice_settings.routes import router as halo_voice_settings_router
+app.include_router(halo_voice_settings_router)
+
+# NOORBRAIN MOBILE ROUTERS — SPRINT 1.50 FIX
+from services.mobile_v2.routes import router as mobile_v2_router
+app.include_router(mobile_v2_router)
+from services.mobile_v3.api.routes import router as mobile_v3_router
+app.include_router(mobile_v3_router)
+from services.mobile_v3.api.mobile_home import router as mobile_home_router
+app.include_router(mobile_home_router)
+from services.mobile_v3.api.mobile_navigation import router as mobile_navigation_router
+app.include_router(mobile_navigation_router)
+from services.mobile_v3.api.mobile_rooms import router as mobile_rooms_router
+app.include_router(mobile_rooms_router)
+from services.mobile_v3.api.mobile_devices import router as mobile_devices_router
+app.include_router(mobile_devices_router)
+from services.mobile_v3.api.mobile_camera import router as mobile_camera_router
+app.include_router(mobile_camera_router)
+from services.mobile_v3.api.mobile_prayer import router as mobile_prayer_router
+app.include_router(mobile_prayer_router)
+from services.mobile_v3.api.mobile_halo import router as mobile_halo_router
+app.include_router(mobile_halo_router)
+
+# NOORBRAIN SPRINT 3 SMART HOME
+from services.smart_home_v3.routes import router as smart_home_v3_router
+app.include_router(smart_home_v3_router)

@@ -1,0 +1,55 @@
+{
+  "automation": {
+    "devices": {
+      "devices": [],
+      "schema_version": 1,
+      "updated_at": "2026-07-25T16:57:56.176128+00:00"
+    },
+    "esp32": {
+      "devices": [
+        {
+          "capabilities": [
+            "relay",
+            "temperature"
+          ],
+          "created_at": "2026-07-25T16:30:25.565770+00:00",
+          "firmware": "1.0.0",
+          "id": "esp32-smoke-test",
+          "ip_address": null,
+          "last_seen": "2026-07-25T16:30:25.580725+00:00",
+          "mac_address": null,
+          "metadata": {},
+          "name": "ESP32 Smoke Test",
+          "online": true,
+          "room": "Lab",
+          "temperature": 24.5,
+          "updated_at": "2026-07-25T16:30:25.580725+00:00"
+        }
+      ],
+      "schema_version": 1,
+      "updated_at": "2026-07-25T16:30:25.580725+00:00"
+    },
+    "groups": {
+      "groups": [],
+      "schema_version": 1,
+      "updated_at": "2026-07-25T16:57:56.150186+00:00"
+    },
+    "routines": {
+      "routines": [],
+      "schema_version": 1,
+      "updated_at": "2026-07-25T16:57:56.137925+00:00"
+    },
+    "rules": {
+      "rules": [],
+      "schema_version": 1,
+      "updated_at": "2026-07-25T16:30:25.621082+00:00"
+    },
+    "scenes": {
+      "scenes": [],
+      "schema_version": 1,
+      "updated_at": "2026-07-25T16:57:56.163487+00:00"
+    }
+  },
+  "exported_at": "2026-07-25T20:12:53.138143+00:00",
+  "schema_version": 1
+}

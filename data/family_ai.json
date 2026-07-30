@@ -7,6 +7,26 @@
       "language": "en",
       "voice_profile": null,
       "preferences": {}
+    },
+    {
+      "id": "p31-smoke-profile",
+      "name": "P31 Smoke Person",
+      "role": "family",
+      "language": "en",
+      "voice_profile": null,
+      "preferences": {},
+      "face_person_id": null
+    },
+    {
+      "id": "p32-smoke-profile",
+      "name": "P32 Smoke Person",
+      "role": "family",
+      "language": "en",
+      "voice_profile": null,
+      "preferences": {
+        "greeting_template": "Assalamu Alaikum {name}."
+      },
+      "face_person_id": null
     }
   ],
   "preferences": {}

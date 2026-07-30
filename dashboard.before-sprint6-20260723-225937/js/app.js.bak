@@ -1,0 +1,28 @@
+const $ = (selector) => document.querySelector(selector);
+const $$ = (selector) => [...document.querySelectorAll(selector)];
+const pageMeta = {
+  dashboard:['Dashboard','Live NoorBrain overview'], vision:['Vision','Camera and detection controls'], people:['People','Live detected people'], zones:['Zones','Draw and save zones'], timeline:['Timeline','Persistent event history'], halo:['HALO','Chat with NoorBrain'], settings:['Settings','Vision and system configuration']
+};
+let healthTimer, peopleTimer;
+
+function toast(message){const el=$('#toast');el.textContent=message;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2500)}
+async function api(path, options={}){const response=await fetch(path,{...options,headers:{'Content-Type':'application/json',...(options.headers||{})}});if(!response.ok)throw new Error(`${response.status} ${response.statusText}`);return response.json()}
+function showPage(name){$$('.page').forEach(p=>p.classList.remove('active'));$$('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.page===name));$(`#page-${name}`).classList.add('active');$('#pageTitle').textContent=pageMeta[name][0];$('#pageSubtitle').textContent=pageMeta[name][1];location.hash=name;if(name==='people')refreshPeople();if(name==='timeline')refreshTimeline();if(name==='settings')loadSettings()}
+$$('.nav-item').forEach(button=>button.addEventListener('click',()=>showPage(button.dataset.page)));$$('[data-open-page]').forEach(button=>button.addEventListener('click',()=>showPage(button.dataset.openPage)));
+
+async function refreshHealth(){try{const data=await api('/health');$('#backendDot').className='status-dot online';$('#backendText').textContent='Backend online';$('#camera').textContent=data.camera.connected?'Connected':'Disconnected';$('#camera').style.color=data.camera.connected?'var(--accent)':'var(--danger)';$('#persons').textContent=data.vision.persons??0;$('#fps').textContent=(data.vision.fps??0).toFixed(1);$('#currentZone').textContent=data.events.current_zone||'Empty';$('#streamBadge').textContent=data.vision.running?'Live':'Stopped'}catch(error){$('#backendDot').className='status-dot offline';$('#backendText').textContent='Backend offline';$('#camera').textContent='Disconnected'}}
+function eventText(e){if(e.event==='entered')return `Person entered ${e.zone}`;if(e.event==='left')return `Person left ${e.zone}`;if(e.event==='moved')return `Person moved ${e.source} → ${e.destination}`;return e.event}
+function renderEvents(target, events){target.innerHTML=events.length?events.map(e=>`<div class="event"><time>${e.display_time}</time>${eventText(e)}</div>`).join(''):'<div class="event">No events yet.</div>'}
+async function refreshDashboardEvents(){try{const data=await api('/events?limit=8');renderEvents($('#dashboardEvents'),data.events)}catch(e){}}
+async function refreshTimeline(){try{const data=await api('/events?limit=100');renderEvents($('#timeline'),data.events)}catch(e){toast('Timeline load failed')}}
+async function refreshPeople(){try{const data=await api('/detections');$('#peopleCount').textContent=data.count;$('#peopleTable').innerHTML=data.people.length?data.people.map((p,i)=>`<tr><td>${p.id??i+1}</td><td>${p.zone||'Unknown'}</td><td>${Math.round((p.confidence||0)*100)}%</td><td>${(p.box||[]).join(', ')}</td></tr>`).join(''):'<tr><td colspan="4">No people visible.</td></tr>'}catch(e){}}
+async function action(path,label){try{await api(path,{method:'POST'});toast(label);setTimeout(refreshHealth,500)}catch(e){toast(`Failed: ${e.message}`)}}
+$$('[data-action]').forEach(button=>button.addEventListener('click',()=>{const map={"vision-start":['/vision/start','Vision started'],"vision-stop":['/vision/stop','Vision stopped'],"vision-restart":['/vision/restart','Vision restarted'],"camera-reconnect":['/camera/reconnect','Camera reconnecting']};action(...map[button.dataset.action])}));
+$('#timelineRefresh').addEventListener('click',refreshTimeline);$('#refreshButton').addEventListener('click',()=>{refreshHealth();refreshDashboardEvents();refreshPeople()});
+
+$('#haloForm').addEventListener('submit',async event=>{event.preventDefault();const input=$('#haloInput'),message=input.value.trim();if(!message)return;const box=$('#chatMessages');box.insertAdjacentHTML('beforeend',`<div class="message user"></div>`);box.lastElementChild.textContent=message;input.value='';box.scrollTop=box.scrollHeight;const waiting=document.createElement('div');waiting.className='message halo';waiting.textContent='Thinking…';box.appendChild(waiting);try{const data=await api('/halo',{method:'POST',body:JSON.stringify({message})});waiting.textContent=data.reply||'No response.'}catch(e){waiting.textContent=`Error: ${e.message}`}box.scrollTop=box.scrollHeight});
+
+async function loadSettings(){try{const data=await api('/settings');$('#settingCameraUrl').textContent=data.camera_url;$('#settingModel').textContent=data.model;$('#confidenceSlider').value=data.confidence;$('#confidenceValue').textContent=Number(data.confidence).toFixed(2)}catch(e){}}
+$('#confidenceSlider').addEventListener('input',e=>$('#confidenceValue').textContent=Number(e.target.value).toFixed(2));$('#saveConfidence').addEventListener('click',async()=>{try{await api('/settings/confidence',{method:'POST',body:JSON.stringify({confidence:Number($('#confidenceSlider').value)})});toast('Confidence saved')}catch(e){toast('Save failed')}});
+
+const initial=(location.hash||'#dashboard').slice(1);showPage(pageMeta[initial]?initial:'dashboard');refreshHealth();refreshDashboardEvents();refreshPeople();healthTimer=setInterval(refreshHealth,1000);setInterval(refreshDashboardEvents,4000);peopleTimer=setInterval(()=>{if($('#page-people').classList.contains('active'))refreshPeople()},1500);

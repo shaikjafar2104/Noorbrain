@@ -1,0 +1,611 @@
+.nb-mobile-home-center {
+  display: grid;
+  gap: 16px;
+  width: min(100%, 760px);
+  margin: 0 auto;
+  padding: 14px 12px 105px;
+  color: #f7f9ff;
+  font-family: Inter, system-ui, sans-serif;
+}
+
+.nb-mobile-home-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.nb-mobile-home-header h1 {
+  margin: 3px 0;
+  font-size: 1.55rem;
+}
+
+.nb-mobile-home-header p {
+  margin: 0;
+  color: #9fb0c8;
+  font-size: .85rem;
+}
+
+.nb-mobile-greeting {
+  color: #83b9ff;
+  font-size: .72rem;
+  font-weight: 900;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.nb-mobile-profile {
+  width: 48px;
+  height: 48px;
+  border: 0;
+  border-radius: 50%;
+  background: linear-gradient(145deg,#55d6c0,#6877ff);
+  color: white;
+  font-size: 1.25rem;
+}
+
+.nb-mobile-hero,
+.nb-mobile-section {
+  padding: 16px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 22px;
+  background: linear-gradient(145deg,rgba(25,34,55,.97),rgba(12,18,33,.97));
+  box-shadow: 0 16px 45px rgba(0,0,0,.2);
+}
+
+.nb-mobile-halo-main {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  border: 0;
+  border-radius: 18px;
+  padding: 16px;
+  background: linear-gradient(135deg,rgba(80,117,255,.26),rgba(50,211,174,.13));
+  color: white;
+  text-align: left;
+}
+
+.nb-mobile-halo-orb {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%,#9eeeff,#6876ff 48%,#4b2cb8 78%);
+  font-size: 1.55rem;
+  box-shadow: 0 0 0 8px rgba(95,112,255,.1);
+}
+
+.nb-mobile-halo-main b {
+  display: block;
+  font-size: 1.05rem;
+}
+
+.nb-mobile-halo-main small {
+  display: block;
+  margin-top: 3px;
+  color: #b9c7da;
+}
+
+.nb-mobile-quick-grid,
+.nb-mobile-essential-grid {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.nb-mobile-quick-grid button,
+.nb-mobile-essential-grid button {
+  min-height: 88px;
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 16px;
+  background: rgba(255,255,255,.04);
+  color: white;
+  text-align: left;
+  padding: 13px;
+}
+
+.nb-mobile-quick-grid span,
+.nb-mobile-essential-grid span {
+  display: block;
+  font-size: 1.25rem;
+  margin-bottom: 7px;
+}
+
+.nb-mobile-essential-grid small {
+  display: block;
+  margin-top: 4px;
+  color: #9eacc1;
+}
+
+.nb-mobile-section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.nb-mobile-section-head span {
+  color: #83b9ff;
+  font-size: .66rem;
+  font-weight: 900;
+  letter-spacing: .11em;
+}
+
+.nb-mobile-section-head h2 {
+  margin: 3px 0 0;
+  font-size: 1.18rem;
+}
+
+.nb-mobile-section-head > button {
+  border: 0;
+  border-radius: 12px;
+  background: #273650;
+  color: white;
+  padding: 9px 12px;
+  font-weight: 800;
+}
+
+.nb-mobile-room-grid,
+.nb-mobile-device-grid {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.nb-mobile-room-card,
+.nb-mobile-device,
+.nb-mobile-empty-action {
+  min-height: 112px;
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 17px;
+  background: rgba(255,255,255,.035);
+  color: white;
+  padding: 14px;
+  text-align: left;
+}
+
+.nb-mobile-room-card span,
+.nb-mobile-device-icon {
+  display: block;
+  font-size: 1.35rem;
+  margin-bottom: 9px;
+}
+
+.nb-mobile-room-card b,
+.nb-mobile-device-name {
+  display: block;
+  font-weight: 850;
+}
+
+.nb-mobile-room-card small,
+.nb-mobile-device small {
+  display: block;
+  margin-top: 4px;
+  color: #9baac0;
+}
+
+.nb-mobile-device {
+  position: relative;
+}
+
+.nb-mobile-device.is-on {
+  border-color: rgba(86,226,188,.34);
+  background: linear-gradient(145deg,rgba(61,209,171,.18),rgba(86,107,255,.1));
+}
+
+.nb-mobile-device-state {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  color: #91a3bc;
+  font-size: .68rem;
+  font-weight: 900;
+}
+
+.nb-mobile-device.is-on .nb-mobile-device-state {
+  color: #7ce9c7;
+}
+
+.nb-mobile-empty-action {
+  grid-column: 1 / -1;
+  text-align: center;
+}
+
+.nb-mobile-empty-action span {
+  display: block;
+  font-size: 1.7rem;
+}
+
+.nb-mobile-empty-action small {
+  display: block;
+  margin-top: 5px;
+  color: #9aa9bf;
+}
+
+.nb-mobile-home-nav {
+  position: fixed;
+  left: 50%;
+  bottom: 10px;
+  z-index: 99990;
+  display: grid;
+  grid-template-columns: repeat(5,minmax(0,1fr));
+  width: min(720px,calc(100vw - 18px));
+  transform: translateX(-50%);
+  padding: 8px;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 20px;
+  background: rgba(15,23,40,.96);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 18px 45px rgba(0,0,0,.34);
+}
+
+.nb-mobile-home-nav button {
+  display: grid;
+  gap: 3px;
+  place-items: center;
+  min-width: 0;
+  border: 0;
+  border-radius: 13px;
+  background: transparent;
+  color: #8fa0b8;
+  padding: 8px 3px;
+}
+
+.nb-mobile-home-nav button.is-active {
+  background: rgba(103,121,255,.17);
+  color: white;
+}
+
+.nb-mobile-home-nav span {
+  font-size: 1rem;
+}
+
+.nb-mobile-home-nav b {
+  font-size: .67rem;
+}
+
+.nb-mobile-home-mode .mobile-nav {
+  display: none !important;
+}
+
+@media (min-width: 761px) {
+  .nb-mobile-home-center {
+    padding-top: 24px;
+  }
+
+  .nb-mobile-quick-grid {
+    grid-template-columns: repeat(4,minmax(0,1fr));
+  }
+
+  .nb-mobile-room-grid,
+  .nb-mobile-device-grid {
+    grid-template-columns: repeat(4,minmax(0,1fr));
+  }
+}
+
+
+#nb-home-dashboard{
+
+margin:18px;
+
+}
+
+.nb-home-grid{
+
+display:grid;
+
+grid-template-columns:repeat(3,1fr);
+
+gap:15px;
+
+}
+
+.nb-card{
+
+background:#162844;
+
+border-radius:18px;
+
+padding:18px;
+
+display:flex;
+
+flex-direction:column;
+
+align-items:center;
+
+justify-content:center;
+
+font-size:28px;
+
+font-weight:700;
+
+cursor:pointer;
+
+color:white;
+
+min-height:110px;
+
+transition:.2s;
+
+}
+
+.nb-card:hover{
+
+transform:translateY(-3px);
+
+}
+
+.nb-card span{
+
+font-size:14px;
+
+margin-top:8px;
+
+}
+
+
+
+#nb-system-status{
+
+display:flex;
+
+justify-content:space-around;
+
+padding:10px;
+
+background:#0e2238;
+
+margin:15px;
+
+border-radius:16px;
+
+font-weight:700;
+
+}
+
+#nb-bottom-nav{
+
+position:fixed;
+
+bottom:0;
+
+left:0;
+
+right:0;
+
+display:grid;
+
+grid-template-columns:repeat(5,1fr);
+
+background:#081421;
+
+padding:12px;
+
+}
+
+#nb-bottom-nav button{
+
+background:none;
+
+border:0;
+
+color:white;
+
+font-size:24px;
+
+}
+
+.nb-device-online{
+
+color:#28d17c;
+
+}
+
+
+
+#nb-live-camera-card{
+
+background:#163355;
+
+border-radius:20px;
+
+padding:15px;
+
+margin-bottom:12px;
+
+}
+
+#nb-camera-online{
+
+display:inline-block;
+
+margin-top:10px;
+
+padding:6px 12px;
+
+background:#1cb56f;
+
+border-radius:999px;
+
+font-weight:700;
+
+}
+
+
+
+#nb-room-grid{
+
+display:grid;
+
+grid-template-columns:repeat(2,1fr);
+
+gap:14px;
+
+margin:18px;
+
+}
+
+.nb-room{
+
+background:#18355a;
+
+padding:18px;
+
+border-radius:18px;
+
+text-align:center;
+
+font-weight:700;
+
+cursor:pointer;
+
+transition:.2s;
+
+}
+
+.nb-room:hover{
+
+transform:scale(1.03);
+
+}
+
+
+
+#nb-quick-camera{
+
+margin:18px;
+
+padding:18px;
+
+border-radius:20px;
+
+background:#172b47;
+
+}
+
+.nb-card-header{
+
+display:flex;
+
+justify-content:space-between;
+
+align-items:center;
+
+margin-bottom:12px;
+
+}
+
+.nb-camera-actions{
+
+display:flex;
+
+gap:10px;
+
+margin-top:12px;
+
+}
+
+.nb-camera-actions button,
+
+.nb-card-header button{
+
+border:0;
+
+padding:10px 14px;
+
+border-radius:12px;
+
+cursor:pointer;
+
+}
+
+
+
+#nbControlCenter{
+display:grid;
+grid-template-columns:repeat(3,1fr);
+gap:12px;
+margin:18px;
+}
+
+#nbControlCenter button{
+height:74px;
+border:0;
+border-radius:18px;
+font-weight:700;
+cursor:pointer;
+}
+
+
+
+#nbQuickStatus{
+
+display:grid;
+
+grid-template-columns:repeat(4,1fr);
+
+gap:10px;
+
+margin:18px;
+
+}
+
+.nbStatus{
+
+background:#18345d;
+
+padding:12px;
+
+border-radius:16px;
+
+text-align:center;
+
+font-weight:700;
+
+font-size:13px;
+
+}
+
+
+
+#nbQuickActions{
+
+display:grid;
+
+grid-template-columns:repeat(4,1fr);
+
+gap:12px;
+
+margin:18px;
+
+}
+
+#nbQuickActions button{
+
+height:70px;
+
+border:0;
+
+border-radius:16px;
+
+background:#1c3558;
+
+color:#fff;
+
+font-weight:700;
+
+cursor:pointer;
+
+}
+
+#nbQuickActions button:hover{
+
+filter:brightness(1.08);
+
+}
+

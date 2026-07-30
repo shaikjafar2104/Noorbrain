@@ -1,0 +1,68 @@
+{
+  "status": "passed",
+  "passed": 10,
+  "total": 10,
+  "generated_at": "2026-07-24T20:07:04.726157+00:00",
+  "checks": [
+    {
+      "name": "/health",
+      "passed": true,
+      "detail": "HTTP 200, valid JSON",
+      "latency_ms": 122.19
+    },
+    {
+      "name": "/api/memory/health",
+      "passed": true,
+      "detail": "HTTP 200, valid JSON",
+      "latency_ms": 52.22
+    },
+    {
+      "name": "/api/intelligence/health",
+      "passed": true,
+      "detail": "HTTP 200, valid JSON",
+      "latency_ms": 44.11
+    },
+    {
+      "name": "/api/scene/health",
+      "passed": true,
+      "detail": "HTTP 200, valid JSON",
+      "latency_ms": 27.43
+    },
+    {
+      "name": "/api/decision/health",
+      "passed": true,
+      "detail": "HTTP 200, valid JSON",
+      "latency_ms": 30.55
+    },
+    {
+      "name": "/api/system/health",
+      "passed": true,
+      "detail": "HTTP 200, valid JSON",
+      "latency_ms": 56.8
+    },
+    {
+      "name": "/api/operations/health",
+      "passed": true,
+      "detail": "HTTP 200, valid JSON",
+      "latency_ms": 50.28
+    },
+    {
+      "name": "dashboard/index.html",
+      "passed": true,
+      "detail": "path=/home/jshome/Projects/NoorBrain/dashboard/index.html, bytes=11472",
+      "latency_ms": null
+    },
+    {
+      "name": "database",
+      "passed": true,
+      "detail": "path=/home/jshome/Projects/NoorBrain/noorbrain.db, bytes=978944",
+      "latency_ms": null
+    },
+    {
+      "name": "main.py",
+      "passed": true,
+      "detail": "path=/home/jshome/Projects/NoorBrain/main.py, bytes=20267",
+      "latency_ms": null
+    }
+  ]
+}

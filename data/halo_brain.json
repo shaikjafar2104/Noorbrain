@@ -104,6 +104,19 @@
       "person_id": "smoke-person",
       "value": "testing is complete",
       "zone": "Hall"
+    },
+    {
+      "created_at": "2026-07-28T20:36:14.402205+00:00",
+      "id": "a5595937d0e74952a7eedabc05a2780e",
+      "importance": 0.5,
+      "kind": "personalized_greeting",
+      "metadata": {
+        "period": "afternoon",
+        "profile_id": "p32-smoke-profile"
+      },
+      "person_id": "39ae3d1729494932ba7e0afcebc8e697",
+      "value": "Assalamu Alaikum P32 Smoke Person. Asr prayer is in 48 minute(s).",
+      "zone": "Hall"
     }
   ],
   "schema_version": 1,
