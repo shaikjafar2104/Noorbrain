@@ -30,3 +30,13 @@ backups/
 __pycache__/
 *.pyc
 *.log
+
+# NoorBrain generated/runtime files
+*.tar.gz
+*.mjpg
+*.zip
+*.bak
+*.db-shm
+*.db-wal
+dashboard.before-*/
+backups/

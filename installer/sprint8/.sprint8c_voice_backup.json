@@ -1,0 +1,9 @@
+{
+  "version": "8.3.0",
+  "backup": "/home/jshome/Projects/NoorBrain/backups/sprint8c-voice-stability-20260731-151905",
+  "files": [
+    "dashboard/mobile/index.html",
+    "dashboard/index.html",
+    "dashboard/pwa/sw.js"
+  ]
+}

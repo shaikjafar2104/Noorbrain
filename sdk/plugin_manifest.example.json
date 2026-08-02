@@ -1,0 +1,9 @@
+{
+  "id": "example-plugin",
+  "name": "Example Plugin",
+  "version": "1.0.0",
+  "permissions": [
+    "read_devices"
+  ],
+  "entrypoint": "plugin.py"
+}

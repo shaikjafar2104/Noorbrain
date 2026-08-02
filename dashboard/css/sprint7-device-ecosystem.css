@@ -1,0 +1,260 @@
+.nbs7-panel {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.nbs7-card {
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 20px;
+  background: linear-gradient(145deg,rgba(24,34,55,.98),rgba(12,18,32,.98));
+  padding: 15px;
+}
+
+.nbs7-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.nbs7-head small {
+  color: #8fd4ff;
+  font-size: .66rem;
+  font-weight: 900;
+  letter-spacing: .12em;
+}
+
+.nbs7-head h2 {
+  margin: 3px 0 0;
+}
+
+.nbs7-actions {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.nbs7-button {
+  border: 0;
+  border-radius: 11px;
+  background: #273650;
+  color: #fff;
+  padding: 9px 11px;
+  font-weight: 800;
+  touch-action: manipulation;
+}
+
+.nbs7-button.primary {
+  background: #6377ff;
+}
+
+.nbs7-button.danger {
+  background: rgba(239,68,68,.18);
+  color: #ffaaaa;
+}
+
+.nbs7-hero {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+  margin-top: 12px;
+  border-radius: 17px;
+  background: linear-gradient(135deg,rgba(99,119,255,.22),rgba(65,209,180,.10));
+  padding: 15px;
+}
+
+.nbs7-hero h3 {
+  margin: 4px 0;
+  font-size: 1.25rem;
+}
+
+.nbs7-badge {
+  border-radius: 999px;
+  background: rgba(66,224,173,.15);
+  color: #82eacb;
+  padding: 8px 11px;
+  font-size: .72rem;
+  font-weight: 900;
+}
+
+.nbs7-grid {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 9px;
+  margin-top: 12px;
+}
+
+.nbs7-candidate,
+.nbs7-device,
+.nbs7-empty,
+.nbs7-setting {
+  position: relative;
+  min-width: 0;
+  min-height: 110px;
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 16px;
+  background: rgba(255,255,255,.035);
+  color: #fff;
+  padding: 13px;
+  text-align: left;
+}
+
+.nbs7-candidate span,
+.nbs7-device span {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 1.2rem;
+}
+
+.nbs7-candidate b,
+.nbs7-device b {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nbs7-candidate small,
+.nbs7-device small {
+  display: block;
+  margin-top: 5px;
+  color: #9eacc1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nbs7-device.online {
+  border-color: rgba(66,224,173,.35);
+}
+
+.nbs7-device.offline {
+  border-color: rgba(239,68,68,.28);
+}
+
+.nbs7-state {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  font-size: .68rem;
+  font-weight: 900;
+}
+
+.nbs7-state.online {
+  color: #7ce9c7;
+}
+
+.nbs7-state.offline {
+  color: #ff9d9d;
+}
+
+.nbs7-card-actions {
+  display: flex;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.nbs7-card-actions button {
+  flex: 1;
+  min-width: 0;
+}
+
+.nbs7-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+}
+
+.nbs7-settings {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 9px;
+  margin-top: 12px;
+}
+
+.nbs7-settings label {
+  display: grid;
+  gap: 6px;
+  color: #9eacc0;
+  font-size: .75rem;
+  font-weight: 700;
+}
+
+.nbs7-settings input,
+.nbs7-settings select {
+  width: 100%;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 11px;
+  background: #091221;
+  color: #fff;
+  padding: 10px;
+}
+
+.nbs7-status {
+  margin-top: 10px;
+  border-radius: 12px;
+  background: #091221;
+  color: #aab8cb;
+  padding: 10px;
+  font-size: .78rem;
+}
+
+.nbs7-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000004;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(3,7,15,.84);
+}
+
+.nbs7-modal[hidden] {
+  display: none;
+}
+
+.nbs7-modal-card {
+  width: min(540px,100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: 22px;
+  background: #131d31;
+  padding: 20px;
+}
+
+.nbs7-modal-card label {
+  display: grid;
+  gap: 6px;
+  margin-top: 11px;
+  color: #aebbd0;
+  font-size: .8rem;
+  font-weight: 700;
+}
+
+.nbs7-modal-card input,
+.nbs7-modal-card select {
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 11px;
+  background: #0b1323;
+  color: #fff;
+  padding: 11px;
+}
+
+.nbs7-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 17px;
+}
+
+@media (min-width: 700px) {
+  .nbs7-grid {
+    grid-template-columns: repeat(3,minmax(0,1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .nbs7-hero,
+  .nbs7-settings {
+    grid-template-columns: 1fr;
+  }
+}

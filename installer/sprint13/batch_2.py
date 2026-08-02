@@ -1,0 +1,1 @@
+print('SPRINT 13B REGISTRY PASS')

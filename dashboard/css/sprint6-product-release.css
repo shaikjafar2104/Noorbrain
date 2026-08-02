@@ -1,0 +1,208 @@
+.nbs6-panel {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.nbs6-card {
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 20px;
+  background: linear-gradient(145deg,rgba(24,34,55,.98),rgba(12,18,32,.98));
+  padding: 15px;
+}
+
+.nbs6-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.nbs6-head small {
+  color: #f6c96a;
+  font-size: .66rem;
+  font-weight: 900;
+  letter-spacing: .12em;
+}
+
+.nbs6-head h2 {
+  margin: 3px 0 0;
+}
+
+.nbs6-actions {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.nbs6-button {
+  border: 0;
+  border-radius: 11px;
+  background: #273650;
+  color: #fff;
+  padding: 9px 11px;
+  font-weight: 800;
+  touch-action: manipulation;
+}
+
+.nbs6-button.primary {
+  background: #6377ff;
+}
+
+.nbs6-button.danger {
+  background: rgba(239,68,68,.18);
+  color: #ffaaaa;
+}
+
+.nbs6-release-banner {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+  margin-top: 12px;
+  border-radius: 17px;
+  background: linear-gradient(135deg,rgba(99,119,255,.22),rgba(246,201,106,.11));
+  padding: 15px;
+}
+
+.nbs6-release-banner h3 {
+  margin: 4px 0;
+  font-size: 1.3rem;
+}
+
+.nbs6-release-badge {
+  border-radius: 999px;
+  background: rgba(66,224,173,.15);
+  color: #82eacb;
+  padding: 8px 11px;
+  font-size: .72rem;
+  font-weight: 900;
+}
+
+.nbs6-grid {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 9px;
+  margin-top: 12px;
+}
+
+.nbs6-metric,
+.nbs6-check,
+.nbs6-backup,
+.nbs6-empty {
+  min-width: 0;
+  border-radius: 15px;
+  background: rgba(255,255,255,.035);
+  padding: 12px;
+}
+
+.nbs6-metric span,
+.nbs6-check span {
+  display: block;
+  color: #98a8bf;
+  font-size: .68rem;
+}
+
+.nbs6-metric b,
+.nbs6-check b {
+  display: block;
+  margin-top: 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nbs6-check.ok b {
+  color: #7ce9c7;
+}
+
+.nbs6-check.bad b {
+  color: #ff9d9d;
+}
+
+.nbs6-settings {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 9px;
+  margin-top: 12px;
+}
+
+.nbs6-settings label {
+  display: grid;
+  gap: 6px;
+  color: #9eacc0;
+  font-size: .75rem;
+  font-weight: 700;
+}
+
+.nbs6-settings select {
+  width: 100%;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 11px;
+  background: #091221;
+  color: #fff;
+  padding: 10px;
+}
+
+.nbs6-backup-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.nbs6-backup {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 9px;
+  align-items: center;
+}
+
+.nbs6-backup b,
+.nbs6-backup small {
+  display: block;
+}
+
+.nbs6-backup small {
+  margin-top: 4px;
+  color: #9eacc1;
+}
+
+.nbs6-status {
+  margin-top: 10px;
+  border-radius: 12px;
+  background: #091221;
+  color: #aab8cb;
+  padding: 10px;
+  font-size: .78rem;
+}
+
+body.nbs6-compact .nbv2-module-grid button,
+body.nbs6-compact .nbv2-status-grid article,
+body.nbs6-compact .nbs2-card,
+body.nbs6-compact .nbs3-card,
+body.nbs6-compact .nbs4-card,
+body.nbs6-compact .nbs5-card {
+  min-height: 0 !important;
+  padding: 10px !important;
+}
+
+body.nbs6-no-animations *,
+body.nbs6-no-animations *::before,
+body.nbs6-no-animations *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+
+@media (min-width: 700px) {
+  .nbs6-grid {
+    grid-template-columns: repeat(4,minmax(0,1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .nbs6-release-banner,
+  .nbs6-settings,
+  .nbs6-backup {
+    grid-template-columns: 1fr;
+  }
+}

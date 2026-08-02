@@ -1021,3 +1021,80 @@ app.include_router(mobile_halo_router)
 # NOORBRAIN SPRINT 3 SMART HOME
 from services.smart_home_v3.routes import router as smart_home_v3_router
 app.include_router(smart_home_v3_router)
+
+# NOORBRAIN SPRINT 4 HALO AI
+from services.halo_ai_v4.routes import router as halo_ai_v4_router
+app.include_router(halo_ai_v4_router)
+
+# NOORBRAIN SPRINT 5 ISLAMIC CENTER
+from services.islamic_center_v5.routes import router as islamic_center_v5_router
+app.include_router(islamic_center_v5_router)
+
+# NOORBRAIN SPRINT 6 PRODUCT RELEASE
+from services.product_release_v6.routes import router as product_release_v6_router
+app.include_router(product_release_v6_router)
+
+# NOORBRAIN SPRINT 7 DEVICE ECOSYSTEM
+from services.device_ecosystem_v7.routes import router as device_ecosystem_v7_router
+app.include_router(device_ecosystem_v7_router)
+
+# NOORBRAIN SPRINT 8A.1 DECISION ENGINE
+from services.halo_decision_v8.routes import router as halo_decision_v8_router
+app.include_router(halo_decision_v8_router)
+
+
+# NOORBRAIN SPRINT 8B ROUTINE INTELLIGENCE
+from services.routine_intelligence_v8.routes import router as routine_intelligence_v8_router
+app.include_router(routine_intelligence_v8_router)
+
+# NOORBRAIN SPRINT 8D.1 CONVERSATION MEMORY
+from services.halo_conversation_memory_v8.routes import router as halo_conversation_memory_v8_router
+app.include_router(halo_conversation_memory_v8_router)
+
+# NOORBRAIN SPRINT 8D.2 VOICE CONTEXT
+from services.halo_voice_context_v8.routes import router as halo_voice_context_v8_router
+app.include_router(halo_voice_context_v8_router)
+
+# NOORBRAIN SPRINT 8E.1 AI DASHBOARD
+from services.ai_control_center_v8.routes import router as ai_control_center_v8_router
+app.include_router(ai_control_center_v8_router)
+
+# NOORBRAIN SPRINT 8 PRODUCTION RELEASE
+from services.sprint8_release.routes import router as sprint8_release_router
+app.include_router(sprint8_release_router)
+
+# NOORBRAIN SPRINT 9A.1 UNIVERSAL VOICE GATEWAY
+from services.universal_voice_gateway_v9.routes import router as universal_voice_gateway_v9_router
+app.include_router(universal_voice_gateway_v9_router)
+
+# NOORBRAIN SPRINT 9 VOICE PLATFORM
+from services.voice_platform_v9.routes import router as voice_platform_v9_router
+app.include_router(voice_platform_v9_router)
+
+# NOORBRAIN SPRINT 10 WHOLE HOME
+from services.whole_home_v10.routes import router as whole_home_v10_router
+app.include_router(whole_home_v10_router)
+
+# NOORBRAIN SPRINT 11 FAMILY INTELLIGENCE
+from services.family_intelligence_v11.routes import router as family_intelligence_v11_router
+app.include_router(family_intelligence_v11_router)
+
+# SPRINT 12
+from services.islamic_intelligence_v12.routes import router as islamic_intelligence_v12_router
+app.include_router(islamic_intelligence_v12_router)
+
+# SPRINT 13
+from services.plugin_platform_v13.routes import router as plugin_platform_v13_router
+app.include_router(plugin_platform_v13_router)
+
+# NOORBRAIN PRODUCTION RELEASE V14
+from services.platform_release_v14.routes import router as platform_release_v14_router
+app.include_router(platform_release_v14_router)
+
+# DUAL AUDIO V15
+from services.dual_audio_v15.routes import router as dual_audio_v15_router
+app.include_router(dual_audio_v15_router)
+
+# UNIFIED AUDIO CAMERA RULES
+from services.audio_camera_rules_v15.routes import router as audio_camera_rules_v15_router
+app.include_router(audio_camera_rules_v15_router)

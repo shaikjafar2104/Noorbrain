@@ -71,3 +71,8 @@ self.addEventListener("fetch", event => {
       .then(cached => cached || fetch(request))
   );
 });
+
+self.addEventListener("install", event => {
+  event.waitUntil(caches.open("noorbrain-sprint8c2-startup-silence-v1")
+    .then(cache => cache.add("/dashboard-static/js/sprint8c-voice-repeat-guard.js?v=20260801-2")));
+});
