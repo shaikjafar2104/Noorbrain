@@ -1,0 +1,43 @@
+[data-nb-final-mic="true"] {
+  cursor: pointer !important;
+}
+
+[data-nb-final-mic="true"] b {
+  display: block;
+  font-size: .68rem;
+  margin-top: 3px;
+}
+
+.nb-halo-final-recording
+[data-nb-final-mic="true"] {
+  background:
+    linear-gradient(
+      145deg,
+      #ff5f68,
+      #a43cff
+    ) !important;
+  color: #fff !important;
+  animation:
+    nbHaloFinalPulse
+    1s infinite;
+}
+
+[data-voice-mode="error"] {
+  color: #ffaaaa !important;
+}
+
+[data-voice-mode="listening"] {
+  color: #84efd0 !important;
+}
+
+[data-voice-mode="thinking"] {
+  color: #9fc8ff !important;
+}
+
+@keyframes nbHaloFinalPulse {
+  50% {
+    box-shadow:
+      0 0 0 13px
+      rgba(255, 95, 104, .08);
+  }
+}

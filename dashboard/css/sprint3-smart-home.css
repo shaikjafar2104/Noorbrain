@@ -1,0 +1,185 @@
+.nbs3-panel {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.nbs3-card {
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 20px;
+  background: linear-gradient(145deg,rgba(24,34,55,.98),rgba(12,18,32,.98));
+  padding: 15px;
+}
+
+.nbs3-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.nbs3-head small {
+  color: #8ab7ff;
+  font-size: .66rem;
+  font-weight: 900;
+  letter-spacing: .12em;
+}
+
+.nbs3-head h2 {
+  margin: 3px 0 0;
+}
+
+.nbs3-actions {
+  display: flex;
+  gap: 7px;
+}
+
+.nbs3-button {
+  border: 0;
+  border-radius: 11px;
+  background: #273650;
+  color: #fff;
+  padding: 9px 11px;
+  font-weight: 800;
+  touch-action: manipulation;
+}
+
+.nbs3-button.primary {
+  background: #6377ff;
+}
+
+.nbs3-room-grid,
+.nbs3-device-grid,
+.nbs3-scene-grid {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.nbs3-room,
+.nbs3-device,
+.nbs3-scene,
+.nbs3-empty {
+  position: relative;
+  min-height: 104px;
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 17px;
+  background: rgba(255,255,255,.035);
+  color: #fff;
+  padding: 14px;
+  text-align: left;
+}
+
+.nbs3-room span,
+.nbs3-device > span,
+.nbs3-scene span {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 1.25rem;
+}
+
+.nbs3-room small,
+.nbs3-device small,
+.nbs3-scene small {
+  display: block;
+  margin-top: 5px;
+  color: #9eacc1;
+}
+
+.nbs3-device.on {
+  border-color: rgba(66,224,173,.38);
+  background: linear-gradient(145deg,rgba(61,209,171,.18),rgba(86,107,255,.1));
+}
+
+.nbs3-device-state {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  font-size: .68rem;
+  font-weight: 900;
+}
+
+.nbs3-device-favorite {
+  position: absolute;
+  right: 9px;
+  bottom: 9px;
+  border: 0;
+  background: transparent;
+  color: #ffd76a;
+  font-size: 1rem;
+}
+
+.nbs3-device-offline {
+  color: #ff9d9d !important;
+}
+
+.nbs3-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+}
+
+.nbs3-status {
+  margin-top: 10px;
+  border-radius: 12px;
+  background: #091221;
+  color: #aab8cb;
+  padding: 10px;
+  font-size: .78rem;
+}
+
+.nbs3-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000002;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(3,7,15,.82);
+}
+
+.nbs3-modal[hidden] {
+  display: none;
+}
+
+.nbs3-modal-card {
+  width: min(520px,100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: 22px;
+  background: #131d31;
+  padding: 20px;
+}
+
+.nbs3-modal-card label {
+  display: grid;
+  gap: 6px;
+  margin-top: 11px;
+  color: #aebbd0;
+  font-size: .8rem;
+  font-weight: 700;
+}
+
+.nbs3-modal-card input,
+.nbs3-modal-card select {
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 11px;
+  background: #0b1323;
+  color: #fff;
+  padding: 11px;
+}
+
+.nbs3-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 17px;
+}
+
+@media (min-width: 700px) {
+  .nbs3-room-grid,
+  .nbs3-device-grid,
+  .nbs3-scene-grid {
+    grid-template-columns: repeat(4,minmax(0,1fr));
+  }
+}

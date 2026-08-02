@@ -1,0 +1,237 @@
+.nb-mobile-home-center {
+  overflow: visible !important;
+}
+
+.nb-mobile-camera-card {
+  position: relative;
+  z-index: 4;
+  padding: 16px;
+  border: 1px solid
+    rgba(255,255,255,.08);
+  border-radius: 22px;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(25,34,55,.98),
+      rgba(12,18,33,.98)
+    );
+  box-shadow:
+    0 16px 45px
+    rgba(0,0,0,.2);
+  pointer-events: auto;
+}
+
+.nb-mobile-camera-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.nb-mobile-camera-head span {
+  color: #83b9ff;
+  font-size: .66rem;
+  font-weight: 900;
+  letter-spacing: .11em;
+}
+
+.nb-mobile-camera-head h2 {
+  margin: 3px 0 0;
+  font-size: 1.2rem;
+}
+
+.nb-mobile-camera-head p {
+  margin: 4px 0 0;
+  color: #9fb0c8;
+  font-size: .8rem;
+}
+
+.nb-mobile-camera-head button,
+.nb-mobile-camera-actions button {
+  position: relative;
+  z-index: 8;
+  border: 0;
+  border-radius: 12px;
+  background: #273650;
+  color: white;
+  padding: 10px 12px;
+  font-weight: 800;
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+.nb-mobile-camera-shell {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 18px;
+  background: #070d18;
+}
+
+.nb-mobile-camera-shell img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.nb-mobile-camera-placeholder {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  width: 100%;
+  height: 100%;
+  color: #a5b3c8;
+  text-align: center;
+}
+
+.nb-mobile-camera-placeholder[hidden] {
+  display: none;
+}
+
+.nb-mobile-camera-placeholder span {
+  font-size: 2rem;
+}
+
+.nb-mobile-camera-placeholder b {
+  margin-top: 7px;
+  color: #edf3ff;
+}
+
+.nb-mobile-camera-placeholder small {
+  margin-top: 5px;
+}
+
+.nb-mobile-camera-live {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 6px 9px;
+  background: rgba(7,13,24,.72);
+  color: white;
+  font-size: .66rem;
+  font-weight: 900;
+  backdrop-filter: blur(9px);
+}
+
+.nb-mobile-camera-live i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #42e0ad;
+  box-shadow:
+    0 0 0 4px
+    rgba(66,224,173,.12);
+}
+
+.nb-mobile-camera-actions {
+  display: grid;
+  grid-template-columns:
+    repeat(3,minmax(0,1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.nb-mobile-camera-actions button {
+  min-width: 0;
+  font-size: .76rem;
+}
+
+.nb-camera-expanded {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 1000000 !important;
+  border-radius: 0 !important;
+  background: #000 !important;
+}
+
+.nb-camera-expanded img {
+  object-fit: contain !important;
+}
+
+.nb-mobile-room-card,
+.nb-mobile-device,
+.nb-mobile-empty-action,
+.nb-mobile-essential-grid button,
+.nb-mobile-quick-grid button,
+.nb-mobile-home-nav button,
+.nb-mobile-halo-main {
+  position: relative;
+  z-index: 6;
+  pointer-events: auto !important;
+  touch-action: manipulation;
+}
+
+.nb-mobile-room-card {
+  display: grid !important;
+  align-content: start;
+  gap: 5px;
+}
+
+.nb-mobile-room-card span,
+.nb-mobile-room-card b,
+.nb-mobile-room-card small {
+  position: static !important;
+  display: block !important;
+  margin: 0 !important;
+}
+
+.nb-mobile-room-card span {
+  margin-bottom: 5px !important;
+}
+
+.nb-mobile-essential-grid button {
+  display: grid !important;
+  align-content: start;
+  gap: 4px;
+}
+
+.nb-mobile-essential-grid button span,
+.nb-mobile-essential-grid button b,
+.nb-mobile-essential-grid button small {
+  display: block !important;
+  position: static !important;
+  margin: 0 !important;
+}
+
+.nb-mobile-essential-grid button span {
+  margin-bottom: 5px !important;
+}
+
+.nb-mobile-home-nav {
+  z-index: 999990 !important;
+  pointer-events: auto !important;
+}
+
+.nb-mobile-home-nav::before,
+.nb-mobile-home-nav::after {
+  pointer-events: none !important;
+}
+
+@media (max-width: 520px) {
+  .nb-mobile-camera-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .nb-mobile-camera-actions button {
+    min-height: 44px;
+  }
+
+  .nb-mobile-room-grid,
+  .nb-mobile-device-grid {
+    grid-template-columns:
+      repeat(2,minmax(0,1fr));
+  }
+
+  .nb-mobile-room-card,
+  .nb-mobile-device {
+    min-height: 126px;
+  }
+}

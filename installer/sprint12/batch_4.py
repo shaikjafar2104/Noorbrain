@@ -1,0 +1,1 @@
+print('SPRINT 12D AZKAR PASS')

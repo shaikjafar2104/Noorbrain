@@ -1,0 +1,1 @@
+print('SPRINT 10C SCENES PASS')

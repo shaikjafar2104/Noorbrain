@@ -1,0 +1,54 @@
+.nb-hidden-halo {
+  display: none !important;
+}
+
+[data-nb-primary-halo="true"],
+[data-nb-halo-proxy="true"],
+.nb-mobile-home-nav button,
+.nb-mobile-room-card,
+.nb-mobile-device,
+.nb-mobile-essential-grid button,
+.nb-mobile-quick-grid button,
+.nb-mobile-section-head button {
+  pointer-events: auto !important;
+  touch-action: manipulation !important;
+  position: relative !important;
+  z-index: 10 !important;
+}
+
+.nb-mobile-home-center,
+.nb-mobile-home-center *,
+.nb-mobile-camera-card,
+.nb-mobile-camera-card *,
+.nb-mobile-home-nav,
+.nb-mobile-home-nav * {
+  pointer-events: auto;
+}
+
+.nb-mobile-home-center::before,
+.nb-mobile-home-center::after,
+.nb-mobile-section::before,
+.nb-mobile-section::after,
+.nb-mobile-hero::before,
+.nb-mobile-hero::after {
+  pointer-events: none !important;
+}
+
+.nb-mobile-home-nav {
+  z-index: 999999 !important;
+}
+
+.nb-mobile-halo-main {
+  display: flex !important;
+}
+
+.nb-mobile-profile[data-nb-halo-proxy="true"],
+.nb-mobile-home-nav [data-action="halo"] {
+  display: grid !important;
+}
+
+@media (max-width: 700px) {
+  .nb-mobile-home-center {
+    padding-bottom: 112px !important;
+  }
+}

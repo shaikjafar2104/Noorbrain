@@ -1,0 +1,8 @@
+.nb-production-hidden {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+body.nb-production-ui [data-nb-production-reason="developer-sprint-label"] {
+  display: none !important;
+}

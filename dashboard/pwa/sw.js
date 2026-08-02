@@ -1,1 +1,78 @@
-const CACHE="noorbrain-mobile-v2";const SHELL=["/mobile","/dashboard-static/css/noorbrain-mobile.css?v=1","/dashboard-static/js/noorbrain-mobile.js?v=1","/dashboard-pwa/manifest.webmanifest","/dashboard-pwa/icons/icon-192.png","/dashboard-pwa/icons/icon-512.png"];self.addEventListener("install",e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)));self.skipWaiting()});self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));self.addEventListener("fetch",e=>{if(e.request.method!=="GET")return;const u=new URL(e.request.url);if(u.pathname.startsWith("/api/")){e.respondWith(fetch(e.request).catch(()=>new Response(JSON.stringify({status:"offline"}),{status:503,headers:{"Content-Type":"application/json"}})));return}e.respondWith(caches.match(e.request).then(cached=>{const network=fetch(e.request).then(r=>{const copy=r.clone();caches.open(CACHE).then(c=>c.put(e.request,copy));return r});return cached||network}))});
+const CACHE_NAME = "noorbrain-halo-mic-final-v3";
+
+const CORE = [
+  "/mobile",
+  "/studio",
+  "/dashboard-static/js/halo-mic-final-fix.js?v=20260729-4",
+  "/dashboard-static/css/halo-mic-final-fix.css?v=20260729-4"
+];
+
+self.addEventListener("install", event => {
+  self.skipWaiting();
+
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(CORE))
+      .catch(() => undefined)
+  );
+});
+
+self.addEventListener("activate", event => {
+  event.waitUntil(
+    caches.keys()
+      .then(keys =>
+        Promise.all(
+          keys
+            .filter(key => key !== CACHE_NAME)
+            .map(key => caches.delete(key))
+        )
+      )
+      .then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener("fetch", event => {
+  const request = event.request;
+  const url = new URL(request.url);
+
+  if (request.method !== "GET") {
+    return;
+  }
+
+  if (
+    url.pathname.startsWith("/api/")
+    || url.pathname === "/halo"
+  ) {
+    event.respondWith(fetch(request));
+    return;
+  }
+
+  if (
+    url.pathname.endsWith(".js")
+    || url.pathname.endsWith(".css")
+    || url.pathname === "/studio"
+    || url.pathname === "/mobile"
+  ) {
+    event.respondWith(
+      fetch(request, { cache: "no-store" })
+        .then(response => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME)
+            .then(cache => cache.put(request, copy));
+          return response;
+        })
+        .catch(() => caches.match(request))
+    );
+    return;
+  }
+
+  event.respondWith(
+    caches.match(request)
+      .then(cached => cached || fetch(request))
+  );
+});
+
+self.addEventListener("install", event => {
+  event.waitUntil(caches.open("noorbrain-sprint8c2-startup-silence-v1")
+    .then(cache => cache.add("/dashboard-static/js/sprint8c-voice-repeat-guard.js?v=20260801-2")));
+});

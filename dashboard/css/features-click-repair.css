@@ -1,0 +1,25 @@
+#nbUhMenu [data-nb-feature],
+#nbUhClose {
+  position: relative;
+  z-index: 5;
+  pointer-events: auto !important;
+  touch-action: manipulation;
+  cursor: pointer;
+  user-select: none;
+}
+
+#nbUhStage[hidden],
+#nbUhMenu[hidden],
+#nbUhClose[hidden],
+.nb-unified-panel[hidden] {
+  display: none !important;
+}
+
+.nb-feature-repair-notice {
+  padding: 28px;
+  border: 1px dashed #3b4d6b;
+  border-radius: 15px;
+  color: #a8b5ca;
+  text-align: center;
+  background: #172238;
+}

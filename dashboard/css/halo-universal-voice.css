@@ -1,0 +1,99 @@
+.nb-universal-voice-panel {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 0 16px;
+  padding: 14px;
+  border: 1px solid rgba(93,231,191,.22);
+  border-radius: 18px;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(34,177,140,.12),
+      rgba(84,108,255,.09)
+    );
+  color: #f7f9ff;
+}
+
+.nb-universal-voice-panel p {
+  margin: 4px 0 0;
+  color: #aebbd0;
+  font-size: .84rem;
+}
+
+.nb-universal-mic {
+  display: grid;
+  place-items: center;
+  min-width: 96px;
+  min-height: 72px;
+  border: 0;
+  border-radius: 17px;
+  background:
+    linear-gradient(
+      145deg,
+      #45d6ad,
+      #5b77ff
+    );
+  color: white;
+  cursor: pointer;
+  box-shadow:
+    0 12px 30px
+    rgba(49,165,184,.25);
+}
+
+.nb-universal-mic span {
+  font-size: 1.35rem;
+}
+
+.nb-universal-mic b {
+  font-size: .72rem;
+}
+
+.nb-universal-recording
+.nb-universal-mic {
+  background:
+    linear-gradient(
+      145deg,
+      #ff6868,
+      #b43cff
+    );
+  animation:
+    nbUniversalPulse
+    1s infinite;
+}
+
+#nbUniversalVoiceStatus[
+  data-mode="error"
+] {
+  color: #ffaaaa;
+}
+
+#nbUniversalVoiceStatus[
+  data-mode="listening"
+] {
+  color: #85f0d0;
+}
+
+#nbUniversalVoiceStatus[
+  data-mode="thinking"
+] {
+  color: #9cc5ff;
+}
+
+@keyframes nbUniversalPulse {
+  50% {
+    box-shadow:
+      0 0 0 12px
+      rgba(255,95,95,.08);
+  }
+}
+
+@media (max-width: 650px) {
+  .nb-universal-voice-panel {
+    align-items: stretch;
+  }
+
+  .nb-universal-mic {
+    min-width: 86px;
+  }
+}
