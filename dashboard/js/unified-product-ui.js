@@ -3,194 +3,200 @@
 
   if (window.NoorBrainUnifiedUI?.installed) return;
 
-  const featureMap = [
-    {key: "ai", label: "AI & Routines", icon: "✦", ids: ["nbMobileAiCenterV8", "nbAiControlCenterV8"]},
+  const features = [
+    {key: "ai", label: "AI & Routines", icon: "✦", ids: ["nbMobileAiCenterV8", "nbAiControlCenterV8", "nbs8a1Decision", "nbs8bRoutine"]},
     {key: "voice", label: "HALO Voice", icon: "◉", ids: ["nbVoicePlatformV9"]},
-    {key: "home", label: "Home Devices", icon: "⌂", ids: ["nbWholeHomeV10"]},
+    {key: "home", label: "Home Devices", icon: "⌂", ids: ["nbWholeHomeV10", "nbs3SmartHome", "nbs7DeviceEcosystem"]},
     {key: "family", label: "Family", icon: "●", ids: ["nbFamilyV11"]},
-    {key: "islamic", label: "Islamic", icon: "☾", ids: ["nbIslamicV12"]},
+    {key: "islamic", label: "Islamic", icon: "☾", ids: ["nbIslamicV12", "nbs5IslamicCenter"]},
     {key: "plugins", label: "Plugins", icon: "◇", ids: ["nbPluginsV13"]},
-    {key: "system", label: "System Health", icon: "✓", ids: ["nbReleaseV14"]},
+    {key: "system", label: "System Health", icon: "✓", ids: ["nbReleaseV14", "nbs6Release"]},
   ];
 
-  let collecting = false;
-  let observerTimer = 0;
+  const moduleFeature = {
+    devices: "home",
+    automation: "ai",
+    habits: "ai",
+    insights: "ai",
+    prayer: "islamic",
+    reminders: "islamic",
+    family: "family",
+    voice: "voice",
+    settings: "system",
+  };
 
-  function isMobilePage() {
-    return location.pathname.startsWith("/mobile") || matchMedia("(max-width: 760px)").matches;
-  }
+  const studioTargets = {
+    vision: "/studio#vision",
+    zones: "/studio#zones",
+    presence: "/studio#presence",
+    faces: "/studio#gallery",
+    rules: "/studio#reminder-rules",
+    notifications: "/studio#notifications",
+    media: "/studio#media-library",
+  };
 
   function ensureHub() {
     let hub = document.getElementById("nbUnifiedHub");
     if (hub) return hub;
-
-    const host =
-      document.querySelector(".mobile-main") ||
-      document.querySelector("main") ||
-      document.querySelector("#app") ||
-      document.body;
 
     hub = document.createElement("section");
     hub.id = "nbUnifiedHub";
     hub.className = "nb-unified-hub";
     hub.innerHTML = `
       <div class="nb-uh-head">
-        <div>
-          <small>NOORBRAIN</small>
-          <h2>Features</h2>
-          <p>Everything in one clean place</p>
-        </div>
-        <button id="nbUhClose" type="button" hidden>Close</button>
+        <div><small>NOORBRAIN</small><h2>Features</h2><p>Everything in one clean place</p></div>
+        <button id="nbUhClose" type="button" hidden>← Features</button>
       </div>
-      <div id="nbUhMenu" class="nb-uh-menu"></div>
-      <div id="nbUhStage" class="nb-uh-stage" hidden></div>
-    `;
+      <div id="nbUhMenu" class="nb-uh-menu">
+        ${features.map(item => `
+          <button type="button" data-nb-feature="${item.key}">
+            <i>${item.icon}</i><span>${item.label}</span><b>›</b>
+          </button>`).join("")}
+      </div>
+      <div id="nbUhStage" class="nb-uh-stage" hidden></div>`;
 
-    const first = host.querySelector("section, .mobile-card, .card");
-    if (first) first.insertAdjacentElement("beforebegin", hub);
-    else host.appendChild(hub);
-
-    const menu = hub.querySelector("#nbUhMenu");
-    menu.innerHTML = featureMap.map(feature => `
-      <button type="button" data-nb-feature="${feature.key}">
-        <i>${feature.icon}</i>
-        <span>${feature.label}</span>
-        <b>›</b>
-      </button>
-    `).join("");
-
-    menu.querySelectorAll("[data-nb-feature]").forEach(button => {
-      button.addEventListener("click", () => openFeature(button.dataset.nbFeature));
-    });
-    hub.querySelector("#nbUhClose").addEventListener("click", closeFeature);
+    const main = document.querySelector("main") || document.body;
+    const hero = document.querySelector(".nbv2-hero");
+    if (hero) hero.insertAdjacentElement("afterend", hub);
+    else main.prepend(hub);
     return hub;
   }
 
-  function choosePanel(feature) {
-    const candidates = feature.ids
-      .map(id => document.getElementById(id))
-      .filter(Boolean);
-
-    if (feature.key === "ai" && candidates.length > 1) {
-      const preferredId = isMobilePage() ? "nbMobileAiCenterV8" : "nbAiControlCenterV8";
-      const preferred = document.getElementById(preferredId);
-      candidates.filter(item => item !== preferred).forEach(item => {
-        item.classList.add("nb-unified-duplicate");
-        item.hidden = true;
-      });
-      return preferred || candidates[0];
-    }
-    return candidates[0] || null;
+  function allPanels(feature) {
+    return feature.ids.map(id => document.getElementById(id)).filter(Boolean);
   }
 
-  function collectFeatures() {
-    if (collecting) return;
-    collecting = true;
-    try {
-      const hub = ensureHub();
-      const stage = hub.querySelector("#nbUhStage");
-      for (const feature of featureMap) {
-        const panel = choosePanel(feature);
-        const button = hub.querySelector(`[data-nb-feature="${feature.key}"]`);
-        if (!panel) {
-          button?.classList.add("is-unavailable");
-          continue;
-        }
-        button?.classList.remove("is-unavailable");
-        panel.dataset.nbUnifiedFeature = feature.key;
-        panel.classList.add("nb-unified-panel");
-        panel.hidden = hub.dataset.openFeature !== feature.key;
-        if (panel.parentElement !== stage) stage.appendChild(panel);
-      }
-
-      const pluginTest = document.querySelector("#nbPluginsV13 #nbP13Add");
-      if (pluginTest) pluginTest.hidden = true;
-
-      const releaseHeading = document.querySelector("#nbReleaseV14 h2");
-      if (releaseHeading) releaseHeading.textContent = "System Health";
-      const releaseEyebrow = document.querySelector("#nbReleaseV14 small");
-      if (releaseEyebrow) releaseEyebrow.textContent = "SYSTEM";
-
-      const startup = document.getElementById("nbVpStartup");
-      if (startup) {
-        startup.checked = false;
-        startup.disabled = true;
-        startup.closest("label")?.classList.add("nb-electronic-voice-disabled");
-      }
-    } finally {
-      collecting = false;
-    }
-  }
-
-  function openFeature(key) {
-    collectFeatures();
+  function collect() {
     const hub = ensureHub();
     const stage = hub.querySelector("#nbUhStage");
-    const menu = hub.querySelector("#nbUhMenu");
-    const close = hub.querySelector("#nbUhClose");
-    const panel = stage.querySelector(`[data-nb-unified-feature="${key}"]`);
-    if (!panel) return;
 
-    stage.querySelectorAll(".nb-unified-panel").forEach(item => item.hidden = true);
-    panel.hidden = false;
-    stage.hidden = false;
-    menu.hidden = true;
-    close.hidden = false;
-    hub.dataset.openFeature = key;
-    hub.scrollIntoView({behavior: "smooth", block: "start"});
+    for (const feature of features) {
+      const panels = allPanels(feature);
+      const button = hub.querySelector(`[data-nb-feature="${feature.key}"]`);
+      button?.classList.toggle("is-unavailable", panels.length === 0);
+      for (const panel of panels) {
+        panel.dataset.nbUnifiedFeature = feature.key;
+        panel.classList.add("nb-unified-panel");
+        if (panel.parentElement !== stage) stage.appendChild(panel);
+        panel.hidden = true;
+      }
+    }
+
+    document.querySelector("#nbPluginsV13 #nbP13Add")?.setAttribute("hidden", "");
+    const startup = document.getElementById("nbVpStartup");
+    if (startup) {
+      startup.checked = false;
+      startup.disabled = true;
+      startup.closest("label")?.classList.add("nb-electronic-voice-disabled");
+    }
   }
 
-  function closeFeature() {
+  function open(key) {
+    collect();
     const hub = ensureHub();
+    const stage = hub.querySelector("#nbUhStage");
+    const panels = [...stage.querySelectorAll(`[data-nb-unified-feature="${key}"]`)];
+    if (!panels.length) return false;
+
+    stage.querySelectorAll("[data-nb-unified-feature]").forEach(panel => {
+      panel.hidden = true;
+    });
+    panels.forEach(panel => { panel.hidden = false; });
+    stage.hidden = false;
+    hub.querySelector("#nbUhMenu").hidden = true;
+    hub.querySelector("#nbUhClose").hidden = false;
+    hub.dataset.openFeature = key;
+    hub.scrollIntoView({behavior: "smooth", block: "start"});
+    return true;
+  }
+
+  function close() {
+    const hub = ensureHub();
+    hub.querySelectorAll("[data-nb-unified-feature]").forEach(panel => {
+      panel.hidden = true;
+    });
     hub.querySelector("#nbUhStage").hidden = true;
     hub.querySelector("#nbUhMenu").hidden = false;
     hub.querySelector("#nbUhClose").hidden = true;
     delete hub.dataset.openFeature;
+    hub.scrollIntoView({behavior: "smooth", block: "start"});
   }
 
-  function muteElectronicVoice() {
-    const synth = window.speechSynthesis;
-    if (!synth) return;
-    try { synth.cancel(); } catch (_) {}
-
-    const mutedSpeak = function () {
-      try { synth.cancel(); } catch (_) {}
-      window.dispatchEvent(new CustomEvent("noorbrain:electronic-voice-blocked"));
-    };
-    mutedSpeak.__noorbrainElectronicVoiceOff = true;
-
-    try {
-      if (!synth.speak?.__noorbrainElectronicVoiceOff) {
-        Object.defineProperty(synth, "speak", {
-          configurable: true,
-          writable: true,
-          value: mutedSpeak,
-        });
-      }
-    } catch (_) {
-      try { synth.speak = mutedSpeak; } catch (_) {}
+  function handleClick(event) {
+    const featureButton = event.target.closest?.("[data-nb-feature]");
+    if (featureButton) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      open(featureButton.dataset.nbFeature);
+      return;
     }
+
+    if (event.target.closest?.("#nbUhClose")) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      close();
+      return;
+    }
+
+    const moduleButton = event.target.closest?.("[data-module]");
+    if (!moduleButton) return;
+    const module = moduleButton.dataset.module;
+
+    if (module === "vision") {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      document.getElementById("nbv2CameraSection")?.scrollIntoView({behavior: "smooth"});
+      return;
+    }
+
+    if (moduleFeature[module]) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      open(moduleFeature[module]);
+      return;
+    }
+
+    if (studioTargets[module]) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      location.href = studioTargets[module];
+    }
+  }
+
+  async function enforceProductAudio() {
+    const requests = [
+      fetch("/api/voice-platform-v9/config", {
+        method: "PATCH",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({startup_speech: false}),
+      }),
+      fetch("/api/dual-audio-v15/config", {
+        method: "PATCH",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({input_mode: "both", output_mode: "both", app_audio: true, pi_audio: true}),
+      }),
+      fetch("/api/audio-camera-rules-v15/config", {
+        method: "PATCH",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          camera_triggered_audio: true,
+          raspberry_pi_speaker: true,
+          app_speaker: true,
+          adhan_media_audio: true,
+          halo_natural_voice: false,
+        }),
+      }),
+    ];
+    await Promise.allSettled(requests);
   }
 
   function start() {
     document.body.classList.add("nb-unified-ui-active");
-    muteElectronicVoice();
-    collectFeatures();
-
-    const observer = new MutationObserver(() => {
-      clearTimeout(observerTimer);
-      observerTimer = window.setTimeout(collectFeatures, 100);
-    });
-    observer.observe(document.body, {childList: true, subtree: true});
-
-    window.setTimeout(() => {
-      muteElectronicVoice();
-      collectFeatures();
-    }, 500);
-    window.setTimeout(() => {
-      muteElectronicVoice();
-      collectFeatures();
-    }, 1800);
+    document.addEventListener("click", handleClick, true);
+    collect();
+    window.setTimeout(collect, 250);
+    window.setTimeout(collect, 1000);
+    window.setTimeout(enforceProductAudio, 300);
   }
 
   if (document.readyState === "loading") {
@@ -201,10 +207,11 @@
 
   window.NoorBrainUnifiedUI = Object.freeze({
     installed: true,
-    version: "1.0.0",
-    open: openFeature,
-    close: closeFeature,
-    refresh: collectFeatures,
+    version: "16.0.0",
+    open,
+    close,
+    refresh: collect,
     electronicVoice: "disabled",
+    cameraMode: "single-clean-feed",
   });
 })();

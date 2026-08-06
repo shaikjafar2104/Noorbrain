@@ -1,0 +1,161 @@
+(() => {
+  "use strict";
+
+  const API = "/api/islamic-audio";
+  let lastEvent = 0;
+  let appAudioEnabled = localStorage.getItem("noorbrain-islamic-app-audio") !== "0";
+  let activeAudio = null;
+
+  async function request(path, options = {}) {
+    const response = await fetch(path, {
+      cache: "no-store",
+      headers: {"Content-Type": "application/json", "Accept": "application/json"},
+      ...options,
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.detail || `HTTP ${response.status}`);
+    return payload;
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, char => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    })[char]);
+  }
+
+  function playApp(payload) {
+    if (!appAudioEnabled || !payload?.audio_base64) return;
+    const raw = atob(payload.audio_base64);
+    const bytes = new Uint8Array(raw.length);
+    for (let index = 0; index < raw.length; index += 1) bytes[index] = raw.charCodeAt(index);
+    const blob = new Blob([bytes], {type: payload.mime_type || `audio/${payload.format || "mpeg"}`});
+    if (activeAudio) activeAudio.pause();
+    activeAudio = new Audio(URL.createObjectURL(blob));
+    activeAudio.play().catch(() => setStatus("Tap Enable App Audio first."));
+  }
+
+  function setStatus(message) {
+    const node = document.querySelector("#nbIslamicAudioStatus");
+    if (node) node.textContent = message;
+  }
+
+  async function loadCatalog(search = "") {
+    const list = document.querySelector("#nbIslamicAudioList");
+    if (!list) return;
+    list.innerHTML = "<p>Loading…</p>";
+    try {
+      const payload = await request(`${API}/catalog?search=${encodeURIComponent(search)}`);
+      list.innerHTML = payload.items.length ? payload.items.map(item => `
+        <button class="nb-ia-item" data-media-id="${escapeHtml(item.id)}">
+          <span>▶</span><b>${escapeHtml(item.name || item.original_filename)}</b>
+          <small>${escapeHtml(item.original_filename || "Islamic audio")}</small>
+        </button>`).join("") : "<p>No matching Dua/Azkar audio found.</p>";
+      list.querySelectorAll("[data-media-id]").forEach(button => {
+        button.onclick = () => playMedia(button.dataset.mediaId, button);
+      });
+    } catch (error) {
+      list.innerHTML = `<p>${escapeHtml(error.message)}</p>`;
+    }
+  }
+
+  async function playMedia(mediaId, button) {
+    button.disabled = true;
+    setStatus("Playing…");
+    try {
+      const payload = await request(`${API}/play/${encodeURIComponent(mediaId)}`, {method: "POST", body: "{}"});
+      lastEvent = Math.max(lastEvent, Number(payload.event_id || 0));
+      playApp(payload.app);
+      setStatus(`${payload.item?.name || "Audio"} · ${payload.output_mode}`);
+    } catch (error) {
+      setStatus(error.message);
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  async function loadConfig() {
+    const payload = await request(`${API}/config`);
+    const config = payload.config || {};
+    document.querySelector("#nbIaOutput").value = config.output_mode || "both";
+    for (const period of ["morning", "evening"]) {
+      const rule = config[period] || {};
+      document.querySelector(`#nbIa${period}Enabled`).checked = Boolean(rule.enabled);
+      document.querySelector(`#nbIa${period}Time`).value = rule.time || (period === "morning" ? "07:00" : "18:00");
+      document.querySelector(`#nbIa${period}Query`).value = rule.query || `${period} azkar`;
+    }
+  }
+
+  async function saveConfig() {
+    const payload = {
+      output_mode: document.querySelector("#nbIaOutput").value,
+      morning: {
+        enabled: document.querySelector("#nbIamorningEnabled").checked,
+        time: document.querySelector("#nbIamorningTime").value,
+        query: document.querySelector("#nbIamorningQuery").value,
+      },
+      evening: {
+        enabled: document.querySelector("#nbIaeveningEnabled").checked,
+        time: document.querySelector("#nbIaeveningTime").value,
+        query: document.querySelector("#nbIaeveningQuery").value,
+      },
+    };
+    await request(`${API}/config`, {method: "PATCH", body: JSON.stringify(payload)});
+    setStatus("Settings saved.");
+  }
+
+  async function pollEvents() {
+    try {
+      const payload = await request(`${API}/events?after=${lastEvent}`);
+      if (payload.event) {
+        lastEvent = Number(payload.event.id || lastEvent);
+        playApp(payload.event.app);
+        setStatus(`${payload.event.item?.name || "Audio"} · ${payload.event.source}`);
+      }
+    } catch (_) {}
+  }
+
+  function build() {
+    if (document.querySelector("#nbIslamicAudioLauncher")) return;
+    document.body.insertAdjacentHTML("beforeend", `
+      <button id="nbIslamicAudioLauncher" class="nb-ia-launcher" aria-label="Open Islamic Audio">🕌<span>Dua & Azkar</span></button>
+      <div id="nbIslamicAudioModal" class="nb-ia-modal" hidden>
+        <section class="nb-ia-panel" role="dialog" aria-modal="true" aria-label="Dua and Azkar Audio">
+          <header><div><small>NOORBRAIN ISLAMIC AUDIO</small><h2>Dua & Azkar</h2></div><button id="nbIslamicAudioClose">×</button></header>
+          <div class="nb-ia-actions">
+            <button id="nbIaEnableAudio">${appAudioEnabled ? "✓ App Audio Enabled" : "Enable App Audio"}</button>
+            <select id="nbIaOutput" aria-label="Audio output"><option value="both">Pi + App</option><option value="pi">Pi Speaker</option><option value="app">This Device</option></select>
+          </div>
+          <input id="nbIaSearch" class="nb-ia-search" placeholder="Search: before eating, sleeping, Azkar…">
+          <div id="nbIslamicAudioList" class="nb-ia-list"></div>
+          <details class="nb-ia-schedule">
+            <summary>Morning & Evening Schedule</summary>
+            <label><input id="nbIamorningEnabled" type="checkbox"> Morning <input id="nbIamorningTime" type="time"><input id="nbIamorningQuery" placeholder="morning azkar"></label>
+            <label><input id="nbIaeveningEnabled" type="checkbox"> Evening <input id="nbIaeveningTime" type="time"><input id="nbIaeveningQuery" placeholder="evening azkar"></label>
+            <button id="nbIaSave">Save Schedule & Output</button>
+          </details>
+          <p id="nbIslamicAudioStatus" class="nb-ia-status">Ready. Say: Hey Noor, play Dua Before Eating.</p>
+        </section>
+      </div>`);
+    const modal = document.querySelector("#nbIslamicAudioModal");
+    document.querySelector("#nbIslamicAudioLauncher").onclick = async () => {
+      modal.hidden = false;
+      await Promise.allSettled([loadCatalog(), loadConfig()]);
+    };
+    document.querySelector("#nbIslamicAudioClose").onclick = () => { modal.hidden = true; };
+    modal.onclick = event => { if (event.target === modal) modal.hidden = true; };
+    document.querySelector("#nbIaSearch").oninput = event => loadCatalog(event.target.value);
+    document.querySelector("#nbIaEnableAudio").onclick = event => {
+      appAudioEnabled = true;
+      localStorage.setItem("noorbrain-islamic-app-audio", "1");
+      event.target.textContent = "✓ App Audio Enabled";
+      const silent = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQQAAAAA");
+      silent.play().catch(() => {});
+      setStatus("App audio enabled.");
+    };
+    document.querySelector("#nbIaSave").onclick = () => saveConfig().catch(error => setStatus(error.message));
+    setInterval(pollEvents, 1500);
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", build);
+  else build();
+})();

@@ -15,11 +15,13 @@ Rules are stored in config/reminder_rules.json.
 from collections import deque
 from datetime import datetime
 from pathlib import Path
+import base64
 import json
 import shutil
 import subprocess
 import threading
 import time
+import urllib.request
 import uuid
 
 from services.media_library.media_manager import (
@@ -46,8 +48,41 @@ class ReminderRulesEngine:
         self._rules = []
         self._history = deque(maxlen=maximum_history)
         self._last_fired = {}
+        self._cooldown_file = self.rules_file.parent.parent / "data" / "reminder_cooldowns_v16.json"
 
         self._load()
+        self._load_cooldowns()
+
+    # --------------------------------------------------
+    def _load_cooldowns(self):
+        """Keep reminder suppression active across NoorBrain restarts."""
+        try:
+            payload = json.loads(self._cooldown_file.read_text(encoding="utf-8"))
+            values = payload.get("last_fired", {})
+            if isinstance(values, dict):
+                self._last_fired = {
+                    str(key): float(value)
+                    for key, value in values.items()
+                    if float(value) > 0
+                }
+        except Exception:
+            self._last_fired = {}
+
+    # --------------------------------------------------
+    def _save_cooldowns(self):
+        try:
+            self._cooldown_file.parent.mkdir(parents=True, exist_ok=True)
+            temporary = self._cooldown_file.with_suffix(".tmp")
+            temporary.write_text(
+                json.dumps(
+                    {"version": 1, "last_fired": self._last_fired},
+                    indent=2,
+                ) + "\n",
+                encoding="utf-8",
+            )
+            temporary.replace(self._cooldown_file)
+        except Exception:
+            pass
 
     # --------------------------------------------------
     def _default_document(self):
@@ -256,7 +291,12 @@ class ReminderRulesEngine:
                 raise KeyError("Rule not found")
 
             self._save()
-            self._last_fired.pop(rule_id, None)
+            self._last_fired = {
+                key: value
+                for key, value in self._last_fired.items()
+                if not key.startswith(f"{rule_id}|")
+            }
+            self._save_cooldowns()
 
         return {
             "status": "deleted",
@@ -297,18 +337,18 @@ class ReminderRulesEngine:
 
     # --------------------------------------------------
     def _cooldown_key(self, rule, event):
-        person_id = event.get(
-            "person_id",
-            "unknown"
+        # YOLO tracker IDs are temporary and change after a short detection
+        # loss.  They must never be used as a reminder identity.  Use a real
+        # face identity when one is supplied; otherwise protect the complete
+        # room/presence session.  This prevents motion from replaying audio.
+        stable_person = (
+            event.get("recognized_person_id")
+            or event.get("identity_id")
+            or event.get("person_uuid")
         )
-
-        zone = event.get("zone") or "none"
-
-        return (
-            rule["id"],
-            str(person_id),
-            str(zone)
-        )
+        zone = event.get("zone") or "single-camera-room"
+        subject = f"person:{stable_person}" if stable_person else "room-presence"
+        return f"{rule['id']}|{subject}|{zone}"
 
     # --------------------------------------------------
     def _cooldown_ready(self, rule, event):
@@ -354,38 +394,85 @@ class ReminderRulesEngine:
     # --------------------------------------------------
     @staticmethod
     def _speak(message):
-        commands = [
-            ["espeak-ng", message],
-            ["espeak", message]
-        ]
-
-        for command in commands:
-            if shutil.which(command[0]):
-                try:
-                    subprocess.Popen(
-                        command,
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL
-                    )
-
-                    return {
-                        "spoken": True,
-                        "speaker": command[0]
-                    }
-
-                except Exception as error:
-                    return {
-                        "spoken": False,
-                        "error": str(error)
-                    }
-
+        # Electronic/robotic TTS is intentionally disabled.  A text-only rule
+        # remains visible in history but never produces synthetic browser or
+        # espeak audio.  Select a recorded Media Library item for playback.
         return {
             "spoken": False,
-            "error": (
-                "espeak-ng or espeak "
-                "not installed"
-            )
+            "electronic_voice": False,
+            "speech_suppressed": True,
+            "speech_reason": "Recorded audio required",
         }
+
+    # --------------------------------------------------
+    @staticmethod
+    def _audio_routing():
+        project_root = Path(__file__).resolve().parents[2]
+        path = project_root / "data" / "dual_audio_v15.json"
+        defaults = {
+            "output_mode": "both",
+            "pi_node_url": "http://192.168.2.29:8010",
+            "app_audio": True,
+            "pi_audio": True,
+        }
+        try:
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                defaults.update(loaded)
+        except Exception:
+            pass
+        return defaults
+
+    # --------------------------------------------------
+    @classmethod
+    def _play_media(cls, media_id):
+        item = media_library.get_item(media_id)
+        file_path = media_library.get_file_path(media_id)
+        routing = cls._audio_routing()
+        mode = str(routing.get("output_mode") or "both")
+        app_enabled = mode in {"app", "both"} and bool(routing.get("app_audio", True))
+        pi_enabled = mode in {"pi", "both"} and bool(routing.get("pi_audio", True))
+
+        result = {
+            "media_played": False,
+            "media_id": media_id,
+            "media_name": item.get("name") or item.get("original_filename") or "Selected audio",
+            "app_audio_url": item.get("api_file_url") if app_enabled else None,
+            "app_targeted": app_enabled,
+            "pi_targeted": pi_enabled,
+            "pi_played": False,
+        }
+
+        if pi_enabled:
+            # Never pause the camera/AI loop while a complete Dua is playing.
+            # The Pi request runs in its own daemon thread.
+            audio_bytes = file_path.read_bytes()
+            pi_url = str(routing.get("pi_node_url") or "http://192.168.2.29:8010")
+            audio_format = file_path.suffix.lstrip(".").lower() or "wav"
+
+            def send_to_pi():
+                payload = json.dumps({
+                    "audio_base64": base64.b64encode(audio_bytes).decode("ascii"),
+                    "format": audio_format,
+                }).encode("utf-8")
+                request = urllib.request.Request(
+                    pi_url.rstrip("/") + "/play",
+                    data=payload,
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                try:
+                    with urllib.request.urlopen(request, timeout=120) as response:
+                        response.read()
+                except Exception:
+                    pass
+
+            threading.Thread(target=send_to_pi, daemon=True).start()
+            result["pi_played"] = True
+            result["pi_queued"] = True
+
+        result["media_played"] = bool(result["pi_played"] or app_enabled)
+        return result
 
     # --------------------------------------------------
     def _fire(self, rule, event, test=False):
@@ -409,26 +496,7 @@ class ReminderRulesEngine:
 
         if selected_media_id:
             try:
-                result = media_library.play_item(
-                    selected_media_id
-                )
-
-                item = result.get("item") or {}
-
-                media_result = {
-                    "media_played": True,
-                    "media_id": selected_media_id,
-                    "media_name": (
-                        item.get("display_name")
-                        or item.get("name")
-                        or item.get("original_filename")
-                        or item.get("filename")
-                        or "Selected audio"
-                    ),
-                    "media_player": result.get(
-                        "player"
-                    )
-                }
+                media_result = self._play_media(selected_media_id)
 
             except (
                 MediaLibraryError,
@@ -476,6 +544,7 @@ class ReminderRulesEngine:
             )
 
             self._last_fired[key] = now
+            self._save_cooldowns()
 
         return record
 
@@ -572,6 +641,9 @@ class ReminderRulesEngine:
     def snapshot(self, history_limit=50):
         return {
             "status": "running",
+            "presence_guard": "active",
+            "cooldown_identity": "recognized-person-or-room-session",
+            "electronic_voice": False,
             "rules": self.list_rules(),
             "rule_count": len(
                 self.list_rules()

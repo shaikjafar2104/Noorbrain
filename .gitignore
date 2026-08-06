@@ -40,3 +40,5 @@ __pycache__/
 *.db-wal
 dashboard.before-*/
 backups/
+data/person_profiles/unknown_gallery/
+data/reminder_cooldowns_v16.json

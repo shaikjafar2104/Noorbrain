@@ -1,0 +1,272 @@
+[
+  {
+    "id": "dua-01",
+    "title": "Dua Before Eating",
+    "category": "islamic-dua",
+    "language": "ar-en",
+    "file": "01_dua_before_eating.mp3",
+    "arabic": "اللَّهُمَّ بَارِكْ لَنَا فِيمَا رَزَقْتَنَا وَقِنَا عَذَابَ النَّارِ",
+    "english": "O Allah, bless us in what You have provided us with and protect us from the punishment of the Fire."
+  },
+  {
+    "id": "dua-02",
+    "title": "Dua After Eating",
+    "category": "islamic-dua",
+    "language": "ar-en",
+    "file": "02_dua_after_eating.mp3",
+    "arabic": "الْـحَمْدُ للهِ الَّذِي أَطْعَمَنَا وَسَقَانَا وَجَعَلَنَا مِنَ الْمُسْلِمِينَ",
+    "english": "All praise is for Allah who fed us and gave us drink and made us Muslims."
+  },
+  {
+    "id": "dua-03",
+    "title": "Dua Before Sleeping",
+    "category": "islamic-dua",
+    "language": "ar-en",
+    "file": "03_dua_before_sleeping.mp3",
+    "arabic": "بِاسْمِكَ اللَّهُمَّ أَمُوتُ وَأَحْيَا",
+    "english": "In Your name, O Allah, I die and I live."
+  },
+  {
+    "id": "dua-04",
+    "title": "Dua After Waking Up",
+    "category": "islamic-dua",
+    "language": "ar-en",
+    "file": "04_dua_after_waking_up.mp3",
+    "arabic": "الْـحَمْدُ لِلَّهِ الَّذِي أَحْيَانَا بَعْدَ مَا أَمَاتَنَا وَإِلَيْهِ النُّشُورُ",
+    "english": "All praise is for Allah who gave us life after having taken it from us, and unto Him is the resurrection."
+  },
+  {
+    "id": "dua-05",
+    "title": "Dua Before Studying",
+    "category": "islamic-dua",
+    "language": "ar-en",
+    "file": "05_dua_before_studying.mp3",
+    "arabic": "رَبِّ زِدْنِي عِلْمًا",
+    "english": "My Lord, increase me in knowledge."
+  },
+  {
+    "id": "dua-06",
+    "title": "Dua Asking for Wisdom",
+    "category": "islamic-dua",
+    "language": "ar-en",
+    "file": "06_dua_asking_for_wisdom.mp3",
+    "arabic": "رَبِّ هَبْ لِي حُكْمًا وَأَلْحِقْنِي بِالصَّالِحِينَ",
+    "english": "My Lord, grant me wisdom and join me with the righteous."
+  },
+  {
+    "id": "dua-07",
+    "title": "Dua When Leaving the House",
+    "category": "islamic-dua",
+    "language": "ar-en",
+    "file": "07_dua_when_leaving_the_house.mp3",
+    "arabic": "بِسْمِ اللَّهِ تَوَكَّلْتُ عَلَى اللَّهِ وَلَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ",
+    "english": "In the name of Allah, I place my trust in Allah, and there is no power nor might except with Allah."
+  },
+  {
+    "id": "dua-08",
+    "title": "Dua When Starting a Journey",
+    "category": "islamic-dua",
+    "language": "ar-en",
+    "file": "08_dua_when_starting_a_journey.mp3",
+    "arabic": "سُبْحَانَ الَّذِي سَخَّرَ لَنَا هَذَا وَمَا كُنَّا لَهُ مُقْرِنِينَ، وَإِنَّا إِلَىٰ رَبِّنَا لَمُنقَلِبُونَ",
+    "english": "Glory be to Him who has brought this under our control, though we were unable to control it. And indeed, to our Lord we will surely return."
+  },
+  {
+    "id": "dua-09",
+    "title": "Dua After Drinking Water",
+    "category": "islamic-dua",
+    "language": "ar-en",
+    "file": "09_dua_after_drinking_water.mp3",
+    "arabic": "الْـحَمْدُ لِلَّهِ الَّذِي سَقَانَا عَذْبًا فُرَاتًا بِرَحْمَتِهِ وَلَمْ يَجْعَلْهُ مِلْحًا أُجَاجًا بِذُنُوبِنَا",
+    "english": "All praise is for Allah who gave us sweet, refreshing water by His mercy and did not make it salty and bitter due to our sins."
+  },
+  {
+    "id": "dua-10",
+    "title": "Dua After Sneezing",
+    "category": "islamic-dua",
+    "language": "ar-en",
+    "file": "10_dua_after_sneezing.mp3",
+    "arabic": "الْـحَمْدُ لِلَّهِ. يَرْحَمُكَ اللَّهُ. يَهْدِيكُمُ اللَّهُ وَيُصْلِحُ بَالَكُمْ",
+    "english": "All praise be to Allah. May Allah have mercy on you. May Allah guide you and rectify your condition."
+  },
+  {
+    "id": "dua-11",
+    "title": "Dua When Wearing New Clothes",
+    "category": "islamic-dua",
+    "language": "ar-en",
+    "file": "11_dua_when_wearing_new_clothes.mp3",
+    "arabic": "اللَّهُمَّ لَكَ الْحَمْدُ أَنْتَ كَسَوْتَنِيهِ، أَسْأَلُكَ مِنْ خَيْرِهِ وَخَيْرِ مَا صُنِعَ لَهُ، وَأَعُوذُ بِكَ مِنْ شَرِّهِ وَشَرِّ مَا صُنِعَ لَهُ",
+    "english": "O Allah, praise is to You. You have clothed me. I ask You for its goodness and the goodness of what it has been made for, and I seek Your protection from the evil of it and the evil of what it has been made for."
+  },
+  {
+    "id": "dua-12",
+    "title": "Dua When Looking Into the Mirror",
+    "category": "islamic-dua",
+    "language": "ar-en",
+    "file": "12_dua_when_looking_into_the_mirror.mp3",
+    "arabic": "اللَّهُمَّ أَنْتَ حَسَّنْتَ خَلْقِي فَحَسِّنْ خُلُقِي",
+    "english": "O Allah, just as You have made my external features beautiful, make my character beautiful as well."
+  },
+  {
+    "id": "dua-13",
+    "title": "Dua Upon Completing a Task",
+    "category": "islamic-dua",
+    "language": "ar-en",
+    "file": "13_dua_upon_completing_a_task.mp3",
+    "arabic": "تَمَّ بِحَمْدِ اللَّهِ",
+    "english": "Completed with the praise of Allah."
+  },
+  {
+    "id": "dua-14",
+    "title": "Dua Asking Allah for Protection",
+    "category": "islamic-dua",
+    "language": "ar-en",
+    "file": "14_dua_asking_allah_for_protection.mp3",
+    "arabic": "اللَّهُمَّ إِنِّي أَعُوذُ بِكَ مِنْ الْهَمِّ وَالْحَزَنِ",
+    "english": "O Allah, I seek refuge with You from anxiety and sorrow."
+  },
+  {
+    "id": "dua-15",
+    "title": "Dua Seeking Forgiveness",
+    "category": "islamic-dua",
+    "language": "ar-en",
+    "file": "15_dua_seeking_forgiveness.mp3",
+    "arabic": "أَسْتَغْفِرُ اللَّهَ وَأَتُوبُ إِلَيْهِ",
+    "english": "I seek forgiveness from Allah and repent to Him."
+  },
+  {
+    "id": "dua-16",
+    "title": "Dua Asking for Mercy",
+    "category": "islamic-dua",
+    "language": "ar-en",
+    "file": "16_dua_asking_for_mercy.mp3",
+    "arabic": "رَبِّ اغْفِرْ وَارْحَمْ وَأَنْتَ خَيْرُ الرَّاحِمِينَ",
+    "english": "My Lord, forgive and have mercy, and You are the best of the merciful."
+  },
+  {
+    "id": "dua-17",
+    "title": "Dua for Protection at Night",
+    "category": "islamic-dua",
+    "language": "ar-en",
+    "file": "17_dua_for_protection_at_night.mp3",
+    "arabic": "بِسْمِ اللَّهِ الَّذِي لَا يَضُرُّ مَعَ اسْمِهِ شَيْءٌ",
+    "english": "In the name of Allah, with whose name nothing can cause harm."
+  },
+  {
+    "id": "dua-18",
+    "title": "Dua for Safety From Evil",
+    "category": "islamic-dua",
+    "language": "ar-en",
+    "file": "18_dua_for_safety_from_evil.mp3",
+    "arabic": "أَعُوذُ بِكَلِمَاتِ اللَّهِ التَّامَّاتِ مِنْ شَرِّ مَا خَلَقَ",
+    "english": "I seek refuge in the perfect words of Allah from the evil of what He has created."
+  },
+  {
+    "id": "dua-19",
+    "title": "Dua for Parents",
+    "category": "islamic-dua",
+    "language": "ar-en",
+    "file": "19_dua_for_parents.mp3",
+    "arabic": "رَبِّ ارْحَمْهُمَا كَمَا رَبَّيَانِي صَغِيرًا",
+    "english": "My Lord, have mercy upon them as they brought me up when I was small."
+  },
+  {
+    "id": "dua-20",
+    "title": "Dua Asking for Good Manners",
+    "category": "islamic-dua",
+    "language": "ar-en",
+    "file": "20_dua_asking_for_good_manners.mp3",
+    "arabic": "اللَّهُمَّ اهْدِنِي لِأَحْسَنِ الْأَخْلَاقِ",
+    "english": "O Allah, guide me to the best of manners."
+  },
+  {
+    "id": "dua-21",
+    "title": "Dua Seeking Blessing for the Day",
+    "category": "islamic-dua",
+    "language": "ar-en",
+    "file": "21_dua_seeking_blessing_for_the_day.mp3",
+    "arabic": "اللَّهُمَّ إِنِّي أَسْأَلُكَ خَيْرَ هَذَا الْيَوْمِ",
+    "english": "O Allah, I ask You for the good of this day."
+  },
+  {
+    "id": "dua-22",
+    "title": "Dua Asking for Guidance",
+    "category": "islamic-dua",
+    "language": "ar-en",
+    "file": "22_dua_asking_for_guidance.mp3",
+    "arabic": "اللَّهُمَّ اهْدِنَا فِيمَنْ هَدَيْتَ",
+    "english": "O Allah, guide us among those You have guided."
+  },
+  {
+    "id": "dua-23",
+    "title": "Dua Requesting Health and Well-being",
+    "category": "islamic-dua",
+    "language": "ar-en",
+    "file": "23_dua_requesting_health_and_well_being.mp3",
+    "arabic": "اللَّهُمَّ عَافِنِي فِي بَدَنِي",
+    "english": "O Allah, grant me health in my body."
+  },
+  {
+    "id": "dua-24",
+    "title": "Dua Requesting Allah's Light",
+    "category": "islamic-dua",
+    "language": "ar-en",
+    "file": "24_dua_requesting_allah_s_light.mp3",
+    "arabic": "اللَّهُمَّ اجْعَلْ فِي قَلْبِي نُورًا",
+    "english": "O Allah, place light in my heart."
+  },
+  {
+    "id": "dua-25",
+    "title": "Dua for Jannah",
+    "category": "islamic-dua",
+    "language": "ar-en",
+    "file": "25_dua_for_jannah.mp3",
+    "arabic": "اللَّهُمَّ إِنِّي أَسْأَلُكَ الْجَنَّةَ",
+    "english": "O Allah, I ask You for Paradise."
+  },
+  {
+    "id": "dua-26",
+    "title": "Dua When Hearing the Athan",
+    "category": "islamic-dua",
+    "language": "ar-en",
+    "file": "26_dua_when_hearing_the_athan.mp3",
+    "arabic": "لَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ",
+    "english": "There is no might and no power except by Allah."
+  },
+  {
+    "id": "dua-27",
+    "title": "Dua When Rain Is Falling",
+    "category": "islamic-dua",
+    "language": "ar-en",
+    "file": "27_dua_when_rain_is_falling.mp3",
+    "arabic": "اللَّهُمَّ اسْقِنَا غَيْثًا مُغِيثًا مَرِيئًا مُرِيعًا، نَافِعًا غَيْرَ ضَارٍّ، عَاجِلًا غَيْرَ آجِلٍ",
+    "english": "O Allah, shower upon us abundant rain, beneficial, not harmful, swiftly and not delayed."
+  },
+  {
+    "id": "dua-28",
+    "title": "Dua After Rainfall",
+    "category": "islamic-dua",
+    "language": "ar-en",
+    "file": "28_dua_after_rainfall.mp3",
+    "arabic": "مُطِرْنَا بِفَضْلِ اللَّهِ وَرَحْمَتِهِ",
+    "english": "We have been given rain by the grace and mercy of Allah."
+  },
+  {
+    "id": "dua-29",
+    "title": "Dua Before Entering the Toilet",
+    "category": "islamic-dua",
+    "language": "ar-en",
+    "file": "29_dua_before_entering_the_toilet.mp3",
+    "arabic": "بِسْمِ اللَّهِ. اللَّهُمَّ إِنِّي أَعُوذُ بِكَ مِنَ الْخُبْثِ وَالْخَبَائِثِ",
+    "english": "In the name of Allah. O Allah, I take refuge with You from all evil and evil-doers."
+  },
+  {
+    "id": "dua-30",
+    "title": "Dua After Leaving the Toilet",
+    "category": "islamic-dua",
+    "language": "ar-en",
+    "file": "30_dua_after_leaving_the_toilet.mp3",
+    "arabic": "غُفْرَانَكَ",
+    "english": "I ask You, Allah, for forgiveness."
+  }
+]

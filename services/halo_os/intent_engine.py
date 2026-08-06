@@ -82,6 +82,20 @@ class IntentEngine:
                 {"name": match.group(1).strip()},
             )
 
+        islamic_words = ("dua", "azkar", "adhkar", "allah name", "99 names")
+        play_words = ("play", "chalao", "sunao", "suna do", "lagao")
+        if any(word in normalized for word in islamic_words) and any(word in normalized for word in play_words):
+            query = re.sub(
+                r"\b(?:hey|noor|please|play|chalao|sunao|suna|do|lagao)\b",
+                " ",
+                normalized,
+            )
+            return IntentResult(
+                "islamic_audio_play",
+                0.99,
+                {"query": " ".join(query.split())},
+            )
+
         return IntentResult(
             "conversation",
             0.40,

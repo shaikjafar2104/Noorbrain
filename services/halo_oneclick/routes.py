@@ -197,6 +197,24 @@ async def command(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
 
     data = await asyncio.to_thread(_read)
     lowered = message.lower()
+
+    if (
+        any(word in lowered for word in ("dua", "azkar", "adhkar", "99 names", "allah name"))
+        and any(word in lowered for word in ("play", "chalao", "sunao", "suna do", "lagao"))
+    ):
+        from services.islamic_audio_control.service import islamic_audio
+        try:
+            playback = await asyncio.to_thread(islamic_audio.play_by_query, message, "voice")
+            return {
+                "status": "handled",
+                "source": "islamic_audio",
+                "reply": playback.get("reply", "Islamic audio is playing."),
+                "suppress_tts": True,
+                "result": {key: value for key, value in playback.items() if key != "app"},
+            }
+        except LookupError as error:
+            return {"status": "not_found", "source": "islamic_audio", "reply": str(error), "suppress_tts": True}
+
     device = _match_device(message, data["devices"])
 
     on_words = ("turn on", "switch on", "on karo", "chalu karo", "start ")
