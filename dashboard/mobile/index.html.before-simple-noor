@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#08101d">
+  <title>NoorBrain Mobile</title>
+  <script src="/dashboard-static/js/electronic-voice-off.js?v=20260802-16"></script>
+  <link rel="manifest" href="/dashboard-pwa/manifest.webmanifest">
+  <link rel="stylesheet" href="/dashboard-static/css/mobile-v2.css?v=20260730-1">
+  <link rel="stylesheet" href="/dashboard-static/css/sprint3-smart-home.css?v=20260730-1">
+  <link rel="stylesheet" href="/dashboard-static/css/sprint4-halo-ai.css?v=20260730-1">
+  <link rel="stylesheet" href="/dashboard-static/css/sprint5-islamic-center.css?v=20260730-1">
+  <link rel="stylesheet" href="/dashboard-static/css/sprint6-product-release.css?v=20260730-1">
+  <link rel="stylesheet" href="/dashboard-static/css/sprint7-device-ecosystem.css?v=20260730-1">
+  <link rel="stylesheet" href="/dashboard-static/css/sprint8a1-decision-engine.css?v=20260730-1">
+  <link rel="stylesheet" href="/dashboard-static/css/sprint8b-routine-intelligence.css?v=20260731-1">
+  <link rel="stylesheet" href="/dashboard-static/css/sprint8e2-mobile-ai.css?v=20260801-1">
+  <link rel="stylesheet" href="/dashboard-static/css/sprint9-voice-platform.css?v=20260801-1">
+  <link rel="stylesheet" href="/dashboard-static/css/sprint10-whole-home.css?v=20260801-1">
+  <link rel="stylesheet" href="/dashboard-static/css/sprint11-family-vision.css?v=20260802-1">
+  <link rel="stylesheet" href="/dashboard-static/css/sprint12-islamic.css?v=20260802-1">
+  <link rel="stylesheet" href="/dashboard-static/css/sprint13-plugins.css?v=20260802-1">
+  <link rel="stylesheet" href="/dashboard-static/css/sprint14-release.css?v=20260802-1">
+  <link rel="stylesheet" href="/dashboard-static/css/production-ui-cleanup.css?v=20260802-1">
+  <link rel="stylesheet" href="/dashboard-static/css/unified-product-ui.css?v=20260802-1">
+  <link rel="stylesheet" href="/dashboard-static/css/dual-audio-v15.css?v=20260802-1">
+  <link rel="stylesheet" href="/dashboard-static/css/unified-audio-camera-rules.css?v=20260802-1">
+  <link rel="stylesheet" href="/dashboard-static/css/production-mobile-v16.css?v=20260802-162">
+  <link rel="stylesheet" href="/dashboard-static/css/islamic-audio-rules.css?v=20260802-1">
+  <link rel="stylesheet" href="/dashboard-static/css/smart-presence-v16.css?v=20260802-1">
+  <link rel="stylesheet" href="/dashboard-static/css/pi-wake-v16.css?v=20260802-1">
+  <link rel="stylesheet" href="/dashboard-static/css/islamic-audio-control.css?v=20260803-1">
+</head>
+<body>
+  <div class="nbv2-app" id="nbv2App">
+    <header class="nbv2-topbar">
+      <div>
+        <small>NOORBRAIN MOBILE</small>
+        <h1 id="nbv2PageTitle">Home</h1>
+      </div>
+      <div class="nbv2-top-actions">
+        <button id="nbv2Refresh" aria-label="Refresh">↻</button>
+        <button id="nbv2Install">Install</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="nbv2-hero">
+        <div>
+          <span>Assalamu Alaikum</span>
+          <h2>Complete NoorBrain control</h2>
+          <p id="nbv2SystemStatus">Checking services…</p>
+        </div>
+        <button id="nbv2PrimaryHalo" class="nbv2-halo-orb" aria-label="Open HALO">✦</button>
+      </section>
+
+      <section class="nbv2-camera-section" id="nbv2CameraSection">
+        <div class="nbv2-section-head">
+          <div><small>LIVE HOME</small><h2>Cameras</h2></div>
+          <button id="nbv2AddCamera">＋ Add</button>
+        </div>
+        <div id="nbv2CameraHero" class="nbv2-camera-hero">
+          <div class="nbv2-camera-empty"><span>📷</span><b>Finding camera…</b><small>Checking configured streams.</small></div>
+        </div>
+        <div id="nbv2CameraStrip" class="nbv2-camera-strip"></div>
+        <p id="nbv2CameraNotice" class="nbv2-camera-notice">Clean camera view</p>
+        <div class="nbv2-camera-actions">
+          <button id="nbv2CameraRefresh">↻ Refresh</button>
+          <button id="nbv2CameraSnapshot">◎ Snapshot</button>
+          <button id="nbv2CameraFullscreen">⛶ Full Screen</button>
+          <button id="nbv2CameraRecord">● Record</button>
+          <button id="nbv2CameraOverlay">◉ Overlays Off</button>
+        </div>
+      </section>
+
+      <section class="nbv2-status-section">
+        <div class="nbv2-section-head"><div><small>STATUS</small><h2>System</h2></div></div>
+        <div class="nbv2-status-grid" id="nbv2StatusGrid">
+          <article><span>📷</span><b>Camera</b><small data-status="camera">Checking</small></article>
+          <article><span>✦</span><b>HALO</b><small data-status="halo">Checking</small></article>
+          <article><span>👁</span><b>Vision</b><small data-status="vision">Checking</small></article>
+          <article><span>🕌</span><b>Prayer</b><small data-status="prayer">Checking</small></article>
+        </div>
+      </section>
+
+      <section class="nbv2-module-section" id="nbv2Modules">
+        <div class="nbv2-section-head"><div><small>FULL PROJECT</small><h2>Control Center</h2></div></div>
+        <div class="nbv2-module-grid">
+          <button data-module="devices"><span>💡</span><b>Devices</b><small>Rooms & controls</small></button>
+          <button data-module="vision"><span>👁</span><b>Vision AI</b><small>Camera intelligence</small></button>
+          <button data-module="zones"><span>⌗</span><b>Vision Zones</b><small>Manage detection areas</small></button>
+          <button data-module="presence"><span>●</span><b>Presence</b><small>People at home</small></button>
+          <button data-module="faces"><span>👤</span><b>Face Identity</b><small>Family identities</small></button>
+          <button data-module="prayer"><span>🕌</span><b>Prayer</b><small>Times & intelligence</small></button>
+          <button data-module="reminders"><span>🔔</span><b>Islamic Reminders</b><small>Duas & Azkar</small></button>
+          <button data-module="rules"><span>✅</span><b>Reminder Rules</b><small>Schedules & triggers</small></button>
+          <button data-module="automation"><span>⚡</span><b>Automation</b><small>Smart routines</small></button>
+          <button data-module="habits"><span>🧠</span><b>Habit Learning</b><small>Routine memory</small></button>
+          <button data-module="insights"><span>📊</span><b>AI Insights</b><small>Daily intelligence</small></button>
+          <button data-module="family"><span>👨‍👩‍👧‍👦</span><b>Family</b><small>Profiles & presence</small></button>
+          <button data-module="notifications"><span>📱</span><b>Notifications</b><small>Phone alerts</small></button>
+          <button data-module="media"><span>▶</span><b>Media Library</b><small>Audio & playback</small></button>
+          <button data-module="voice"><span>🔊</span><b>Voice Settings</b><small>HALO speech</small></button>
+          <button data-module="settings"><span>⚙</span><b>Settings</b><small>Studio & diagnostics</small></button>
+        </div>
+      </section>
+
+      <section class="nbv2-device-section" id="nbv2Devices">
+        <div class="nbv2-section-head">
+          <div><small>ONE TAP</small><h2>Devices</h2></div>
+          <button id="nbv2AddDevice">＋ Add</button>
+        </div>
+        <div id="nbv2DeviceGrid" class="nbv2-device-grid"></div>
+      </section>
+
+      <section class="nbv2-halo-section" id="nbv2Halo">
+        <div class="nbv2-section-head"><div><small>ASSISTANT</small><h2>HALO</h2></div></div>
+        <textarea id="nbv2HaloInput" placeholder="Ask HALO…"></textarea>
+        <div class="nbv2-halo-actions">
+          <button id="nbv2HaloSend">Send</button>
+          <button id="nbv2HaloMic">🎤 Push to Talk</button>
+        </div>
+        <p id="nbv2HaloReply">Ready</p>
+      </section>
+    </main>
+
+    <nav class="nbv2-nav">
+      <button class="active" data-tab="home"><span>⌂</span><b>Home</b></button>
+      <button data-tab="devices"><span>⌁</span><b>Devices</b></button>
+      <button data-tab="halo"><span>✦</span><b>HALO</b></button>
+      <button data-tab="camera"><span>◉</span><b>Camera</b></button>
+      <button data-tab="more"><span>⚙</span><b>More</b></button>
+    </nav>
+  </div>
+
+  <div id="nbv2Modal" class="nbv2-modal" hidden></div>
+  <script src="/dashboard-static/js/mobile-v2.js?v=20260802-161"></script>
+  <script src="/dashboard-static/js/sprint3-smart-home.js?v=20260730-1"></script>
+  <script src="/dashboard-static/js/sprint4-halo-ai.js?v=20260730-1"></script>
+  <script src="/dashboard-static/js/sprint5-islamic-center.js?v=20260730-1"></script>
+  <script src="/dashboard-static/js/sprint6-product-release.js?v=20260730-1"></script>
+  <script src="/dashboard-static/js/sprint7-device-ecosystem.js?v=20260730-1"></script>
+  <script src="/dashboard-static/js/sprint8a1-decision-engine.js?v=20260730-1"></script>
+  <script src="/dashboard-static/js/sprint8b-routine-intelligence.js?v=20260731-1"></script>
+  <script src="/dashboard-static/js/sprint8c-voice-repeat-guard.js?v=20260801-2"></script>
+  <script src="/dashboard-static/js/sprint8e2-mobile-ai.js?v=20260801-1"></script>
+  <script src="/dashboard-static/js/sprint9a1-universal-voice.js?v=20260801-1"></script>
+  <script src="/dashboard-static/js/sprint9-voice-platform.js?v=20260801-1"></script>
+  <script src="/dashboard-static/js/sprint10-whole-home.js?v=20260801-1"></script>
+  <script src="/dashboard-static/js/sprint11-family-vision.js?v=20260802-1"></script>
+  <script src="/dashboard-static/js/sprint12-islamic.js?v=20260802-1"></script>
+  <script src="/dashboard-static/js/sprint13-plugins.js?v=20260802-1"></script>
+  <script src="/dashboard-static/js/sprint14-release.js?v=20260802-1"></script>
+  <script src="/dashboard-static/js/production-ui-cleanup.js?v=20260802-1"></script>
+  <script src="/dashboard-static/js/unified-product-ui.js?v=20260802-16"></script>
+  <script src="/dashboard-static/js/dual-audio-v15.js?v=20260802-1"></script>
+  <script src="/dashboard-static/js/unified-audio-camera-rules.js?v=20260802-1"></script>
+  <script src="/dashboard-static/js/islamic-audio-rules.js?v=20260802-1"></script>
+  <script src="/dashboard-static/js/smart-presence-v16.js?v=20260802-1"></script>
+  <script src="/dashboard-static/js/pi-wake-v16.js?v=20260802-1"></script>
+  <script src="/dashboard-static/js/islamic-audio-control.js?v=20260803-1"></script>
+</body>
+</html>

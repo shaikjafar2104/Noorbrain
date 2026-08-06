@@ -6,6 +6,7 @@ from services.person_ai.face_models import face_models
 from services.person_ai.face_recognition import face_recognition
 from services.person_ai.face_tracking import face_tracking
 from services.person_ai.person_registry import registry
+from services.person_ai.unknown_gallery import unknown_face_gallery
 
 
 class IdentityEngine:
@@ -18,6 +19,7 @@ class IdentityEngine:
 
     def process_frame(self, frame):
         results = face_recognition.recognize(frame)
+        gallery = unknown_face_gallery.capture(frame, results)
         tracked_people = face_tracking.update(results)
 
         event_engine.update_people(tracked_people)
@@ -47,6 +49,7 @@ class IdentityEngine:
             ),
             "results": results,
             "current_people": tracked_people,
+            "unknown_gallery": gallery,
         }
 
     def status(self):

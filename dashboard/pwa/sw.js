@@ -1,10 +1,12 @@
-const CACHE_NAME = "noorbrain-halo-mic-final-v3";
+const CACHE_NAME = "noorbrain-production-v16-1";
 
 const CORE = [
   "/mobile",
   "/studio",
-  "/dashboard-static/js/halo-mic-final-fix.js?v=20260729-4",
-  "/dashboard-static/css/halo-mic-final-fix.css?v=20260729-4"
+  "/dashboard-static/js/electronic-voice-off.js?v=20260802-16",
+  "/dashboard-static/js/unified-product-ui.js?v=20260802-16",
+  "/dashboard-static/js/dashboard-camera-controls-v16.js?v=20260802-162",
+  "/dashboard-static/css/production-mobile-v16.css?v=20260802-162"
 ];
 
 self.addEventListener("install", event => {
@@ -70,9 +72,4 @@ self.addEventListener("fetch", event => {
     caches.match(request)
       .then(cached => cached || fetch(request))
   );
-});
-
-self.addEventListener("install", event => {
-  event.waitUntil(caches.open("noorbrain-sprint8c2-startup-silence-v1")
-    .then(cache => cache.add("/dashboard-static/js/sprint8c-voice-repeat-guard.js?v=20260801-2")));
 });

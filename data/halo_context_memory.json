@@ -11,9 +11,16 @@
     "premium-ui": {
       "context": {
         "last_intent": "conversation",
-        "last_user_text": "hello"
+        "last_user_text": "will saloma Lakeland"
       },
-      "updated_at": "2026-07-29T10:42:14.543885+00:00"
+      "updated_at": "2026-08-03T00:02:03.035973+00:00"
+    },
+    "raspberry-pi-halo": {
+      "context": {
+        "last_intent": "conversation",
+        "last_user_text": "play the web before eating"
+      },
+      "updated_at": "2026-08-03T16:08:41.375805+00:00"
     },
     "v3-c2-smoke": {
       "context": {

@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 1,
   "rules": [
     {
       "id": "f0feedaf-54c3-44ac-bf46-1f7f757b6ffe",
@@ -10,8 +10,80 @@
       "message": "As salam alikum",
       "cooldown_seconds": 1800,
       "speak": true,
+      "media_id": null,
       "created_at": 1784684666.5933206
+    },
+    {
+      "id": "e30036a9-8c5c-427b-a1be-3734b47f433d",
+      "name": "Azkar – 99 Names of Allah",
+      "enabled": true,
+      "trigger": "appeared",
+      "zone": null,
+      "message": "Azkar – 99 Names of Allah",
+      "cooldown_seconds": 1800,
+      "speak": false,
+      "media_id": "islamic-633bdd12a294030fd468f73e",
+      "created_at": 1785714227.405651
+    },
+    {
+      "id": "c7a167b2-fdda-42fa-b6fd-2c801c547e1f",
+      "name": "Dua After Drinking Water",
+      "enabled": true,
+      "trigger": "entered_zone",
+      "zone": null,
+      "message": "Dua After Drinking Water",
+      "cooldown_seconds": 1800,
+      "speak": false,
+      "media_id": "islamic-87001676c06ddbfb702e802a",
+      "created_at": 1785741605.7681932
+    },
+    {
+      "id": "ced54ea2-da6a-4bc2-99ba-618dcf5eb6b8",
+      "name": "Dua After Drinking Water",
+      "enabled": true,
+      "trigger": "entered_zone",
+      "zone": null,
+      "message": "Dua After Drinking Water",
+      "cooldown_seconds": 1800,
+      "speak": false,
+      "media_id": "islamic-87001676c06ddbfb702e802a",
+      "created_at": 1785741607.9512565
+    },
+    {
+      "id": "4fb1255a-0123-47a0-9ea2-be1f85d931cf",
+      "name": "Dua After Drinking Water",
+      "enabled": true,
+      "trigger": "entered_zone",
+      "zone": null,
+      "message": "Dua After Drinking Water",
+      "cooldown_seconds": 1800,
+      "speak": false,
+      "media_id": "islamic-87001676c06ddbfb702e802a",
+      "created_at": 1785741609.5479183
+    },
+    {
+      "id": "40e15ae7-4456-4385-aa91-afc2d814a3e6",
+      "name": "Dua Before Eating",
+      "enabled": true,
+      "trigger": "entered_zone",
+      "zone": null,
+      "message": "Dua Before Eating",
+      "cooldown_seconds": 1800,
+      "speak": false,
+      "media_id": "islamic-4d898c1f06da18d53c013844",
+      "created_at": 1785741656.7221153
+    },
+    {
+      "id": "f20f3da6-028d-4d81-819f-3c1adf615a87",
+      "name": "Dua Before Eating",
+      "enabled": true,
+      "trigger": "appeared",
+      "zone": null,
+      "message": "Dua Before Eating",
+      "cooldown_seconds": 1800,
+      "speak": false,
+      "media_id": "islamic-4d898c1f06da18d53c013844",
+      "created_at": 1785741676.607028
     }
-  ],
-  "mode": "single_camera"
+  ]
 }

@@ -2,7 +2,7 @@
   "use strict";
 
   const API = "/api/mobile-v2";
-  const state = {cameras:[],activeCamera:null,devices:[],installPrompt:null,recorder:null,stream:null,chunks:[],recording:false};
+  const state = {cameras:[],activeCamera:null,devices:[],installPrompt:null,recorder:null,stream:null,chunks:[],recording:false,cameraMode:"clean",cameraFallback:false,cameraRecorder:null,cameraChunks:[],cameraRecording:false,cameraCanvas:null,cameraDrawTimer:0};
 
   async function request(path, options={}) {
     const response = await fetch(path,{headers:{"Content-Type":"application/json","Accept":"application/json"},cache:"no-store",...options});
@@ -18,9 +18,50 @@
     state.activeCamera=camera;
     const hero=document.querySelector("#nbv2CameraHero");
     if(!camera){hero.innerHTML='<div class="nbv2-camera-empty"><span>📷</span><b>No camera configured</b><small>Tap Add to enter a stream URL.</small></div>';return;}
-    hero.innerHTML=`<img id="nbv2CameraImage" src="${esc(bust(camera.stream_url))}" alt="${esc(camera.name)}">`;
-    document.querySelector("#nbv2CameraImage").onerror=()=>{hero.innerHTML=`<div class="nbv2-camera-empty"><span>⚠️</span><b>${esc(camera.name)} unavailable</b><small>Check camera service and URL.</small></div>`;};
+    const streamUrl=state.cameraMode==="vision"?"/vision_feed":"/camera_feed";
+    hero.innerHTML=`<img id="nbv2CameraImage" src="${esc(bust(streamUrl))}" alt="${esc(camera.name)}">`;
+    const image=document.querySelector("#nbv2CameraImage");
+    image.onload=()=>setCameraNotice(state.cameraMode==="vision"?"Vision overlays on":"Clean camera view");
+    image.onerror=()=>{
+      if(state.cameraMode==="clean"&&!state.cameraFallback){
+        state.cameraFallback=true;state.cameraMode="vision";updateOverlayButton();showCamera(camera);return;
+      }
+      hero.innerHTML=`<div class="nbv2-camera-empty"><span>⚠️</span><b>${esc(camera.name)} unavailable</b><small>Check camera service and URL.</small></div>`;
+      setCameraNotice("Camera stream unavailable");
+    };
     renderCameraStrip();
+  }
+
+  function setCameraNotice(message){const node=document.querySelector("#nbv2CameraNotice");if(node)node.textContent=message;}
+  function updateOverlayButton(){const button=document.querySelector("#nbv2CameraOverlay");if(button)button.textContent=state.cameraMode==="vision"?"◉ Overlays On":"◉ Overlays Off";}
+  function toggleCameraOverlay(){state.cameraMode=state.cameraMode==="vision"?"clean":"vision";state.cameraFallback=false;updateOverlayButton();showCamera(state.activeCamera);}
+
+  function snapshotCamera(){
+    const image=document.querySelector("#nbv2CameraImage");if(!image||!image.naturalWidth){setCameraNotice("Camera frame is not ready");return;}
+    const canvas=document.createElement("canvas");canvas.width=image.naturalWidth;canvas.height=image.naturalHeight;
+    canvas.getContext("2d").drawImage(image,0,0,canvas.width,canvas.height);
+    canvas.toBlob(blob=>{if(!blob)return;const link=document.createElement("a");link.href=URL.createObjectURL(blob);link.download=`noorbrain-snapshot-${Date.now()}.jpg`;link.click();setTimeout(()=>URL.revokeObjectURL(link.href),5000);setCameraNotice("Snapshot saved");},"image/jpeg",.92);
+  }
+
+  function drawCameraRecording(){
+    if(!state.cameraRecording||!state.cameraCanvas)return;
+    const image=document.querySelector("#nbv2CameraImage");
+    if(image?.naturalWidth){const context=state.cameraCanvas.getContext("2d");context.drawImage(image,0,0,state.cameraCanvas.width,state.cameraCanvas.height);}
+    state.cameraDrawTimer=requestAnimationFrame(drawCameraRecording);
+  }
+
+  function stopCameraRecording(){if(state.cameraRecorder?.state!=="inactive")state.cameraRecorder?.stop();}
+  function toggleCameraRecording(){
+    if(state.cameraRecording){stopCameraRecording();return;}
+    const image=document.querySelector("#nbv2CameraImage");
+    if(!image?.naturalWidth||!window.MediaRecorder){setCameraNotice("Recording is unavailable in this browser");return;}
+    const canvas=document.createElement("canvas");canvas.width=image.naturalWidth;canvas.height=image.naturalHeight;state.cameraCanvas=canvas;
+    const mediaStream=canvas.captureStream?.(10);if(!mediaStream){setCameraNotice("Recording is unavailable in this browser");return;}
+    const mime=["video/webm;codecs=vp9","video/webm;codecs=vp8","video/webm"].find(type=>MediaRecorder.isTypeSupported(type));
+    state.cameraRecorder=mime?new MediaRecorder(mediaStream,{mimeType:mime}):new MediaRecorder(mediaStream);state.cameraChunks=[];
+    state.cameraRecorder.ondataavailable=event=>{if(event.data?.size)state.cameraChunks.push(event.data);};
+    state.cameraRecorder.onstop=()=>{state.cameraRecording=false;cancelAnimationFrame(state.cameraDrawTimer);const blob=new Blob(state.cameraChunks,{type:state.cameraRecorder.mimeType||"video/webm"});const link=document.createElement("a");link.href=URL.createObjectURL(blob);link.download=`noorbrain-recording-${Date.now()}.webm`;link.click();setTimeout(()=>URL.revokeObjectURL(link.href),5000);const button=document.querySelector("#nbv2CameraRecord");button.textContent="● Record";button.classList.remove("is-recording");setCameraNotice("Recording saved");};
+    state.cameraRecording=true;state.cameraRecorder.start(500);const button=document.querySelector("#nbv2CameraRecord");button.textContent="■ Stop";button.classList.add("is-recording");setCameraNotice("Recording camera locally…");drawCameraRecording();
   }
 
   function renderCameraStrip(){
@@ -30,9 +71,10 @@
   }
 
   async function loadConfig(){
-    try{const p=await request(`${API}/config`);state.cameras=p.config?.cameras||[];}
-    catch(_){state.cameras=[{id:"fallback",name:"NoorBrain Camera",room:"Home",stream_url:"/video_feed"}];}
-    showCamera(state.cameras[0]||null);
+    // Product UI intentionally exposes one clean feed. Vision overlays remain
+    // available in Studio, but are not drawn over the everyday camera view.
+    state.cameras=[{id:"noorbrain-camera",name:"Home Camera",room:"Home",stream_url:"/camera_feed"}];
+    showCamera(state.cameras[0]);
   }
 
   async function loadDevices(){
@@ -60,13 +102,14 @@
       const p=await request("/api/halo-oneclick/command",{method:"POST",body:JSON.stringify({message})});
       if(p.status==="forward"){const h=await request("/halo",{method:"POST",body:JSON.stringify({message})});reply.textContent=h.reply||h.message||"Done.";}
       else reply.textContent=p.reply||"Done.";
-      window.NoorBrainHALOSpeak?.(reply.textContent);
+      // Text replies stay silent. Recorded media and Raspberry Pi playback are
+      // controlled independently by the Audio & Camera rules.
     }catch(e){reply.textContent=e.message;}
   }
 
   async function toggleMic(){
     if(state.recording){state.recorder.stop();return;}
-    if(!window.isSecureContext){document.querySelector("#nbv2HaloReply").textContent="Microphone requires HTTPS or localhost.";return;}
+    if(!navigator.mediaDevices?.getUserMedia){document.querySelector("#nbv2HaloReply").textContent="Microphone unavailable.";return;}
     try{
       state.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
       const mime=["audio/webm;codecs=opus","audio/webm","audio/mp4"].find(t=>MediaRecorder.isTypeSupported(t));
@@ -123,8 +166,10 @@
     document.querySelector("#nbv2PrimaryHalo").onclick=()=>navigate("halo");
     document.querySelector("#nbv2HaloInput").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendHalo();}};
     document.querySelector("#nbv2CameraRefresh").onclick=()=>showCamera(state.activeCamera);
+    document.querySelector("#nbv2CameraSnapshot").onclick=snapshotCamera;
     document.querySelector("#nbv2CameraFullscreen").onclick=async()=>{const h=document.querySelector("#nbv2CameraHero");document.fullscreenElement?await document.exitFullscreen():await h.requestFullscreen?.();};
-    document.querySelector("#nbv2OpenVision").onclick=()=>location.href="/studio#vision";
+    document.querySelector("#nbv2CameraRecord").onclick=toggleCameraRecording;
+    document.querySelector("#nbv2CameraOverlay").onclick=toggleCameraOverlay;
     document.querySelectorAll("[data-module]").forEach(b=>b.onclick=()=>location.href=modules[b.dataset.module]||"/studio");
     document.querySelectorAll(".nbv2-nav button").forEach(b=>b.onclick=()=>navigate(b.dataset.tab));
     window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();state.installPrompt=e;});
@@ -132,6 +177,6 @@
   }
 
   async function boot(){bind();await Promise.allSettled([loadConfig(),loadDevices(),checkStatus()]);}
-  window.NoorBrainMobileV2={version:"1.50",loadConfig,loadDevices,sendHalo,checkStatus};
+  window.NoorBrainMobileV2={version:"16.1",loadConfig,loadDevices,sendHalo,checkStatus};
   document.readyState==="loading"?document.addEventListener("DOMContentLoaded",boot):boot();
 })();

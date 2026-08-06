@@ -96,8 +96,8 @@
     "premium-ui": {
       "context": {
         "last_intent": "conversation",
-        "last_resolved_text": "hello",
-        "last_user_text": "hello"
+        "last_resolved_text": "will saloma Lakeland",
+        "last_user_text": "will saloma Lakeland"
       },
       "created_at": "2026-07-29T10:42:14.483501+00:00",
       "id": "premium-ui",
@@ -126,9 +126,78 @@
           "role": "assistant",
           "text": "Hello. How can I help?",
           "timestamp": "2026-07-29T10:42:14.591895+00:00"
+        },
+        {
+          "id": "b44df12d62df4e4eb931c4e324d5a157",
+          "intent": null,
+          "metadata": {},
+          "role": "user",
+          "text": "will saloma Lakeland",
+          "timestamp": "2026-08-03T00:01:00.091671+00:00"
+        },
+        {
+          "id": "cc013156ac4046149b3e18cbd2d40019",
+          "intent": null,
+          "metadata": {},
+          "role": "user",
+          "text": "will saloma Lakeland",
+          "timestamp": "2026-08-03T00:01:03.473285+00:00"
+        },
+        {
+          "id": "44747c71ee4e49e7989279752f38b0bf",
+          "intent": null,
+          "metadata": {},
+          "role": "user",
+          "text": "hello assalamualaikum",
+          "timestamp": "2026-08-03T00:01:18.770021+00:00"
+        },
+        {
+          "id": "2348637e1a9f44b4bb5106b10e55c372",
+          "intent": "conversation",
+          "metadata": {
+            "halo_result_status": "ok",
+            "resolution": {
+              "changes": {},
+              "original_text": "will saloma Lakeland",
+              "resolved_text": "will saloma Lakeland"
+            }
+          },
+          "role": "assistant",
+          "text": "Welcome Will Saloma! I'm HALO, your fast offline NoorBrain assistant. What's on your mind?",
+          "timestamp": "2026-08-03T00:01:38.546344+00:00"
+        },
+        {
+          "id": "a04388c457454c119e9dc95327f9c402",
+          "intent": "conversation",
+          "metadata": {
+            "halo_result_status": "ok",
+            "resolution": {
+              "changes": {},
+              "original_text": "hello assalamualaikum",
+              "resolved_text": "hello assalamualaikum"
+            }
+          },
+          "role": "assistant",
+          "text": "Assalamualaikum! I'm HALO, your fast offline NoorBrain assistant, here to help with any questions you may have. What's on your mind today?",
+          "timestamp": "2026-08-03T00:01:55.685082+00:00"
+        },
+        {
+          "id": "b3a26d1674264f47ac3a7d8ad1eaae2f",
+          "intent": "conversation",
+          "metadata": {
+            "halo_result_status": "ok",
+            "resolution": {
+              "changes": {},
+              "original_text": "will saloma Lakeland",
+              "resolved_text": "will saloma Lakeland"
+            }
+          },
+          "role": "assistant",
+          "text": "Welcome! I'm HALO, your fast offline NoorBrain assistant.",
+          "timestamp": "2026-08-03T00:02:03.052685+00:00"
         }
       ],
-      "updated_at": "2026-07-29T10:42:14.604193+00:00"
+      "updated_at": "2026-08-03T00:02:03.071368+00:00"
     }
   }
 }

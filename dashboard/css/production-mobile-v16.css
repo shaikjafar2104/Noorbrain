@@ -1,0 +1,103 @@
+/* NoorBrain production mobile consolidation v16 */
+#nbv2AddCamera,
+#nbv2CameraStrip,
+.nb-production-hidden,
+[data-nb-production-hidden="1"],
+.nb-electronic-voice-disabled,
+#nbPluginsV13 #nbP13Add {
+  display: none !important;
+}
+
+.nbv2-camera-section .nbv2-section-head small {
+  font-size: 0;
+}
+
+.nbv2-camera-section .nbv2-section-head small::after {
+  content: "LIVE HOME";
+  font-size: .68rem;
+}
+
+.nbv2-camera-section .nbv2-section-head h2 {
+  font-size: 0;
+}
+
+.nbv2-camera-section .nbv2-section-head h2::after {
+  content: "Camera";
+  font-size: 1.5rem;
+}
+
+.nbv2-camera-notice {
+  min-height: 20px;
+  margin: 10px 2px 0;
+  color: #91a7c8;
+  font-size: .78rem;
+}
+
+.nbv2-camera-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+#nbv2CameraRecord:last-child,
+#nbv2CameraOverlay:last-child {
+  grid-column: auto;
+}
+
+#nbv2CameraRecord.is-recording {
+  color: #fff;
+  background: #b93852;
+}
+
+.nb-dashboard-camera-actions {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.nb-dashboard-camera-actions .button {
+  min-width: 0;
+  padding: 10px 8px;
+}
+
+#nbDashboardCameraRecord.is-recording {
+  color: #fff;
+  background: #b93852;
+}
+
+@media (max-width: 1050px) {
+  .nb-dashboard-camera-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.nb-uh-stage[hidden],
+.nb-uh-menu[hidden],
+.nb-unified-panel[hidden] {
+  display: none !important;
+}
+
+.nb-uh-stage:not([hidden]) {
+  display: grid !important;
+  gap: 14px;
+}
+
+.nb-uh-stage > .nb-unified-panel {
+  position: static !important;
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+}
+
+.nb-uh-stage > .nb-unified-panel small:first-child {
+  letter-spacing: .08em;
+}
+
+@media (max-width: 520px) {
+  .nb-uh-menu {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .nb-uh-menu button {
+    min-width: 0;
+  }
+}

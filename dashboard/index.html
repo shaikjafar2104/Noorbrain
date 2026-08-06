@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>NoorBrain AI Studio</title>
+  <script src="/dashboard-static/js/electronic-voice-off.js?v=20260802-16"></script>
   <link rel="stylesheet" href="/dashboard-static/css/style.css?v=3">
   <link rel="stylesheet" href="/dashboard-static/css/sprint6-half1.css?v=1">
   <link rel="stylesheet" href="/dashboard-static/css/sprint6-half2.css?v=1">
@@ -27,6 +28,11 @@
   <link rel="stylesheet" href="/dashboard-static/css/features-click-repair.css?v=20260802-2">
   <link rel="stylesheet" href="/dashboard-static/css/dual-audio-v15.css?v=20260802-1">
   <link rel="stylesheet" href="/dashboard-static/css/unified-audio-camera-rules.css?v=20260802-1">
+  <link rel="stylesheet" href="/dashboard-static/css/production-mobile-v16.css?v=20260802-162">
+  <link rel="stylesheet" href="/dashboard-static/css/islamic-audio-rules.css?v=20260802-1">
+  <link rel="stylesheet" href="/dashboard-static/css/smart-presence-v16.css?v=20260802-1">
+  <link rel="stylesheet" href="/dashboard-static/css/pi-wake-v16.css?v=20260802-1">
+  <link rel="stylesheet" href="/dashboard-static/css/islamic-audio-control.css?v=20260803-1">
 </head>
 <body>
 <div class="shell">
@@ -63,8 +69,15 @@
       </div>
       <div class="grid two">
         <article class="card">
-          <div class="card-head"><div><h2>Live Vision</h2><p>Raspberry Pi camera with NoorBrain overlays</p></div><span id="streamBadge" class="badge">Connecting</span></div>
-          <div class="stream-wrap"><img class="stream" data-stream src="/vision_feed?studio=dashboard" alt="Live NoorBrain vision"></div>
+          <div class="card-head"><div><h2>Live Camera</h2><p id="nbDashboardCameraMode">Clean Raspberry Pi camera view</p></div><span id="streamBadge" class="badge">Connecting</span></div>
+          <div id="nbDashboardCameraFrame" class="stream-wrap"><img id="nbDashboardCamera" class="stream" data-stream src="/camera_feed?studio=dashboard" alt="Live NoorBrain camera"></div>
+          <div class="nb-dashboard-camera-actions">
+            <button id="nbDashboardCameraRefresh" class="button secondary">↻ Refresh</button>
+            <button id="nbDashboardCameraSnapshot" class="button secondary">◎ Snapshot</button>
+            <button id="nbDashboardCameraFullscreen" class="button secondary">⛶ Full Screen</button>
+            <button id="nbDashboardCameraRecord" class="button secondary">● Record</button>
+            <button id="nbDashboardCameraOverlay" class="button secondary">◉ Overlays Off</button>
+          </div>
         </article>
         <article class="card"><div class="card-head"><div><h2>Recent Events</h2><p>Latest activity</p></div><button class="text-button" data-page-jump="timeline">View all</button></div><div id="recentEvents" class="event-list empty">No events yet.</div></article>
       </div>
@@ -215,9 +228,124 @@
   <script src="/dashboard-static/js/sprint13-plugins.js?v=20260802-1"></script>
   <script src="/dashboard-static/js/sprint14-release.js?v=20260802-1"></script>
   <script src="/dashboard-static/js/production-ui-cleanup.js?v=20260802-1"></script>
-  <script src="/dashboard-static/js/unified-product-ui.js?v=20260802-1"></script>
+  <script src="/dashboard-static/js/unified-product-ui.js?v=20260802-16"></script>
   <script src="/dashboard-static/js/features-click-repair.js?v=20260802-2"></script>
   <script src="/dashboard-static/js/dual-audio-v15.js?v=20260802-1"></script>
   <script src="/dashboard-static/js/unified-audio-camera-rules.js?v=20260802-1"></script>
+  <script src="/dashboard-static/js/dashboard-camera-controls-v16.js?v=20260802-162"></script>
+  <script src="/dashboard-static/js/islamic-audio-rules.js?v=20260802-1"></script>
+  <script src="/dashboard-static/js/smart-presence-v16.js?v=20260802-1"></script>
+  <script src="/dashboard-static/js/pi-wake-v16.js?v=20260802-1"></script>
+  <script src="/dashboard-static/js/islamic-audio-control.js?v=20260803-1"></script>
+
+<script id="noorbrain-native-mic-permanent-fix">
+(() => {
+  if (window.__NOORBRAIN_NATIVE_MIC_FIX__) return;
+  window.__NOORBRAIN_NATIVE_MIC_FIX__ = true;
+
+  const nativeApp =
+    new URLSearchParams(location.search).get("native_app") === "1" ||
+    window.parent !== window;
+
+  if (!nativeApp) return;
+
+  function isMicControl(el) {
+    const target = el?.closest?.("button,[role='button'],a");
+    if (!target) return null;
+
+    const text = [
+      target.textContent,
+      target.title,
+      target.getAttribute("aria-label"),
+      target.id,
+      target.className
+    ].join(" ").toLowerCase();
+
+    return /(push.?to.?talk|microphone|mic\b|voice|speak|listen)/i.test(text)
+      ? target
+      : null;
+  }
+
+  document.addEventListener("click", event => {
+    const control = isMicControl(event.target);
+    if (!control) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+
+    window.parent.postMessage(
+      { type: "noorbrain-native-record-toggle" },
+      "*"
+    );
+  }, true);
+
+  window.addEventListener("message", event => {
+    const data = event.data || {};
+
+    if (data.type === "noorbrain-native-listening") {
+      showMicStatus("Listening… Tap again to send.");
+    }
+
+    if (data.type === "noorbrain-native-processing") {
+      showMicStatus("Processing voice…");
+    }
+
+    if (data.type === "noorbrain-native-error") {
+      showMicStatus(data.message || "Microphone failed.");
+    }
+
+    if (data.type === "noorbrain-native-transcript") {
+      const text = String(data.text || "").trim();
+      if (!text) {
+        showMicStatus("No speech detected.");
+        return;
+      }
+
+      const input =
+        document.querySelector(
+          "textarea:not([disabled]),input[type='text']:not([disabled]),input:not([type]):not([disabled])"
+        );
+
+      if (input) {
+        input.value = text;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+
+        const form = input.closest("form");
+        const send =
+          form?.querySelector("button[type='submit']") ||
+          document.querySelector(
+            "button.send,button[id*='send' i],button[class*='send' i]"
+          );
+
+        if (send) send.click();
+        else if (form) form.requestSubmit();
+      }
+
+      showMicStatus(`Heard: ${text}`);
+    }
+  });
+
+  function showMicStatus(message) {
+    let box = document.getElementById("noorbrain-native-mic-status");
+
+    if (!box) {
+      box = document.createElement("div");
+      box.id = "noorbrain-native-mic-status";
+      box.style.cssText =
+        "position:fixed;left:12px;right:12px;bottom:78px;z-index:2147483647;" +
+        "padding:12px 16px;border-radius:14px;background:#10233f;color:white;" +
+        "font:600 14px system-ui;text-align:center;box-shadow:0 8px 30px #0008";
+      document.body.appendChild(box);
+    }
+
+    box.textContent = message;
+    clearTimeout(window.__noorMicTimer);
+    window.__noorMicTimer = setTimeout(() => box.remove(), 4500);
+  }
+})();
+</script>
+
 </body>
 </html>

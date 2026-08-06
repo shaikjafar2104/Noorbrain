@@ -3,11 +3,11 @@
   "model": "base",
   "device": "cpu",
   "compute_type": "int8",
-  "language": null,
-  "wake_phrase": "halo",
+  "language": "en",
+  "wake_phrase": "noor",
   "require_wake_phrase": false,
   "minimum_audio_bytes": 900,
-  "cpu_threads": 6,
+  "cpu_threads": 2,
   "num_workers": 1,
   "beam_size": 1
 }

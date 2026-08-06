@@ -38,6 +38,35 @@ class ConversationEngine:
                 "context": context_memory.get(session_id)["context"],
             }
 
+        if intent.name == "islamic_audio_play":
+            from services.islamic_audio_control.service import islamic_audio
+
+            try:
+                playback = islamic_audio.play_by_query(
+                    str(intent.arguments.get("query") or text),
+                    source="voice",
+                )
+                public_playback = {key: value for key, value in playback.items() if key != "app"}
+                reply = str(playback.get("reply") or "Islamic audio is playing.")
+                status = "ok"
+            except LookupError as error:
+                public_playback = {"status": "not_found", "detail": str(error)}
+                reply = str(error)
+                status = "not_found"
+            context_memory.update(
+                session_id,
+                {"last_intent": intent.name, "last_user_text": text},
+            )
+            return {
+                "status": status,
+                "reply": reply,
+                "intent": intent.name,
+                "confidence": intent.confidence,
+                "result": public_playback,
+                "suppress_tts": True,
+                "context": context_memory.get(session_id)["context"],
+            }
+
         if intent.name == "device_action":
             from services.offline_agent.tool_registry import tool_registry
             from services.offline_agent import tools as _tools  # noqa: F401

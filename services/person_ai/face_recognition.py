@@ -57,14 +57,16 @@ class FaceRecognition:
                 results.append({
                     "status": "recognized",
                     "confidence": round(best_score * 100, 2),
-                    "person": best_person
+                    "person": best_person,
+                    "box": [int(value) for value in face[:4]],
                 })
 
             else:
 
                 results.append({
                     "status": "unknown",
-                    "confidence": round(best_score * 100, 2)
+                    "confidence": round(best_score * 100, 2),
+                    "box": [int(value) for value in face[:4]],
                 })
 
         return results
