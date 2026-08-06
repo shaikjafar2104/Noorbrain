@@ -39699,6 +39699,78 @@
       "hour": 22,
       "weekday": "Wednesday",
       "duration": 10.5
+    },
+    {
+      "type": "appeared",
+      "person_id": 95,
+      "timestamp": 1785985090.1336203,
+      "date": "2026-08-05",
+      "hour": 22,
+      "weekday": "Wednesday",
+      "duration": null
+    },
+    {
+      "type": "disappeared",
+      "person_id": 95,
+      "timestamp": 1785985093.696881,
+      "date": "2026-08-05",
+      "hour": 22,
+      "weekday": "Wednesday",
+      "duration": 3.6
+    },
+    {
+      "type": "appeared",
+      "person_id": 97,
+      "timestamp": 1785985679.9454026,
+      "date": "2026-08-05",
+      "hour": 23,
+      "weekday": "Wednesday",
+      "duration": null
+    },
+    {
+      "type": "disappeared",
+      "person_id": 97,
+      "timestamp": 1785985685.3790576,
+      "date": "2026-08-05",
+      "hour": 23,
+      "weekday": "Wednesday",
+      "duration": 5.4
+    },
+    {
+      "type": "appeared",
+      "person_id": 98,
+      "timestamp": 1785985737.4643545,
+      "date": "2026-08-05",
+      "hour": 23,
+      "weekday": "Wednesday",
+      "duration": null
+    },
+    {
+      "type": "disappeared",
+      "person_id": 98,
+      "timestamp": 1785985746.1059031,
+      "date": "2026-08-05",
+      "hour": 23,
+      "weekday": "Wednesday",
+      "duration": 8.6
+    },
+    {
+      "type": "appeared",
+      "person_id": 100,
+      "timestamp": 1785985826.1443622,
+      "date": "2026-08-05",
+      "hour": 23,
+      "weekday": "Wednesday",
+      "duration": null
+    },
+    {
+      "type": "disappeared",
+      "person_id": 100,
+      "timestamp": 1785985840.2871048,
+      "date": "2026-08-05",
+      "hour": 23,
+      "weekday": "Wednesday",
+      "duration": 14.1
     }
   ]
 }
