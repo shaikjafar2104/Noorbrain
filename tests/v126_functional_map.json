@@ -1,0 +1,48 @@
+{
+  "version": "12.6-product-finish",
+  "runtime": "/mobile?native_app=1",
+  "owner": "dashboard/js/noorbrain-mobile-shell-v126.js",
+  "controls": [
+    {"page":"global","control":"Notifications","event":"notifications","action":"openV126Notifications","api":"GET /api/mobile-notifications","backend":"services/mobile_notifications/routes.py","result":"native notification list or honest empty/error state"},
+    {"page":"bottom-nav","control":"Home","event":"home","action":"navigate","api":null,"backend":null,"result":"V12.6 Home tab"},
+    {"page":"bottom-nav","control":"Automation","event":"automation","action":"navigate","api":null,"backend":null,"result":"V12.6 Automation tab"},
+    {"page":"bottom-nav","control":"HALO","event":"halo","action":"navigate","api":null,"backend":null,"result":"V12.6 HALO tab"},
+    {"page":"bottom-nav","control":"Islamic","event":"islamic","action":"navigate","api":null,"backend":null,"result":"V12.6 Islamic tab"},
+    {"page":"bottom-nav","control":"More","event":"more","action":"navigate","api":null,"backend":null,"result":"V12.6 More tab"},
+
+    {"page":"home","control":"HALO","event":"halo","action":"navigate","api":null,"backend":null,"result":"V12.6 HALO tab"},
+    {"page":"home","control":"Devices","event":"devices","action":"openV126Devices","api":"GET /api/devices","backend":"services/automation/routes.py","result":"real devices or valid zero-device state"},
+    {"page":"home","control":"Camera","event":"camera","action":"openV126Camera","api":"GET /camera_live","backend":"main.py","result":"native V12.6 live camera with connection state"},
+    {"page":"home","control":"Automation","event":"automation","action":"navigate","api":null,"backend":null,"result":"V12.6 Automation tab"},
+    {"page":"home","control":"Prayer","event":"prayer","action":"openV126Prayer","api":"GET /api/prayer-intelligence/times","backend":"services/prayer_intelligence/routes.py","result":"real prayer times and next prayer"},
+    {"page":"home","control":"Dua & Azkar","event":"media","action":"openV126Media","api":"GET /api/media; POST /api/media/{id}/play","backend":"services/media_library/routes.py","result":"real library and phone/backend playback with honest failure"},
+    {"page":"home","control":"Smart Islamic Rules","event":"islamic-rules","action":"NoorMobileRulesV12.open","api":"GET/POST/PUT/DELETE /reminder-rules; PATCH /reminder-rules/{id}/toggle; POST /reminder-rules/{id}/test","backend":"services/reminder_rules/routes.py","result":"real reminder rule CRUD/toggle/test UI"},
+    {"page":"home","control":"Zones","event":"zones","action":"openV126Zones","api":"GET /api/vision-zones/zones","backend":"services/vision_zones/routes.py","result":"native V12.6 real zone list"},
+
+    {"page":"automation","control":"Smart Rules","event":"automation-center","action":"NoorAutomationCenterV12.open","api":"GET/POST/PATCH/DELETE /api/smart-automation/rules; POST /api/smart-automation/rules/{id}/run","backend":"services/smart_automation/routes.py","result":"real rule CRUD/toggle/run with execution errors"},
+    {"page":"automation","control":"Scenes","event":"scenes","action":"NoorAutomationCenterV12.open","api":"GET/POST/PATCH/DELETE /api/automation/scenes; POST /api/automation/scenes/{id}/execute","backend":"services/automation/routes.py","result":"real scene CRUD/run with execution errors"},
+    {"page":"automation","control":"Routines","event":"routines","action":"NoorAutomationCenterV12.open","api":"GET/POST/PATCH/DELETE /api/automation/routines; POST /api/automation/routines/{id}/run","backend":"services/automation/routes.py","result":"real routine CRUD/run with propagated scene errors"},
+    {"page":"automation","control":"Rooms & Zones","event":"zones","action":"openV126Zones","api":"GET /api/vision-zones/zones","backend":"services/vision_zones/routes.py","result":"native V12.6 real zone list"},
+    {"page":"automation","control":"Devices","event":"devices","action":"openV126Devices","api":"GET /api/devices","backend":"services/automation/routes.py","result":"real devices or valid zero-device state"},
+    {"page":"automation","control":"Islamic Rules","event":"islamic-rules","action":"NoorMobileRulesV12.open","api":"/reminder-rules","backend":"services/reminder_rules/routes.py","result":"real reminder rules UI"},
+
+    {"page":"halo","control":"Tap to Talk","event":"halo-live","action":"NoorBrainHaloMicFinalFix.toggle","api":"POST /api/halo-voice/transcribe or /transcribe-base64; POST /api/halo-conversation/chat","backend":"services/halo_voice/routes.py; services/halo_conversation/routes.py","result":"listening -> processing -> transcript -> reply -> TTS -> idle"},
+    {"page":"halo","control":"Ask Noor Send","event":"halo-send","action":"sendV126Halo","api":"POST /api/halo-conversation/chat","backend":"services/halo_conversation/routes.py","result":"single reply and single browser TTS request"},
+    {"page":"halo","control":"Control Home","event":"devices","action":"openV126Devices","api":"GET /api/devices","backend":"services/automation/routes.py","result":"real device surface"},
+    {"page":"halo","control":"Islamic Assistant","event":"islamic","action":"navigate","api":null,"backend":null,"result":"V12.6 Islamic tab"},
+    {"page":"halo","control":"Automations","event":"automation","action":"navigate","api":null,"backend":null,"result":"V12.6 Automation tab"},
+    {"page":"halo","control":"Activity","event":"activity","action":"openV126Activity","api":"GET /api/activity/activities?limit=20","backend":"services/activity_engine/routes.py","result":"native real events or honest empty/error state"},
+
+    {"page":"islamic","control":"Prayer Times","event":"prayer","action":"openV126Prayer","api":"GET /api/prayer-intelligence/times","backend":"services/prayer_intelligence/routes.py","result":"real prayer intelligence"},
+    {"page":"islamic","control":"Dua & Azkar","event":"media","action":"openV126Media","api":"GET /api/media","backend":"services/media_library/routes.py","result":"real Islamic media library"},
+    {"page":"islamic","control":"Smart Islamic Rules","event":"islamic-rules","action":"NoorMobileRulesV12.open","api":"/reminder-rules","backend":"services/reminder_rules/routes.py","result":"real reminder rules UI"},
+    {"page":"islamic","control":"Room Reminders","event":"zones","action":"openV126Zones","api":"GET /api/vision-zones/zones","backend":"services/vision_zones/routes.py","result":"native real zone list"},
+    {"page":"islamic","control":"Ask HALO","event":"halo","action":"navigate","api":null,"backend":null,"result":"V12.6 HALO tab"},
+
+    {"page":"more","control":"Add Device","event":"add-device","action":"openV126AddDevice","api":"POST /api/devices","backend":"services/automation/routes.py","result":"registers honest offline/configuration-required device"},
+    {"page":"more","control":"Rooms & Zones","event":"zones","action":"openV126Zones","api":"GET /api/vision-zones/zones","backend":"services/vision_zones/routes.py","result":"native real zone list"},
+    {"page":"more","control":"Camera & Vision","event":"camera","action":"openV126Camera","api":"GET /camera_live","backend":"main.py","result":"native V12.6 live camera"},
+    {"page":"more","control":"Media Library","event":"media","action":"openV126Media","api":"GET /api/media","backend":"services/media_library/routes.py","result":"real media library"},
+    {"page":"more","control":"Settings","event":"settings","action":"NoorMobileSettingsV11.open","api":"GET/PATCH /api/noor-settings-v11","backend":"services/noor_settings/routes.py","result":"visible real settings editor and runtime status"}
+  ]
+}
