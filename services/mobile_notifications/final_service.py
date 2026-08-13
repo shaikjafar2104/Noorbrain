@@ -55,23 +55,44 @@ class MobileNotificationFinalService:
         }
 
     def system_status(self) -> dict[str, Any]:
-        summary = mobile_notification_store.summary()
+        # Recovery v1: read the notification store once instead of re-reading
+        # the same JSON file for summary + a 5000-item list on every status poll.
+        payload = mobile_notification_store.read()
+        items = payload.get("notifications", [])
+        settings = payload.get("settings", {})
+
+        by_category: dict[str, int] = {}
+        unread_count = 0
+        archived_count = 0
+        snoozed_count = 0
+
+        for item in items:
+            category = str(item.get("category") or "general")
+            by_category[category] = by_category.get(category, 0) + 1
+            archived = bool(item.get("archived"))
+            if archived:
+                archived_count += 1
+            elif not item.get("read"):
+                unread_count += 1
+            if item.get("status") == "snoozed":
+                snoozed_count += 1
+
+        summary = {
+            "status": "ok",
+            "total_count": len(items),
+            "unread_count": unread_count,
+            "archived_count": archived_count,
+            "by_category": by_category,
+            "settings": settings,
+        }
         dnd = notification_dnd_service.status()
-        snoozed = [
-            item
-            for item in mobile_notification_store.list(
-                limit=5000,
-                include_archived=True,
-            )
-            if item.get("status") == "snoozed"
-        ]
 
         return {
             "status": "ok",
-            "version": "1.1.0",
+            "version": "1.1.1-recovery",
             "summary": summary,
             "dnd": dnd,
-            "snoozed_count": len(snoozed),
+            "snoozed_count": snoozed_count,
             "features": [
                 "acknowledgements",
                 "snooze_reactivation",

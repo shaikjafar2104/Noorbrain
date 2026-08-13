@@ -133,17 +133,18 @@
   function handleClick(event) {
     const featureButton = event.target.closest?.("[data-nb-feature]");
     if (featureButton) {
+      const handled = open(featureButton.dataset.nbFeature);
+      if (!handled) return;
       event.preventDefault();
       event.stopImmediatePropagation();
-      open(featureButton.dataset.nbFeature);
       return;
     }
 
     const closeButton = event.target.closest?.("#nbUhClose");
     if (closeButton) {
+      close();
       event.preventDefault();
       event.stopImmediatePropagation();
-      close();
     }
   }
 

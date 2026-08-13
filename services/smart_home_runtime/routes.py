@@ -41,6 +41,17 @@ def add_device(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
         "type": payload.get("type", "generic"),
         "state": payload.get("state", "off"),
         "online": bool(payload.get("online", True)),
+
+        # V10.3 physical transport
+        "protocol": payload.get(
+            "protocol",
+            payload.get("transport", "logical"),
+        ),
+        "base_url": payload.get("base_url"),
+        "ip_address": payload.get("ip_address"),
+        "command_topic": payload.get("command_topic"),
+        "endpoints": dict(payload.get("endpoints") or {}),
+        "metadata": dict(payload.get("metadata") or {}),
     }
     data["devices"] = [d for d in data["devices"] if d.get("id") != device["id"]]
     data["devices"].append(device)

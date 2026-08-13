@@ -49,11 +49,33 @@ class VoiceOSEngine:
             text=text,
         )
 
-        result = halo_conversation(
-            text,
-            session_id=session_id,
-            confirm=confirm,
-        )
+        # Fast local commands: bypass Ollama.
+        time_phrases = {
+            "what time is it",
+            "what is the time",
+            "tell me the time",
+            "current time",
+            "time",
+        }
+
+        if normalized in time_phrases:
+            from datetime import datetime
+
+            now = datetime.now()
+            reply = now.strftime("It is %I:%M %p.").replace(" 0", " ")
+
+            result = {
+                "status": "ok",
+                "reply": reply,
+                "intent": "local_time",
+                "action": "get_time",
+            }
+        else:
+            result = halo_conversation(
+                text,
+                session_id=session_id,
+                confirm=confirm,
+            )
 
         reply = str(result.get("reply") or "").strip()
         queue_item = None

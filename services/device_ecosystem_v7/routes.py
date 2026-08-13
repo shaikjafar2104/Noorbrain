@@ -255,11 +255,31 @@ def bridge_device(device: dict[str, Any]) -> str:
         "name": device["name"],
         "type": device["type"],
         "room_id": device["room_id"],
+        "room": device.get("room") or device.get("room_id"),
         "state": device.get("state", "off"),
         "online": device.get("online", False),
+
+        # V10.3 unified physical transport
+        "protocol": "http",
+        "base_url": device.get("base_url", ""),
+        "health_url": device.get("health_url", ""),
+
+        "endpoints": {
+            "on": device.get("command_on", ""),
+            "off": device.get("command_off", ""),
+        },
+
+        # Keep legacy fields
         "webhook_on": device.get("command_on", ""),
         "webhook_off": device.get("command_off", ""),
-        "health_url": device.get("health_url", ""),
+
+        "metadata": {
+            "ecosystem_id": device["id"],
+            "source": "device_ecosystem_v7",
+            "base_url": device.get("base_url", ""),
+            "on_endpoint": device.get("command_on", ""),
+            "off_endpoint": device.get("command_off", ""),
+        },
     }
 
     if existing:

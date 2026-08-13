@@ -1,0 +1,126 @@
+(()=>{
+"use strict";
+
+const OLD_UI_SELECTORS=[
+  ".mobile-shell",
+  ".mobile-app",
+  "#mobileApp",
+  "#app"
+];
+
+function oldUI(){
+  for(const selector of OLD_UI_SELECTORS){
+    const el=document.querySelector(selector);
+
+    if(
+      el &&
+      el.id!=="noorbrainMobile126" &&
+      !el.closest("#noorbrainMobile126")
+    ){
+      return el;
+    }
+  }
+
+  return null;
+}
+
+function mount(){
+  if(document.getElementById("noorbrainMobile126")){
+    return true;
+  }
+
+  if(!window.NoorBrainMobile126){
+    console.error(
+      "V12.6 shell API unavailable"
+    );
+    return false;
+  }
+
+  /*
+   * A1 intentionally exposes the shell API
+   * without mounting it.
+   *
+   * A2 calls the internal bootstrap safely
+   * through the public mount event below.
+   */
+
+  window.dispatchEvent(
+    new CustomEvent("noorbrain:v126-mount-request")
+  );
+
+  return !!document.getElementById(
+    "noorbrainMobile126"
+  );
+}
+
+function hideLegacy(){
+  const shell=document.getElementById(
+    "noorbrainMobile126"
+  );
+
+  if(!shell) return;
+
+  document.body.classList.add(
+    "noorbrain-v126-mounted"
+  );
+
+  /*
+   * Do not delete legacy UI.
+   * CSS only hides direct legacy content.
+   * Existing scripts remain loaded for A3 bridges.
+   */
+}
+
+function boot(){
+  const force = window.NOORBRAIN_ENABLE_V126_MOUNT === true ||
+    window.location.hash.includes("v126") ||
+    window.location.search.includes("v126=1");
+
+  if(!force){
+    console.log("NOORBRAIN_MOBILE_V126_DISABLED_DEFAULT");
+    return false;
+  }
+
+  const attempt=()=>{
+    if(mount()){
+      hideLegacy();
+
+      console.log(
+        "NOORBRAIN_MOBILE_V126_MOUNTED"
+      );
+
+      return;
+    }
+
+    console.warn(
+      "V12.6 mount waiting for shell"
+    );
+  };
+
+  attempt();
+
+  setTimeout(()=>{
+    if(!document.getElementById("noorbrainMobile126")){
+      attempt();
+    }
+  },500);
+
+  return true;
+}
+
+window.NoorBrainMobileMount126={
+  boot,
+  oldUI
+};
+
+if(document.readyState==="loading"){
+  document.addEventListener(
+    "DOMContentLoaded",
+    boot,
+    {once:true}
+  );
+}else{
+  boot();
+}
+
+})();

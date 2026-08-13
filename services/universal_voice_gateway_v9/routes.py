@@ -6,6 +6,11 @@ from typing import Any
 from fastapi import APIRouter, Body, HTTPException
 
 from .engine import universal_voice_gateway
+from services.voice_os.engine import voice_os_engine
+from services.halo_os.intent_engine import intent_engine
+from services.noor_settings.service import noor_settings
+from services.unified_device_runtime import unified_device_runtime
+
 
 
 router = APIRouter(
@@ -58,6 +63,211 @@ async def prepare(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
         raise HTTPException(
             status_code=503,
             detail=f"Voice gateway temporarily unavailable: {type(error).__name__}",
+        ) from error
+
+
+
+
+@router.post("/command")
+async def command(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    transcript = str(
+        payload.get("transcript")
+        or payload.get("text")
+        or payload.get("message")
+        or ""
+    ).strip()
+
+    session_id = str(
+        payload.get("session_id")
+        or "universal-home"
+    ).strip()
+
+    source = str(
+        payload.get("source")
+        or "universal"
+    ).strip()
+
+    confirm = bool(payload.get("confirm", False))
+
+    if not transcript:
+        raise HTTPException(
+            status_code=422,
+            detail="Transcript is required.",
+        )
+
+    try:
+        prepared = await asyncio.to_thread(
+            universal_voice_gateway.prepare,
+            session_id,
+            transcript,
+            source,
+        )
+
+        if not prepared.get("accepted"):
+            return {
+                "status": "duplicate",
+                "accepted": False,
+                "duplicate": True,
+                "session_id": session_id,
+                "transcript": transcript,
+            }
+
+
+        # V11.5 FAST LOCAL CONTROL
+        # Device commands bypass the LLM completely.
+        fast_intent = intent_engine.classify(
+            transcript,
+            {},
+        )
+
+        # V11.6 FAST SETTINGS CONTROL
+        if fast_intent.name == "settings_action":
+            section = str(
+                fast_intent.arguments.get("section") or ""
+            )
+
+            key = str(
+                fast_intent.arguments.get("key") or ""
+            )
+
+            value = bool(
+                fast_intent.arguments.get("value")
+            )
+
+            updated = await asyncio.to_thread(
+                noor_settings.update_section,
+                section,
+                {key: value},
+            )
+
+            label = key.replace("_enabled", "")
+            label = label.replace("_", " ")
+
+            reply = (
+                f"{label.title()} "
+                f"{'enabled' if value else 'disabled'}."
+            )
+
+            await asyncio.to_thread(
+                universal_voice_gateway.complete,
+                session_id,
+                transcript,
+                reply,
+                source,
+            )
+
+            return {
+                "status": "ok",
+                "accepted": True,
+                "duplicate": False,
+                "request_id": prepared.get("request_id"),
+                "session_id": session_id,
+                "source": source,
+                "transcript": transcript,
+                "reply": reply,
+                "intent": "settings_action",
+                "action": {
+                    "type": "settings",
+                    "section": section,
+                    "key": key,
+                    "value": value,
+                },
+                "settings": updated,
+                "voice": None,
+                "fast_path": True,
+            }
+
+        if fast_intent.name == "device_action":
+            device_name = str(
+                fast_intent.arguments.get("name") or ""
+            ).strip()
+
+            target_state = str(
+                fast_intent.arguments.get("state") or ""
+            ).strip().casefold()
+
+            result = await asyncio.to_thread(
+                unified_device_runtime.set_state,
+                device_name,
+                target_state,
+            )
+
+            reply = (
+                f"{device_name} turned "
+                f"{target_state}."
+            )
+
+            await asyncio.to_thread(
+                universal_voice_gateway.complete,
+                session_id,
+                transcript,
+                reply,
+                source,
+            )
+
+            return {
+                "status": "ok",
+                "accepted": True,
+                "duplicate": False,
+                "request_id": prepared.get("request_id"),
+                "session_id": session_id,
+                "source": source,
+                "transcript": transcript,
+                "reply": reply,
+                "intent": "device_action",
+                "action": {
+                    "type": "device_state",
+                    "device": device_name,
+                    "state": target_state,
+                    "result": result,
+                },
+                "voice": None,
+                "fast_path": True,
+            }
+
+        execution = await asyncio.to_thread(
+            voice_os_engine.process,
+            transcript,
+            session_id=session_id,
+            confirm=confirm,
+            speak=False,
+        )
+
+        reply = str(
+            execution.get("reply") or ""
+        ).strip()
+
+        if reply:
+            await asyncio.to_thread(
+                universal_voice_gateway.complete,
+                session_id,
+                transcript,
+                reply,
+                source,
+            )
+
+        return {
+            "status": execution.get("status", "ok"),
+            "accepted": True,
+            "duplicate": False,
+            "request_id": prepared.get("request_id"),
+            "session_id": session_id,
+            "source": source,
+            "transcript": transcript,
+            "reply": reply,
+            "intent": execution.get("intent"),
+            "action": execution.get("action"),
+            "voice": execution.get("voice"),
+        }
+
+    except Exception as error:
+        universal_voice_gateway.record_error()
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Universal voice command failed: "
+                f"{type(error).__name__}: {error}"
+            ),
         ) from error
 
 

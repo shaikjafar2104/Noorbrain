@@ -5,7 +5,7 @@
 
   const state = {
     mode: "clean",
-    fallbackUsed: false,
+    fallbackStage: 0,
     recording: false,
     recorder: null,
     chunks: [],
@@ -14,7 +14,7 @@
   };
 
   const node = id => document.getElementById(id);
-  const feed = () => state.mode === "vision" ? "/vision_feed" : "/camera_feed";
+  const feed = () => state.mode === "vision" ? "/vision_feed" : (state.fallbackStage === 0 ? "/camera_live" : "/camera_feed");
 
   function modeText(message) {
     const element = node("nbDashboardCameraMode");
@@ -31,11 +31,17 @@
     if (!image) return;
     image.onload = () => modeText(state.mode === "vision" ? "Vision overlays on" : "Clean Raspberry Pi camera view");
     image.onerror = () => {
-      if (state.mode === "clean" && !state.fallbackUsed) {
-        state.fallbackUsed = true;
+      if (state.mode === "clean" && state.fallbackStage === 0) {
+        state.fallbackStage = 1;
+        modeText("Direct feed unavailable; using local camera feed");
+        window.setTimeout(load, 300);
+        return;
+      }
+      if (state.mode === "clean" && state.fallbackStage === 1) {
+        state.fallbackStage = 0;
         state.mode = "vision";
         updateOverlayButton();
-        modeText("Clean feed unavailable; using Vision feed");
+        modeText("Clean feeds unavailable; using Vision feed");
         window.setTimeout(load, 400);
         return;
       }
@@ -47,7 +53,7 @@
 
   function toggleOverlay() {
     state.mode = state.mode === "vision" ? "clean" : "vision";
-    state.fallbackUsed = false;
+    state.fallbackStage = 0;
     updateOverlayButton();
     load();
   }

@@ -11,7 +11,7 @@
       "name": "Hall Light",
       "room": "Hall",
       "type": "light",
-      "state": "off",
+      "state": "on",
       "online": true
     }
   ],

@@ -1,0 +1,733 @@
+(() => {
+  "use strict";
+
+  if (window.NoorSettingsV11?.installed) return;
+
+  const API = "/api/noor-settings-v11";
+
+  const $ = id => document.getElementById(id);
+
+  async function api(path = "", options = {}) {
+    const response = await fetch(API + path, {
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.headers || {})
+      },
+      ...options
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(
+        data.detail || `HTTP ${response.status}`
+      );
+    }
+
+    return data;
+  }
+
+  function toggle(id, label) {
+    return `
+      <label class="nb-setting-toggle">
+        <span>${label}</span>
+        <input id="${id}" type="checkbox">
+      </label>
+    `;
+  }
+
+  function createUI() {
+    const page = $("page-settings");
+    if (!page || $("nbCentralSettings")) return;
+
+    const panel = document.createElement("div");
+    panel.id = "nbCentralSettings";
+
+    panel.innerHTML = `
+      <article class="card nb-settings-main">
+
+        <div class="card-head">
+          <div>
+            <h2>Noor Settings</h2>
+            <p>
+              Control Noor across dashboard,
+              mobile and connected devices.
+            </p>
+          </div>
+
+          <span id="nbSettingsStatus"
+                class="badge">
+            Loading…
+          </span>
+        </div>
+
+        <div class="nb-settings-grid">
+
+          <section>
+            <h3>🤖 Assistant</h3>
+
+            <label>
+              Assistant name
+              <input id="nbAssistantName"
+                     type="text">
+            </label>
+
+            <label>
+              Wake words
+              <input id="nbWakeWords"
+                     type="text"
+                     placeholder="noor, hey noor">
+            </label>
+
+            <label>
+              Response style
+              <select id="nbResponseStyle">
+                <option value="short">Short</option>
+                <option value="normal">Normal</option>
+                <option value="detailed">Detailed</option>
+              </select>
+            </label>
+
+            ${toggle(
+              "nbFollowUp",
+              "Follow-up conversation"
+            )}
+
+            ${toggle(
+              "nbConfirmation",
+              "Confirm important actions"
+            )}
+          </section>
+
+
+          <section>
+            <h3>🔊 Voice</h3>
+
+            ${toggle(
+              "nbVoiceEnabled",
+              "Voice replies"
+            )}
+
+            <label>
+              Language
+              <select id="nbVoiceLanguage">
+                <option value="en-US">English US</option>
+                <option value="en-GB">English UK</option>
+                <option value="ur-PK">Urdu</option>
+                <option value="ar-SA">Arabic</option>
+              </select>
+            </label>
+
+            <label>
+              Speed
+              <input id="nbVoiceRate"
+                     type="range"
+                     min="0.5"
+                     max="1.5"
+                     step="0.05">
+              <strong id="nbVoiceRateValue"></strong>
+            </label>
+
+            <label>
+              Pitch
+              <input id="nbVoicePitch"
+                     type="range"
+                     min="0.5"
+                     max="1.5"
+                     step="0.05">
+              <strong id="nbVoicePitchValue"></strong>
+            </label>
+
+            <label>
+              Volume
+              <input id="nbVoiceVolume"
+                     type="range"
+                     min="0"
+                     max="1"
+                     step="0.05">
+              <strong id="nbVoiceVolumeValue"></strong>
+            </label>
+
+            <label>
+              Wake sensitivity
+              <input id="nbWakeSensitivity"
+                     type="number"
+                     min="20"
+                     max="1000">
+            </label>
+
+            ${toggle(
+              "nbInterrupt",
+              "Allow interruption"
+            )}
+          </section>
+
+
+          <section>
+            <h3>🧠 AI</h3>
+
+            <label>
+              AI mode
+              <select id="nbAiMode">
+                <option value="local_first">
+                  Local first
+                </option>
+                <option value="local_only">
+                  Local only
+                </option>
+                <option value="online_first">
+                  Online first
+                </option>
+              </select>
+            </label>
+
+            <label>
+              Local model
+              <input id="nbLocalModel"
+                     type="text">
+            </label>
+
+            <label>
+              Context size
+              <input id="nbContextSize"
+                     type="number"
+                     min="256"
+                     step="256">
+            </label>
+
+            <label>
+              Max response tokens
+              <input id="nbMaxTokens"
+                     type="number"
+                     min="8"
+                     max="2048">
+            </label>
+
+            ${toggle(
+              "nbOnlineFallback",
+              "Online AI fallback"
+            )}
+          </section>
+
+
+          <section>
+            <h3>🕌 Islamic</h3>
+
+            ${toggle(
+              "nbPrayerReminders",
+              "Prayer reminders"
+            )}
+
+            ${toggle(
+              "nbAdhan",
+              "Adhan"
+            )}
+
+            ${toggle(
+              "nbDua",
+              "Dua reminders"
+            )}
+
+            ${toggle(
+              "nbAzkar",
+              "Azkar reminders"
+            )}
+          </section>
+
+
+          <section>
+            <h3>🔐 Privacy</h3>
+
+            ${toggle(
+              "nbCamera",
+              "Camera"
+            )}
+
+            ${toggle(
+              "nbMicrophone",
+              "Microphone"
+            )}
+
+            ${toggle(
+              "nbActivityLearning",
+              "Activity learning"
+            )}
+
+            ${toggle(
+              "nbFaceRecognition",
+              "Face recognition"
+            )}
+          </section>
+
+
+          <section>
+            <h3>🔔 Notifications</h3>
+
+            ${toggle(
+              "nbMobileNotifications",
+              "Mobile notifications"
+            )}
+
+            ${toggle(
+              "nbDashboardNotifications",
+              "Dashboard notifications"
+            )}
+
+            ${toggle(
+              "nbDeveloperMode",
+              "Developer mode"
+            )}
+          </section>
+
+        </div>
+
+        <div class="nb-settings-actions">
+          <button id="nbSaveSettings"
+                  class="button success">
+            Save Noor Settings
+          </button>
+
+          <button id="nbReloadSettings"
+                  class="button secondary">
+            Reload
+          </button>
+
+          <button id="nbResetSettings"
+                  class="button secondary">
+            Reset Defaults
+          </button>
+        </div>
+
+        <div id="nbSettingsMessage"
+             class="message"></div>
+
+      </article>
+    `;
+
+    page.prepend(panel);
+
+    const style = document.createElement("style");
+
+    style.textContent = `
+      #nbCentralSettings {
+        margin-bottom: 18px;
+      }
+
+      .nb-settings-main {
+        overflow: hidden;
+      }
+
+      .nb-settings-grid {
+        display: grid;
+        grid-template-columns:
+          repeat(3, minmax(0, 1fr));
+        gap: 16px;
+        margin-top: 18px;
+      }
+
+      .nb-settings-grid section {
+        background: rgba(255,255,255,.035);
+        border: 1px solid rgba(255,255,255,.08);
+        border-radius: 14px;
+        padding: 16px;
+      }
+
+      .nb-settings-grid h3 {
+        margin: 0 0 14px;
+      }
+
+      .nb-settings-grid label {
+        display: block;
+        margin: 11px 0;
+        font-size: 13px;
+      }
+
+      .nb-settings-grid input[type="text"],
+      .nb-settings-grid input[type="number"],
+      .nb-settings-grid select {
+        width: 100%;
+        box-sizing: border-box;
+        margin-top: 6px;
+        padding: 9px 10px;
+        border-radius: 9px;
+      }
+
+      .nb-settings-grid input[type="range"] {
+        width: 100%;
+        margin-top: 8px;
+      }
+
+      .nb-setting-toggle {
+        display: flex !important;
+        justify-content: space-between;
+        align-items: center;
+        gap: 15px;
+        min-height: 32px;
+      }
+
+      .nb-setting-toggle input {
+        width: 20px;
+        height: 20px;
+      }
+
+      .nb-settings-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      #nbSettingsMessage {
+        margin-top: 12px;
+      }
+
+      @media(max-width:1100px) {
+        .nb-settings-grid {
+          grid-template-columns:
+            repeat(2, minmax(0,1fr));
+        }
+      }
+
+      @media(max-width:700px) {
+        .nb-settings-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .nb-settings-actions .button {
+          width: 100%;
+        }
+      }
+    `;
+
+    document.head.appendChild(style);
+
+    $("nbSaveSettings").onclick = save;
+    $("nbReloadSettings").onclick = load;
+
+    $("nbResetSettings").onclick = async () => {
+      if (!confirm(
+        "Reset Noor settings to defaults?"
+      )) return;
+
+      try {
+        status("Resetting…");
+
+        await api("/reset/defaults", {
+          method: "POST"
+        });
+
+        await load();
+
+        message("Defaults restored.");
+      } catch (error) {
+        message(error.message, true);
+      }
+    };
+
+    for (const id of [
+      "nbVoiceRate",
+      "nbVoicePitch",
+      "nbVoiceVolume"
+    ]) {
+      $(id).addEventListener(
+        "input",
+        updateSliderLabels
+      );
+    }
+  }
+
+  function status(text) {
+    const el = $("nbSettingsStatus");
+    if (el) el.textContent = text;
+  }
+
+  function message(text, error = false) {
+    const el = $("nbSettingsMessage");
+    if (!el) return;
+
+    el.textContent = text;
+    el.style.color =
+      error ? "#ff8080" : "";
+  }
+
+  function updateSliderLabels() {
+    $("nbVoiceRateValue").textContent =
+      Number($("nbVoiceRate").value).toFixed(2);
+
+    $("nbVoicePitchValue").textContent =
+      Number($("nbVoicePitch").value).toFixed(2);
+
+    $("nbVoiceVolumeValue").textContent =
+      Number($("nbVoiceVolume").value).toFixed(2);
+  }
+
+  function fill(s) {
+    const a = s.assistant || {};
+    const v = s.voice || {};
+    const ai = s.ai || {};
+    const isl = s.islamic || {};
+    const p = s.privacy || {};
+    const n = s.notifications || {};
+    const sys = s.system || {};
+
+    $("nbAssistantName").value =
+      a.name || "Noor";
+
+    $("nbWakeWords").value =
+      (a.wake_words || []).join(", ");
+
+    $("nbResponseStyle").value =
+      a.response_style || "short";
+
+    $("nbFollowUp").checked =
+      a.follow_up_enabled !== false;
+
+    $("nbConfirmation").checked =
+      a.confirmation_enabled !== false;
+
+
+    $("nbVoiceEnabled").checked =
+      v.enabled !== false;
+
+    $("nbVoiceLanguage").value =
+      v.language || "en-US";
+
+    $("nbVoiceRate").value =
+      Number(v.rate ?? 1);
+
+    $("nbVoicePitch").value =
+      Number(v.pitch ?? 1);
+
+    $("nbVoiceVolume").value =
+      Number(v.volume ?? 1);
+
+    $("nbWakeSensitivity").value =
+      Number(v.wake_sensitivity ?? 120);
+
+    $("nbInterrupt").checked =
+      v.interrupt_enabled !== false;
+
+
+    $("nbAiMode").value =
+      ai.mode || "local_first";
+
+    $("nbLocalModel").value =
+      ai.local_model || "";
+
+    $("nbContextSize").value =
+      Number(ai.context_size || 1024);
+
+    $("nbMaxTokens").value =
+      Number(ai.max_response_tokens || 40);
+
+    $("nbOnlineFallback").checked =
+      ai.fallback_online === true;
+
+
+    $("nbPrayerReminders").checked =
+      isl.prayer_reminders !== false;
+
+    $("nbAdhan").checked =
+      isl.adhan_enabled !== false;
+
+    $("nbDua").checked =
+      isl.dua_reminders !== false;
+
+    $("nbAzkar").checked =
+      isl.azkar_reminders !== false;
+
+
+    $("nbCamera").checked =
+      p.camera_enabled !== false;
+
+    $("nbMicrophone").checked =
+      p.microphone_enabled !== false;
+
+    $("nbActivityLearning").checked =
+      p.activity_learning !== false;
+
+    $("nbFaceRecognition").checked =
+      p.face_recognition !== false;
+
+
+    $("nbMobileNotifications").checked =
+      n.mobile_enabled !== false;
+
+    $("nbDashboardNotifications").checked =
+      n.dashboard_enabled !== false;
+
+    $("nbDeveloperMode").checked =
+      sys.developer_mode === true;
+
+    updateSliderLabels();
+  }
+
+  function collect() {
+    return {
+      assistant: {
+        name:
+          $("nbAssistantName").value.trim() ||
+          "Noor",
+
+        wake_words:
+          $("nbWakeWords")
+            .value
+            .split(",")
+            .map(x => x.trim())
+            .filter(Boolean),
+
+        response_style:
+          $("nbResponseStyle").value,
+
+        follow_up_enabled:
+          $("nbFollowUp").checked,
+
+        confirmation_enabled:
+          $("nbConfirmation").checked
+      },
+
+      voice: {
+        enabled:
+          $("nbVoiceEnabled").checked,
+
+        language:
+          $("nbVoiceLanguage").value,
+
+        rate:
+          Number($("nbVoiceRate").value),
+
+        pitch:
+          Number($("nbVoicePitch").value),
+
+        volume:
+          Number($("nbVoiceVolume").value),
+
+        wake_sensitivity:
+          Number($("nbWakeSensitivity").value),
+
+        interrupt_enabled:
+          $("nbInterrupt").checked
+      },
+
+      ai: {
+        mode:
+          $("nbAiMode").value,
+
+        local_model:
+          $("nbLocalModel").value.trim(),
+
+        fallback_online:
+          $("nbOnlineFallback").checked,
+
+        context_size:
+          Number($("nbContextSize").value),
+
+        max_response_tokens:
+          Number($("nbMaxTokens").value)
+      },
+
+      islamic: {
+        prayer_reminders:
+          $("nbPrayerReminders").checked,
+
+        adhan_enabled:
+          $("nbAdhan").checked,
+
+        dua_reminders:
+          $("nbDua").checked,
+
+        azkar_reminders:
+          $("nbAzkar").checked
+      },
+
+      privacy: {
+        camera_enabled:
+          $("nbCamera").checked,
+
+        microphone_enabled:
+          $("nbMicrophone").checked,
+
+        activity_learning:
+          $("nbActivityLearning").checked,
+
+        face_recognition:
+          $("nbFaceRecognition").checked
+      },
+
+      notifications: {
+        mobile_enabled:
+          $("nbMobileNotifications").checked,
+
+        dashboard_enabled:
+          $("nbDashboardNotifications").checked
+      },
+
+      system: {
+        developer_mode:
+          $("nbDeveloperMode").checked
+      }
+    };
+  }
+
+  async function load() {
+    try {
+      status("Loading…");
+
+      const data = await api();
+
+      fill(data.settings || {});
+
+      status("Ready");
+      message("");
+    } catch (error) {
+      status("Unavailable");
+      message(error.message, true);
+    }
+  }
+
+  async function save() {
+    try {
+      status("Saving…");
+
+      const data = await api("", {
+        method: "PATCH",
+        body: JSON.stringify(
+          collect()
+        )
+      });
+
+      fill(data.settings || {});
+
+      status("Saved");
+      message(
+        "Noor settings saved across the system."
+      );
+    } catch (error) {
+      status("Error");
+      message(error.message, true);
+    }
+  }
+
+  function start() {
+    createUI();
+    load();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener(
+      "DOMContentLoaded",
+      start,
+      { once: true }
+    );
+  } else {
+    start();
+  }
+
+  window.NoorSettingsV11 = Object.freeze({
+    installed: true,
+    version: "11.2.0",
+    load,
+    save
+  });
+})();

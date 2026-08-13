@@ -1,0 +1,229 @@
+#nbAutomationCenterV12 {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  overflow: auto;
+  background:
+    rgba(4,10,18,.96);
+  backdrop-filter: blur(16px);
+}
+
+#nbAutomationCenterV12[hidden] {
+  display: none !important;
+}
+
+.nbac-shell {
+  width: min(1180px,calc(100% - 32px));
+  margin: 22px auto 80px;
+}
+
+.nbac-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.nbac-header h2 {
+  margin: 3px 0 5px;
+  font-size: clamp(25px,4vw,38px);
+}
+
+.nbac-header p {
+  margin: 0;
+  opacity: .68;
+}
+
+.nbac-eyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .18em;
+  opacity: .55;
+}
+
+.nbac-icon {
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 14px;
+}
+
+.nbac-tabs {
+  display: grid;
+  grid-template-columns:
+    repeat(5,minmax(0,1fr));
+  gap: 9px;
+  margin-bottom: 14px;
+}
+
+.nbac-tabs button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 52px;
+  padding: 9px;
+  border-radius: 14px;
+}
+
+.nbac-tabs button.active {
+  outline: 2px solid currentColor;
+}
+
+.nbac-tabs b {
+  min-width: 21px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.1);
+  font-size: 11px;
+}
+
+.nbac-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  border: 1px solid
+    rgba(255,255,255,.08);
+  border-radius: 16px;
+  background: rgba(255,255,255,.035);
+}
+
+.nbac-toolbar strong {
+  display: block;
+}
+
+#nbacStatus {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  opacity: .55;
+}
+
+.nbac-toolbar-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.nbac-content {
+  min-height: 300px;
+}
+
+.nbac-list {
+  display: grid;
+  gap: 10px;
+}
+
+.nbac-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid
+    rgba(255,255,255,.08);
+  background: rgba(255,255,255,.04);
+}
+
+.nbac-card-main strong,
+.nbac-card-main small {
+  display: block;
+}
+
+.nbac-card-main small {
+  margin-top: 5px;
+  opacity: .58;
+}
+
+.nbac-card-actions {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.nbac-card-actions button,
+.nbac-toolbar button,
+.nbac-empty button {
+  min-height: 40px;
+  border-radius: 11px;
+  padding: 8px 13px;
+}
+
+.nbac-empty {
+  text-align: center;
+  padding: 70px 20px;
+  border-radius: 18px;
+  border: 1px dashed
+    rgba(255,255,255,.12);
+  background: rgba(255,255,255,.025);
+}
+
+.nbac-empty > div {
+  font-size: 40px;
+  margin-bottom: 12px;
+}
+
+.nbac-empty p {
+  opacity: .6;
+}
+
+body.nb-automation-open {
+  overflow: hidden;
+}
+
+@media (max-width: 760px) {
+  .nbac-shell {
+    width: calc(100% - 20px);
+    margin-top: 12px;
+  }
+
+  .nbac-header {
+    padding: 4px 3px;
+  }
+
+  .nbac-header p {
+    font-size: 13px;
+  }
+
+  .nbac-tabs {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 5px;
+    scrollbar-width: none;
+  }
+
+  .nbac-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nbac-tabs button {
+    flex: 0 0 auto;
+    min-width: 125px;
+  }
+
+  .nbac-toolbar {
+    align-items: flex-start;
+  }
+
+  .nbac-toolbar-actions {
+    flex-direction: column;
+  }
+
+  .nbac-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .nbac-card-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .nbac-card-actions button {
+    flex: 1;
+  }
+}

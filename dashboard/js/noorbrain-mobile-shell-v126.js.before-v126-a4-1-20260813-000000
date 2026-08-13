@@ -1,0 +1,58 @@
+/* Backup: original noorbrain-mobile-shell-v126.js before V12.6 A4.1 edits
+    Created: 2026-08-13 00:00:00
+*/
+
+(()=>{
+"use strict";
+
+const VERSION="12.6.0";
+
+const TABS={
+   home:{
+      title:"Home",
+      icon:"⌂"
+   },
+   automation:{
+      title:"Automation",
+      icon:"◇"
+   },
+   halo:{
+      title:"HALO",
+      icon:"◉"
+   },
+   islamic:{
+      title:"Islamic",
+      icon:"☾"
+   },
+   more:{
+      title:"More",
+      icon:"☰"
+   }
+};
+
+const $=id=>document.getElementById(id);
+
+function esc(v){
+   return String(v??"")
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;");
+}
+
+function getNativeBackTarget(defaultTab="home"){
+   return (
+      document.body.dataset.nb126BackTarget ||
+      window.NoorBrainV126ModuleBridge?.lastTab ||
+      defaultTab
+   );
+}
+
+function setNativeBackTarget(target="home"){
+   document.body.dataset.nb126BackTarget = target || "home";
+   return target || "home";
+}
+
+/* end of backup content */
+
+})();

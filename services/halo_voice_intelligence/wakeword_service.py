@@ -9,7 +9,7 @@ from typing import Any
 class WakeWordService:
     def __init__(self) -> None:
         self._lock = RLock()
-        self._wake_words = {"halo", "hey halo", "hello halo"}
+        self._wake_words = {"noor", "hey noor", "hello noor"}
         self._armed_until = 0.0
         self._last_detection: dict[str, Any] | None = None
 

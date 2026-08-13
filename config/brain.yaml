@@ -14,5 +14,5 @@ system:
 vision:
   model: yolov8n.pt
   confidence: 0.30
-  target_fps: 3.0
-  image_size: 640
+  target_fps: 1.0
+  image_size: 416

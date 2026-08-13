@@ -125,16 +125,17 @@
   function handleClick(event) {
     const featureButton = event.target.closest?.("[data-nb-feature]");
     if (featureButton) {
+      const handled = open(featureButton.dataset.nbFeature);
+      if (!handled) return;
       event.preventDefault();
       event.stopImmediatePropagation();
-      open(featureButton.dataset.nbFeature);
       return;
     }
 
     if (event.target.closest?.("#nbUhClose")) {
+      close();
       event.preventDefault();
       event.stopImmediatePropagation();
-      close();
       return;
     }
 
@@ -143,22 +144,27 @@
     const module = moduleButton.dataset.module;
 
     if (module === "vision") {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      document.getElementById("nbv2CameraSection")?.scrollIntoView({behavior: "smooth"});
-      return;
+      const camera = document.getElementById("nbv2CameraSection");
+      if (camera) {
+        camera.scrollIntoView({behavior: "smooth"});
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
     }
 
     if (moduleFeature[module]) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      open(moduleFeature[module]);
+      const handled = open(moduleFeature[module]);
+      if (handled) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
+      location.href = studioTargets[module] || `/studio#${module}`;
       return;
     }
 
     if (studioTargets[module]) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
       location.href = studioTargets[module];
     }
   }

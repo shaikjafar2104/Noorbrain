@@ -16,5 +16,68 @@
     }
   ],
   "schema_version": 1,
-  "zones": []
+  "zones": [
+    {
+      "camera_id": "primary",
+      "created_at": "2026-08-12T10:54:31.876567+00:00",
+      "enabled": true,
+      "id": "b6357b372e1045c4bb4b4fd3bb6cf5bd",
+      "metadata": {
+        "frame_height": 720,
+        "frame_width": 1280,
+        "source": "legacy-zone-migration"
+      },
+      "name": "Kitchen",
+      "points": [
+        {
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "x": 0.5,
+          "y": 0.0
+        },
+        {
+          "x": 0.5,
+          "y": 1.0
+        },
+        {
+          "x": 0.0,
+          "y": 1.0
+        }
+      ],
+      "updated_at": "2026-08-12T10:54:31.876567+00:00"
+    },
+    {
+      "camera_id": "primary",
+      "created_at": "2026-08-12T10:54:31.876665+00:00",
+      "enabled": true,
+      "id": "ff139ecc16a34970af4d1671d8d617d2",
+      "metadata": {
+        "frame_height": 720,
+        "frame_width": 1280,
+        "source": "legacy-zone-migration"
+      },
+      "name": "Hall",
+      "points": [
+        {
+          "x": 0.5,
+          "y": 0.0
+        },
+        {
+          "x": 1.0,
+          "y": 0.0
+        },
+        {
+          "x": 1.0,
+          "y": 1.0
+        },
+        {
+          "x": 0.5,
+          "y": 1.0
+        }
+      ],
+      "updated_at": "2026-08-12T10:54:31.876665+00:00"
+    }
+  ]
 }

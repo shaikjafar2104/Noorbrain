@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import threading
-import time
 from datetime import datetime, timezone
 from typing import Any
 
@@ -48,6 +47,7 @@ class HALORuntimeManager:
             self._thread.start()
 
         self._start_optional_services()
+
         return {
             **self.status(),
             "reason": reason,
@@ -86,9 +86,15 @@ class HALORuntimeManager:
             except Exception as exc:
                 with self._lock:
                     self._state = RuntimeState.ERROR
-                    self._last_error = f"{type(exc).__name__}: {exc}"
+                    self._last_error = (
+                        f"{type(exc).__name__}: {exc}"
+                    )
 
-            interval = runtime_config_store.read().heartbeat_interval_seconds
+            interval = (
+                runtime_config_store
+                .read()
+                .heartbeat_interval_seconds
+            )
             self._stop_event.wait(interval)
 
         with self._lock:
@@ -97,10 +103,12 @@ class HALORuntimeManager:
 
     def heartbeat(self) -> dict[str, Any]:
         snapshots = component_registry.inspect_all()
+
         unhealthy = [
             item
             for item in snapshots
-            if item.state in {
+            if item.state
+            in {
                 ComponentState.DEGRADED,
                 ComponentState.UNAVAILABLE,
                 ComponentState.ERROR,
@@ -140,57 +148,118 @@ class HALORuntimeManager:
 
     def _attempt_recovery(self, component: str) -> None:
         config = runtime_config_store.read()
-        attempts = self._recovery_attempts.get(component, 0)
+        attempts = self._recovery_attempts.get(
+            component,
+            0,
+        )
 
         if attempts >= config.max_recovery_attempts:
             return
 
-        self._recovery_attempts[component] = attempts + 1
+        self._recovery_attempts[component] = (
+            attempts + 1
+        )
 
         if component == "voice_os":
             try:
-                from services.voice_os.live_pipeline import live_voice_pipeline
+                from services.voice_os.live_pipeline import (
+                    live_voice_pipeline,
+                )
 
                 status = live_voice_pipeline.status()
+
                 if status.get("status") == "error":
                     live_voice_pipeline.stop()
+
             except Exception:
                 pass
 
     def _start_optional_services(self) -> None:
         config = runtime_config_store.read()
 
+        # Start HALO microphone/audio capture.
+        try:
+            from services.halo_audio.service import (
+                halo_audio_service,
+            )
+
+            halo_audio_service.start(
+                reason="halo-runtime"
+            )
+
+        except Exception as exc:
+            self._last_error = (
+                f"HALO audio start failed: {exc}"
+            )
+
+        # Start live voice pipeline when enabled.
         if config.auto_start_voice_runtime:
             try:
-                from services.voice_os.live_pipeline import live_voice_pipeline
-                live_voice_pipeline.start()
-            except Exception as exc:
-                self._last_error = f"Voice runtime start failed: {exc}"
+                from services.voice_os.live_pipeline import (
+                    live_voice_pipeline,
+                )
 
+                live_voice_pipeline.start()
+
+            except Exception as exc:
+                self._last_error = (
+                    f"Voice runtime start failed: {exc}"
+                )
+
+        # Start TTS worker when enabled.
         if config.auto_start_tts_worker:
             try:
-                from services.voice_os.tts_worker import tts_worker
+                from services.voice_os.tts_worker import (
+                    tts_worker,
+                )
+
                 tts_worker.start()
+
             except Exception as exc:
-                self._last_error = f"TTS worker start failed: {exc}"
+                self._last_error = (
+                    f"TTS worker start failed: {exc}"
+                )
 
     @staticmethod
     def _stop_optional_services() -> None:
         try:
-            from services.voice_os.live_pipeline import live_voice_pipeline
-            live_voice_pipeline.stop()
+            from services.halo_audio.service import (
+                halo_audio_service,
+            )
+
+            halo_audio_service.stop(
+                reason="halo-runtime"
+            )
+
         except Exception:
             pass
 
         try:
-            from services.voice_os.tts_worker import tts_worker
+            from services.voice_os.live_pipeline import (
+                live_voice_pipeline,
+            )
+
+            live_voice_pipeline.stop()
+
+        except Exception:
+            pass
+
+        try:
+            from services.voice_os.tts_worker import (
+                tts_worker,
+            )
+
             tts_worker.stop()
+
         except Exception:
             pass
 
     def status(self) -> dict[str, Any]:
         with self._lock:
-            thread_alive = bool(self._thread and self._thread.is_alive())
+            thread_alive = bool(
+                self._thread
+                and self._thread.is_alive()
+            )
             state = self._state
 
         return {
@@ -204,8 +273,14 @@ class HALORuntimeManager:
             "last_heartbeat": self._last_heartbeat,
             "heartbeat_count": self._heartbeat_count,
             "last_error": self._last_error,
-            "recovery_attempts": dict(self._recovery_attempts),
-            "config": runtime_config_store.read().model_dump(mode="json"),
+            "recovery_attempts": dict(
+                self._recovery_attempts
+            ),
+            "config": (
+                runtime_config_store
+                .read()
+                .model_dump(mode="json")
+            ),
             "components": [
                 item.model_dump(mode="json")
                 for item in component_registry.last()

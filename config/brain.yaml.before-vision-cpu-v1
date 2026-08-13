@@ -1,0 +1,18 @@
+brain:
+  name: NoorBrain
+
+server:
+  host: 0.0.0.0
+  port: 8001
+
+camera_node:
+  url: http://192.168.2.29:8000
+
+system:
+  log_level: INFO
+
+vision:
+  model: yolov8n.pt
+  confidence: 0.30
+  target_fps: 3.0
+  image_size: 640

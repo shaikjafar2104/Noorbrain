@@ -49,35 +49,50 @@ def write_state(data: dict[str, Any]) -> None:
 
 def extract_command(text: str) -> tuple[bool, str]:
     clean = " ".join(text.strip().split())
-    normalized = re.sub(r"[^a-z0-9']+", " ", clean.casefold()).strip()
-    words = normalized.split()
+    normalized = re.sub(
+        r"[^a-z0-9']+",
+        " ",
+        clean.casefold(),
+    ).strip()
 
-    if not words:
+    if not normalized:
         return False, ""
 
-    if words[0] == "hey":
-        words.pop(0)
+    # Whisper commonly mishears "Noor" in short Pi recordings.
+    normalized = re.sub(
+        r"^(?:hey|hi|hello)\s+"
+        r"(?:noor|nor|nur|nour|noore|no|new|north|know)\b",
+        "hey noor",
+        normalized,
+    )
 
-    if not words:
-        return False, ""
+    normalized = re.sub(
+        r"^(?:noor|nor|nur|nour|noore)\b",
+        "noor",
+        normalized,
+    )
 
-    wake_variants = {
-        "noor", "nor", "nur", "no",
-        "nour", "noore",
-    }
+    wake_patterns = (
+        r"^hey\s+noor\b",
+        r"^hello\s+noor\b",
+        r"^hi\s+noor\b",
+        r"^noor\b",
+    )
 
-    if words[0] not in wake_variants:
+    matched = None
+    for pattern in wake_patterns:
+        matched = re.match(pattern, normalized)
+        if matched:
+            break
+
+    if not matched:
         return False, clean
 
-    words.pop(0)
-
-    if words and words[0] == "halo":
-        words.pop(0)
-
-    command = " ".join(words).strip()
+    command = normalized[matched.end():].strip(" ,:-")
 
     command = re.sub(
-        r"^(?:what's|whats|what)\\s+(?:tham|tam|time)\\s+is\\s+it$",
+        r"^(?:what's|whats|what)\s+"
+        r"(?:tham|tam|time)\s+is\s+it$",
         "what time is it",
         command,
     )
@@ -162,7 +177,16 @@ async def health():
         "version": "16.1.0",
         "wake_words": state["wake_words"],
         "armed": float(state.get("armed_until", 0)) > time.time(),
-        "natural_voice_ready": bool(shutil.which("piper") and os.getenv("PIPER_MODEL_PATH")),
+        "natural_voice_ready": bool(
+        (
+            shutil.which("piper")
+            or (ROOT / "tools" / "piper" / "piper").is_file()
+        )
+        and Path(
+            os.getenv("PIPER_MODEL_PATH", "").strip()
+            or ROOT / "models" / "voice" / "en_US-lessac-medium.onnx"
+        ).is_file()
+    ),
         "electronic_voice": False,
         "last_event": state.get("last_event"),
     }

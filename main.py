@@ -13,8 +13,11 @@ import threading
 import time
 
 import cv2
+import requests
 from ai.halo import halo
 from fastapi import FastAPI
+from services.noor_settings.routes import router as noor_settings_router
+from services.noor_control_v11.routes import router as noor_control_v11_router
 from fastapi.responses import HTMLResponse, StreamingResponse, FileResponse
 from pydantic import BaseModel
 from fastapi.staticfiles import StaticFiles
@@ -64,6 +67,9 @@ app = FastAPI(
     title="NoorBrain",
     version="1.0.0"
 )
+
+app.include_router(noor_settings_router)
+app.include_router(noor_control_v11_router)
 app.include_router(voice_ai_router)
 
 # Sprint 2: Media Library API
@@ -115,21 +121,41 @@ class VisionSettings(BaseModel):
 # Startup
 # ---------------------------------------------------------
 @app.on_event("startup")
-def startup():
+async def startup():
     migration_result = migration_manager.apply_pending()
     validation_result = startup_validator.run()
+
     logger.info(f"Migration status: {migration_result}")
     logger.info(f"Startup validation: {validation_result['status']}")
+
     logger.info("=" * 60)
     logger.info("Starting NoorBrain")
     logger.info("=" * 60)
-    
-    camera_client.start()
-    vision_engine.start()
-    logger.info("Vision Snapshot After Start")
-    logger.info(vision_engine.snapshot())
-    
-    start_watchdog()
+
+    try:
+        camera_client.start()
+        logger.info("Camera client started")
+    except Exception:
+        logger.exception("Camera client startup failed")
+
+    try:
+        vision_engine.start()
+        logger.info("Vision engine started")
+    except Exception:
+        logger.exception("Vision engine startup failed")
+
+    try:
+        logger.info("Vision Snapshot After Start")
+        logger.info(vision_engine.snapshot())
+    except Exception:
+        logger.exception("Vision snapshot failed")
+
+    try:
+        start_watchdog()
+        logger.info("Watchdog started")
+    except Exception:
+        logger.exception("Watchdog startup failed")
+
     logger.info("NoorBrain Ready")
 
 
@@ -137,11 +163,17 @@ def startup():
 # Shutdown
 # ---------------------------------------------------------
 @app.on_event("shutdown")
-def shutdown():
+async def shutdown():
     logger.info("=" * 60)
     logger.info("Stopping NoorBrain")
     logger.info("=" * 60)
     
+    try:
+        from services.halo_runtime.runtime import halo_runtime_manager
+        halo_runtime_manager.stop(reason="application-shutdown")
+    except Exception:
+        logger.exception("HALO Runtime Manager failed to stop cleanly")
+
     stop_watchdog()
     vision_engine.stop()
     camera_client.stop()
@@ -282,7 +314,7 @@ def frame_size():
 _jpeg_lock = threading.Lock()
 _jpeg_bytes = None
 _jpeg_time = 0.0
-_jpeg_interval = 1.0 / 8.0
+_jpeg_interval = 1.0 / 5.0
 _raw_jpeg_lock = threading.Lock()
 _raw_jpeg_bytes = None
 _raw_jpeg_time = 0.0
@@ -312,7 +344,7 @@ def get_encoded_frame():
         success, buffer = cv2.imencode(
             ".jpg",
             frame,
-            [int(cv2.IMWRITE_JPEG_QUALITY), 75]
+            [int(cv2.IMWRITE_JPEG_QUALITY), 70]
         )
 
         if not success:
@@ -364,7 +396,7 @@ def get_raw_encoded_frame():
         success, buffer = cv2.imencode(
             ".jpg",
             frame,
-            [int(cv2.IMWRITE_JPEG_QUALITY), 80],
+            [int(cv2.IMWRITE_JPEG_QUALITY), 72],
         )
         if not success:
             return None
@@ -423,6 +455,49 @@ def camera_feed():
 
 
 # ---------------------------------------------------------
+# Low-overhead live camera proxy
+# ---------------------------------------------------------
+@app.get("/camera_live")
+def camera_live():
+    """Proxy the Raspberry Pi MJPEG stream without OpenCV re-encoding.
+
+    This is the preferred feed for dashboard/mobile display. It reduces CPU
+    load and keeps /camera_feed and /vision_feed available as fallbacks.
+    """
+    def proxy_stream():
+        response = None
+        try:
+            response = requests.get(
+                camera_client.stream_url,
+                stream=True,
+                timeout=(3.0, 30.0),
+            )
+            response.raise_for_status()
+            for chunk in response.iter_content(chunk_size=16384):
+                if chunk:
+                    yield chunk
+        except Exception as exc:
+            logger.warning("Live camera proxy ended: %s", exc)
+        finally:
+            if response is not None:
+                try:
+                    response.close()
+                except Exception:
+                    pass
+
+    return StreamingResponse(
+        proxy_stream(),
+        media_type="multipart/x-mixed-replace; boundary=frame",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+# ---------------------------------------------------------
 # Halo Chat
 # ---------------------------------------------------------
 @app.post("/halo")
@@ -442,6 +517,13 @@ def halo_chat(request: ChatRequest):
 @app.get("/studio", include_in_schema=False)
 def studio():
     return FileResponse(DASHBOARD_DIR / "index.html")
+
+
+@app.get("/dashboard", include_in_schema=False)
+@app.get("/dashboard/", include_in_schema=False)
+def dashboard_ui():
+    return FileResponse(DASHBOARD_DIR / "index.html")
+
 
 
 # ---------------------------------------------------------
@@ -983,8 +1065,9 @@ from fastapi.responses import FileResponse
 from services.mobile_companion.routes import router as mobile_companion_router
 app.include_router(mobile_companion_router)
 @app.get("/mobile", response_class=FileResponse)
+@app.get("/mobile/", response_class=FileResponse)
 def mobile_companion_page():
-    return FileResponse("dashboard/mobile/index.html")
+    return FileResponse(DASHBOARD_DIR / "mobile" / "index.html")
 
 # NOORBRAIN V3 D1.1
 from services.vision_intelligence.routes import router as vision_intelligence_router

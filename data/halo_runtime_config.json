@@ -1,6 +1,6 @@
 {
-  "auto_start_tts_worker": false,
-  "auto_start_voice_runtime": false,
+  "auto_start_tts_worker": true,
+  "auto_start_voice_runtime": true,
   "component_timeout_seconds": 8.0,
   "enable_recovery": true,
   "heartbeat_interval_seconds": 2.0,

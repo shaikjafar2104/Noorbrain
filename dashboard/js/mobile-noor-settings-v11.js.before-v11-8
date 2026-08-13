@@ -1,0 +1,790 @@
+(() => {
+  "use strict";
+
+  const API = "/api/noor-settings-v11";
+
+  async function api(options = {}) {
+    const response = await fetch(API, {
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      ...options
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.detail || `HTTP ${response.status}`
+      );
+    }
+
+    return data;
+  }
+
+  function toggle(id, label) {
+    return `
+      <label class="nbms-toggle">
+        <span>${label}</span>
+        <input id="${id}" type="checkbox">
+      </label>
+    `;
+  }
+
+  function createPanel() {
+    if (document.getElementById("nbMobileSettings"))
+      return;
+
+    const panel = document.createElement("div");
+
+    panel.id = "nbMobileSettings";
+    panel.hidden = true;
+
+    panel.innerHTML = `
+      <div class="nbms-shell">
+
+        <header class="nbms-header">
+          <button id="nbmsBack"
+                  type="button">
+            ←
+          </button>
+
+          <div>
+            <strong>Noor Settings</strong>
+            <small>
+              Synced with all Noor devices
+            </small>
+          </div>
+
+          <span id="nbmsStatus">
+            Ready
+          </span>
+        </header>
+
+        <main class="nbms-content">
+
+          <section>
+            <h3>🤖 Assistant</h3>
+
+            <label>
+              Assistant name
+              <input id="nbmsName"
+                     type="text">
+            </label>
+
+            <label>
+              Wake words
+              <input id="nbmsWake"
+                     type="text">
+            </label>
+
+            <label>
+              Response style
+              <select id="nbmsStyle">
+                <option value="short">
+                  Short
+                </option>
+                <option value="normal">
+                  Normal
+                </option>
+                <option value="detailed">
+                  Detailed
+                </option>
+              </select>
+            </label>
+
+            ${toggle(
+              "nbmsFollow",
+              "Follow-up conversation"
+            )}
+
+            ${toggle(
+              "nbmsConfirm",
+              "Confirm important actions"
+            )}
+          </section>
+
+
+          <section>
+            <h3>🔊 Voice</h3>
+
+            ${toggle(
+              "nbmsVoice",
+              "Voice replies"
+            )}
+
+            <label>
+              Language
+              <select id="nbmsLanguage">
+                <option value="en-US">
+                  English US
+                </option>
+                <option value="en-GB">
+                  English UK
+                </option>
+                <option value="ur-PK">
+                  Urdu
+                </option>
+                <option value="ar-SA">
+                  Arabic
+                </option>
+              </select>
+            </label>
+
+            <label>
+              Voice speed
+              <input id="nbmsRate"
+                     type="range"
+                     min="0.5"
+                     max="1.5"
+                     step="0.05">
+              <b id="nbmsRateValue"></b>
+            </label>
+
+            <label>
+              Voice pitch
+              <input id="nbmsPitch"
+                     type="range"
+                     min="0.5"
+                     max="1.5"
+                     step="0.05">
+              <b id="nbmsPitchValue"></b>
+            </label>
+
+            <label>
+              Volume
+              <input id="nbmsVolume"
+                     type="range"
+                     min="0"
+                     max="1"
+                     step="0.05">
+              <b id="nbmsVolumeValue"></b>
+            </label>
+
+            <label>
+              Wake sensitivity
+              <input id="nbmsSensitivity"
+                     type="number"
+                     min="20"
+                     max="1000">
+            </label>
+
+            ${toggle(
+              "nbmsInterrupt",
+              "Allow interruption"
+            )}
+          </section>
+
+
+          <section>
+            <h3>🧠 AI</h3>
+
+            <label>
+              AI mode
+              <select id="nbmsAiMode">
+                <option value="local_first">
+                  Local first
+                </option>
+                <option value="local_only">
+                  Local only
+                </option>
+                <option value="online_first">
+                  Online first
+                </option>
+              </select>
+            </label>
+
+            <label>
+              Local model
+              <input id="nbmsModel"
+                     type="text">
+            </label>
+
+            <label>
+              Context size
+              <input id="nbmsContext"
+                     type="number">
+            </label>
+
+            <label>
+              Max response tokens
+              <input id="nbmsTokens"
+                     type="number">
+            </label>
+
+            ${toggle(
+              "nbmsFallback",
+              "Online AI fallback"
+            )}
+          </section>
+
+
+          <section>
+            <h3>🕌 Islamic</h3>
+
+            ${toggle(
+              "nbmsPrayer",
+              "Prayer reminders"
+            )}
+
+            ${toggle(
+              "nbmsAdhan",
+              "Adhan"
+            )}
+
+            ${toggle(
+              "nbmsDua",
+              "Dua reminders"
+            )}
+
+            ${toggle(
+              "nbmsAzkar",
+              "Azkar reminders"
+            )}
+          </section>
+
+
+          <section>
+            <h3>🔐 Privacy</h3>
+
+            ${toggle(
+              "nbmsCamera",
+              "Camera"
+            )}
+
+            ${toggle(
+              "nbmsMicrophone",
+              "Microphone"
+            )}
+
+            ${toggle(
+              "nbmsLearning",
+              "Activity learning"
+            )}
+
+            ${toggle(
+              "nbmsFace",
+              "Face recognition"
+            )}
+          </section>
+
+
+          <section>
+            <h3>🔔 Notifications</h3>
+
+            ${toggle(
+              "nbmsMobileNotify",
+              "Mobile notifications"
+            )}
+
+            ${toggle(
+              "nbmsDashNotify",
+              "Dashboard notifications"
+            )}
+
+            ${toggle(
+              "nbmsDeveloper",
+              "Developer mode"
+            )}
+          </section>
+
+        </main>
+
+        <footer class="nbms-footer">
+          <button id="nbmsSave"
+                  type="button">
+            Save Settings
+          </button>
+
+          <button id="nbmsReload"
+                  type="button">
+            Reload
+          </button>
+        </footer>
+
+      </div>
+    `;
+
+    document.body.appendChild(panel);
+
+    installStyle();
+    bind();
+  }
+
+
+  function installStyle() {
+    if (document.getElementById("nbmsStyleSheet"))
+      return;
+
+    const style = document.createElement("style");
+
+    style.id = "nbmsStyleSheet";
+
+    style.textContent = `
+      #nbMobileSettings {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483000;
+        background: #0b1626;
+        color: #f4f7fb;
+        overflow-y: auto;
+        font-family: system-ui, sans-serif;
+      }
+
+      #nbMobileSettings[hidden] {
+        display: none !important;
+      }
+
+      .nbms-shell {
+        max-width: 760px;
+        margin: auto;
+        min-height: 100%;
+      }
+
+      .nbms-header {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        display: grid;
+        grid-template-columns: 44px 1fr auto;
+        align-items: center;
+        gap: 10px;
+        padding: 14px;
+        background: #101e31;
+        border-bottom:
+          1px solid rgba(255,255,255,.08);
+      }
+
+      .nbms-header button {
+        width: 40px;
+        height: 40px;
+        border: 0;
+        border-radius: 12px;
+        font-size: 22px;
+      }
+
+      .nbms-header strong {
+        display: block;
+        font-size: 17px;
+      }
+
+      .nbms-header small {
+        display: block;
+        opacity: .65;
+        margin-top: 2px;
+      }
+
+      #nbmsStatus {
+        font-size: 12px;
+        color: #6ee7a8;
+      }
+
+      .nbms-content {
+        padding: 14px;
+      }
+
+      .nbms-content section {
+        background: #16263c;
+        border:
+          1px solid rgba(255,255,255,.07);
+        border-radius: 16px;
+        padding: 16px;
+        margin-bottom: 14px;
+      }
+
+      .nbms-content h3 {
+        margin: 0 0 15px;
+      }
+
+      .nbms-content label {
+        display: block;
+        margin: 13px 0;
+        font-size: 13px;
+      }
+
+      .nbms-content input[type="text"],
+      .nbms-content input[type="number"],
+      .nbms-content select {
+        width: 100%;
+        box-sizing: border-box;
+        margin-top: 7px;
+        padding: 12px;
+        border: 0;
+        border-radius: 10px;
+        font-size: 16px;
+      }
+
+      .nbms-content input[type="range"] {
+        width: 100%;
+        margin-top: 10px;
+      }
+
+      .nbms-toggle {
+        display: flex !important;
+        justify-content: space-between;
+        align-items: center;
+        gap: 15px;
+        min-height: 36px;
+      }
+
+      .nbms-toggle input {
+        width: 22px;
+        height: 22px;
+      }
+
+      .nbms-footer {
+        position: sticky;
+        bottom: 0;
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 10px;
+        padding: 14px;
+        background: #101e31;
+        border-top:
+          1px solid rgba(255,255,255,.08);
+      }
+
+      .nbms-footer button {
+        min-height: 48px;
+        border: 0;
+        border-radius: 13px;
+        font-weight: 700;
+        font-size: 15px;
+      }
+
+      #nbmsSave {
+        background: #2d8cff;
+        color: white;
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+
+
+  function value(id) {
+    return document.getElementById(id);
+  }
+
+
+  function sliderLabels() {
+    value("nbmsRateValue").textContent =
+      Number(value("nbmsRate").value)
+        .toFixed(2);
+
+    value("nbmsPitchValue").textContent =
+      Number(value("nbmsPitch").value)
+        .toFixed(2);
+
+    value("nbmsVolumeValue").textContent =
+      Number(value("nbmsVolume").value)
+        .toFixed(2);
+  }
+
+
+  function fill(settings) {
+    const a = settings.assistant || {};
+    const v = settings.voice || {};
+    const ai = settings.ai || {};
+    const isl = settings.islamic || {};
+    const p = settings.privacy || {};
+    const n = settings.notifications || {};
+    const sys = settings.system || {};
+
+    value("nbmsName").value =
+      a.name || "Noor";
+
+    value("nbmsWake").value =
+      (a.wake_words || []).join(", ");
+
+    value("nbmsStyle").value =
+      a.response_style || "short";
+
+    value("nbmsFollow").checked =
+      a.follow_up_enabled !== false;
+
+    value("nbmsConfirm").checked =
+      a.confirmation_enabled !== false;
+
+
+    value("nbmsVoice").checked =
+      v.enabled !== false;
+
+    value("nbmsLanguage").value =
+      v.language || "en-US";
+
+    value("nbmsRate").value =
+      Number(v.rate ?? 1);
+
+    value("nbmsPitch").value =
+      Number(v.pitch ?? 1);
+
+    value("nbmsVolume").value =
+      Number(v.volume ?? 1);
+
+    value("nbmsSensitivity").value =
+      Number(v.wake_sensitivity ?? 120);
+
+    value("nbmsInterrupt").checked =
+      v.interrupt_enabled !== false;
+
+
+    value("nbmsAiMode").value =
+      ai.mode || "local_first";
+
+    value("nbmsModel").value =
+      ai.local_model || "";
+
+    value("nbmsContext").value =
+      Number(ai.context_size || 1024);
+
+    value("nbmsTokens").value =
+      Number(ai.max_response_tokens || 40);
+
+    value("nbmsFallback").checked =
+      ai.fallback_online === true;
+
+
+    value("nbmsPrayer").checked =
+      isl.prayer_reminders !== false;
+
+    value("nbmsAdhan").checked =
+      isl.adhan_enabled !== false;
+
+    value("nbmsDua").checked =
+      isl.dua_reminders !== false;
+
+    value("nbmsAzkar").checked =
+      isl.azkar_reminders !== false;
+
+
+    value("nbmsCamera").checked =
+      p.camera_enabled !== false;
+
+    value("nbmsMicrophone").checked =
+      p.microphone_enabled !== false;
+
+    value("nbmsLearning").checked =
+      p.activity_learning !== false;
+
+    value("nbmsFace").checked =
+      p.face_recognition !== false;
+
+
+    value("nbmsMobileNotify").checked =
+      n.mobile_enabled !== false;
+
+    value("nbmsDashNotify").checked =
+      n.dashboard_enabled !== false;
+
+    value("nbmsDeveloper").checked =
+      sys.developer_mode === true;
+
+    sliderLabels();
+  }
+
+
+  function collect() {
+    return {
+      assistant: {
+        name:
+          value("nbmsName").value.trim() ||
+          "Noor",
+
+        wake_words:
+          value("nbmsWake")
+            .value
+            .split(",")
+            .map(x => x.trim())
+            .filter(Boolean),
+
+        response_style:
+          value("nbmsStyle").value,
+
+        follow_up_enabled:
+          value("nbmsFollow").checked,
+
+        confirmation_enabled:
+          value("nbmsConfirm").checked
+      },
+
+      voice: {
+        enabled:
+          value("nbmsVoice").checked,
+
+        language:
+          value("nbmsLanguage").value,
+
+        rate:
+          Number(value("nbmsRate").value),
+
+        pitch:
+          Number(value("nbmsPitch").value),
+
+        volume:
+          Number(value("nbmsVolume").value),
+
+        wake_sensitivity:
+          Number(
+            value("nbmsSensitivity").value
+          ),
+
+        interrupt_enabled:
+          value("nbmsInterrupt").checked
+      },
+
+      ai: {
+        mode:
+          value("nbmsAiMode").value,
+
+        local_model:
+          value("nbmsModel").value.trim(),
+
+        fallback_online:
+          value("nbmsFallback").checked,
+
+        context_size:
+          Number(value("nbmsContext").value),
+
+        max_response_tokens:
+          Number(value("nbmsTokens").value)
+      },
+
+      islamic: {
+        prayer_reminders:
+          value("nbmsPrayer").checked,
+
+        adhan_enabled:
+          value("nbmsAdhan").checked,
+
+        dua_reminders:
+          value("nbmsDua").checked,
+
+        azkar_reminders:
+          value("nbmsAzkar").checked
+      },
+
+      privacy: {
+        camera_enabled:
+          value("nbmsCamera").checked,
+
+        microphone_enabled:
+          value("nbmsMicrophone").checked,
+
+        activity_learning:
+          value("nbmsLearning").checked,
+
+        face_recognition:
+          value("nbmsFace").checked
+      },
+
+      notifications: {
+        mobile_enabled:
+          value("nbmsMobileNotify").checked,
+
+        dashboard_enabled:
+          value("nbmsDashNotify").checked
+      },
+
+      system: {
+        developer_mode:
+          value("nbmsDeveloper").checked
+      }
+    };
+  }
+
+
+  async function load() {
+    value("nbmsStatus").textContent =
+      "Loading…";
+
+    try {
+      const data = await api();
+
+      fill(data.settings || {});
+
+      value("nbmsStatus").textContent =
+        "Synced";
+    } catch (error) {
+      value("nbmsStatus").textContent =
+        "Error";
+
+      alert(error.message);
+    }
+  }
+
+
+  async function save() {
+    value("nbmsStatus").textContent =
+      "Saving…";
+
+    try {
+      const data = await api({
+        method: "PATCH",
+        body: JSON.stringify(collect())
+      });
+
+      fill(data.settings || {});
+
+      value("nbmsStatus").textContent =
+        "Saved";
+    } catch (error) {
+      value("nbmsStatus").textContent =
+        "Error";
+
+      alert(error.message);
+    }
+  }
+
+
+  async function open() {
+    createPanel();
+
+    value("nbMobileSettings").hidden = false;
+
+    document.body.style.overflow = "hidden";
+
+    await load();
+  }
+
+
+  function close() {
+    value("nbMobileSettings").hidden = true;
+
+    document.body.style.overflow = "";
+  }
+
+
+  function bind() {
+    value("nbmsBack").onclick = close;
+    value("nbmsSave").onclick = save;
+    value("nbmsReload").onclick = load;
+
+    for (const id of [
+      "nbmsRate",
+      "nbmsPitch",
+      "nbmsVolume"
+    ]) {
+      value(id).addEventListener(
+        "input",
+        sliderLabels
+      );
+    }
+  }
+
+
+  createPanel();
+
+  window.NoorMobileSettingsV11 = {
+    version: "11.3.0",
+    open,
+    close,
+    load,
+    save
+  };
+
+  console.log(
+    "NOOR_MOBILE_SETTINGS_V11_READY"
+  );
+})();
