@@ -13,19 +13,19 @@
 
   function statusNode() {
     return document.querySelector(
-      "#nbUniversalVoiceStatus, #nbHaloReply, [data-halo-reply]"
+      "#nb126HaloStatus, #nbUniversalVoiceStatus, #nbHaloReply, [data-halo-reply]"
     );
   }
 
   function inputNode() {
     return document.querySelector(
-      "#nbHaloInput, [data-halo-input]"
+      "#nb126HaloInput, #nbHaloInput, [data-halo-input]"
     );
   }
 
   function setStatus(message, mode = "") {
     const nodes = document.querySelectorAll(
-      "#nbUniversalVoiceStatus, #nbHaloReply, [data-halo-reply]"
+      "#nb126HaloStatus, #nbUniversalVoiceStatus, #nbHaloReply, [data-halo-reply]"
     );
 
     nodes.forEach(node => {
@@ -137,6 +137,15 @@
     const input = inputNode();
     if (input) {
       input.value = clean;
+    }
+
+    if (
+      window.NoorBrainMobile126
+      && typeof window.NoorBrainMobile126
+        .sendHalo === "function"
+    ) {
+      await window.NoorBrainMobile126.sendHalo(clean);
+      return;
     }
 
     if (
@@ -351,15 +360,16 @@
   function toggle(button) {
     if (state.recording) {
       stopRecording();
-      return;
+      return Promise.resolve();
     }
 
-    startRecording(button).catch(error => {
+    return startRecording(button).catch(error => {
       setStatus(
         error.message
         || "Microphone failed.",
         "error"
       );
+      return false;
     });
   }
 
@@ -482,6 +492,8 @@
       version: VERSION,
       start: startRecording,
       stop: stopRecording,
+      toggle,
+      isRecording: () => state.recording,
       patch: patchAllMicrophones,
     };
 

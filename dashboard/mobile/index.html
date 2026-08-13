@@ -234,6 +234,7 @@
       document.getElementById("nbv2HaloReply");
 
     const haloStatus =
+      document.getElementById("nb126HaloStatus") ||
       document.getElementById("nbs4Status");
 
     function status(text) {
@@ -243,18 +244,30 @@
 
     if (data.type === "noorbrain-native-listening") {
       if (noorButton) noorButton.textContent = "■ Stop";
+      window.NoorBrainMobile126?.setHaloStatus?.(
+        "Listening… tap Stop when finished.",
+        "listening"
+      );
       status("Listening… tap Stop when finished.");
       return;
     }
 
     if (data.type === "noorbrain-native-processing") {
       if (noorButton) noorButton.textContent = "🎤 Push to Talk";
+      window.NoorBrainMobile126?.setHaloStatus?.(
+        "Processing voice…",
+        "thinking"
+      );
       status("Processing voice…");
       return;
     }
 
     if (data.type === "noorbrain-native-error") {
       if (noorButton) noorButton.textContent = "🎤 Push to Talk";
+      window.NoorBrainMobile126?.setHaloStatus?.(
+        data.message || "Microphone failed.",
+        "error"
+      );
       status(data.message || "Microphone failed.");
       return;
     }
@@ -270,6 +283,7 @@
       }
 
       const input =
+        document.getElementById("nb126HaloInput") ||
         document.getElementById("nbv2HaloInput");
 
       if (input) {
@@ -281,7 +295,13 @@
 
       status("Heard: " + text);
 
-      if (window.NoorBrainMobileV2?.sendHalo) {
+      if (window.NoorBrainMobile126?.sendHalo) {
+        try {
+          await window.NoorBrainMobile126.sendHalo(text);
+        } catch (error) {
+          status(error.message || "Noor request failed.");
+        }
+      } else if (window.NoorBrainMobileV2?.sendHalo) {
         try {
           await window.NoorBrainMobileV2.sendHalo(text);
         } catch (error) {

@@ -335,6 +335,27 @@ function halo(){
         Tap to talk
       </strong>
 
+      <div class="nb126-card">
+        <label for="nb126HaloInput">Ask Noor</label>
+        <textarea
+          id="nb126HaloInput"
+          class="nb126-input"
+          rows="3"
+          placeholder="Ask Noor about your home or an Islamic question…"
+          data-halo-input
+        ></textarea>
+        <button
+          type="button"
+          class="nb126-button nb126-button-primary nb126-full"
+          data-nb126-action="halo-send"
+        >
+          Send
+        </button>
+        <small id="nb126HaloStatus" data-halo-reply>
+          Ready for your question.
+        </small>
+      </div>
+
     </section>
 
     <section class="nb126-section">
@@ -402,13 +423,6 @@ function islamic(){
           title:"Smart Islamic Rules",
           text:"Play audio by activity",
           action:"islamic-rules"
-        })}
-
-        ${tile({
-          icon:"▦",
-          title:"Islamic Calendar",
-          text:"Dates and events",
-          action:"islamic-calendar"
         })}
 
         ${tile({
@@ -733,7 +747,7 @@ async function openV126Activity(){
 
   try{
     let response=await fetch(
-      "/api/activity/events?limit=20",
+      "/api/activity/activities?limit=20",
       {cache:"no-store"}
     );
 
@@ -1280,7 +1294,7 @@ function openV126AddDevice(){
             },
             body:JSON.stringify({
               name,
-              type:type||"device",
+              device_type:type||"other",
               room:room||"Home"
             })
           }
@@ -1676,6 +1690,7 @@ async function openV126IslamicRules(){
                 class="nb126-card"
                 type="button"
                 data-v126-rule-toggle="${esc(rule.id||"")}"
+                data-v126-rule-enabled="${rule.enabled===false ? "false" : "true"}"
               >
                 <div>
                   <small>
@@ -1704,11 +1719,17 @@ async function openV126IslamicRules(){
     ).forEach(button=>{
       button.addEventListener("click",async()=>{
         try{
+          const enabled = button.dataset.v126RuleEnabled !== "true";
+
           await nb126Fetch(
             "/reminder-rules/"+
             encodeURIComponent(button.dataset.v126RuleToggle)+
             "/toggle",
-            {method:"POST"}
+            {
+              method:"PATCH",
+              headers:{"Content-Type":"application/json"},
+              body:JSON.stringify({enabled})
+            }
           );
 
           await openV126IslamicRules();
@@ -2670,6 +2691,95 @@ function directBridge(action){
   return V126_MODULE_BRIDGE.open(action);
 }
 
+function v126HaloStatus(message, mode=""){
+  const node=document.getElementById("nb126HaloStatus");
+  if(!node) return;
+  node.textContent=message;
+  node.dataset.voiceMode=mode;
+}
+
+function v126NativeApp(){
+  return new URLSearchParams(location.search)
+    .get("native_app") === "1";
+}
+
+function v126HaloSessionId(){
+  const key="noorbrain.v126.halo.session";
+  let id=localStorage.getItem(key);
+
+  if(!id){
+    id=(v126NativeApp() ? "android" : "web")+
+      "-v126-"+Math.random().toString(36).slice(2,10);
+    localStorage.setItem(key,id);
+  }
+
+  return id;
+}
+
+function v126SpeakReply(text){
+  const reply=String(text||"").trim();
+  if(!reply) return;
+
+  if(v126NativeApp()){
+    window.parent.postMessage({
+      type:"noorbrain-native-speak",
+      text:reply
+    },"*");
+    return;
+  }
+
+  if("speechSynthesis" in window && window.SpeechSynthesisUtterance){
+    try{
+      window.speechSynthesis.cancel();
+      const utterance=new SpeechSynthesisUtterance(reply);
+      utterance.lang="en-US";
+      utterance.rate=0.95;
+      window.speechSynthesis.speak(utterance);
+    }catch(error){
+      console.warn("V126_HALO_TTS_ERROR",error);
+    }
+  }
+}
+
+async function sendV126Halo(message){
+  const input=document.getElementById("nb126HaloInput");
+  const text=String(message ?? input?.value ?? "").trim();
+
+  if(!text){
+    v126HaloStatus("Enter a question for Noor.","error");
+    return false;
+  }
+
+  if(input) input.value=text;
+  v126HaloStatus("Thinking…","thinking");
+
+  try{
+    const result=await nb126Fetch(
+      "/api/halo-conversation/chat",
+      {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          text,
+          session_id:v126HaloSessionId(),
+          confirm:false
+        })
+      }
+    );
+
+    const reply=String(
+      result.reply || result.message || "Noor completed the request."
+    );
+
+    v126HaloStatus(reply,"done");
+    v126SpeakReply(reply);
+    return result;
+  }catch(error){
+    v126HaloStatus(error.message || "Noor request failed.","error");
+    throw error;
+  }
+}
+
 function shell(){
   if($("noorbrainMobile126")) return;
 
@@ -2818,23 +2928,39 @@ function runAction(action){
     navigate("halo", true);
 
     setTimeout(()=>{
+      if(v126NativeApp()){
+        v126HaloStatus("Starting microphone…","listening");
+        window.parent.postMessage(
+          {type:"noorbrain-native-record-toggle"},
+          "*"
+        );
+        return;
+      }
+
       const mic = window.NoorBrainHaloMicFinalFix;
 
-      if(!mic || typeof mic.start !== "function"){
+      if(!mic || typeof mic.toggle !== "function"){
         console.error("V126_HALO_MIC_API_UNAVAILABLE");
         return;
       }
 
-      console.log("V126_HALO_MIC_START");
+      console.log("V126_HALO_MIC_TOGGLE");
 
-      mic.start().catch(error=>{
+      Promise.resolve(mic.toggle()).catch(error=>{
         console.error(
-          "V126_HALO_MIC_START_FAILED",
+          "V126_HALO_MIC_TOGGLE_FAILED",
           error
         );
       });
     },150);
 
+    return true;
+  }
+
+  if(action==="halo-send"){
+    sendV126Halo().catch(error=>{
+      console.error("V126_HALO_SEND_FAILED",error);
+    });
     return true;
   }
 
@@ -2862,14 +2988,14 @@ function runAction(action){
   if(action==="devices"){
     setNativeBackTarget(V126_PARENT_MAP.devices || getNativeBackTarget());
     setActiveTab(V126_PARENT_MAP.devices || getNativeBackTarget());
-    openV126DevicesA42();
+    openV126Devices();
     return true;
   }
 
   if(action==="add-device"){
     setNativeBackTarget(V126_PARENT_MAP["add-device"] || getNativeBackTarget());
     setActiveTab(V126_PARENT_MAP["add-device"] || getNativeBackTarget());
-    openV126AddDeviceA42();
+    openV126AddDevice();
     return true;
   }
 
@@ -2878,21 +3004,21 @@ function runAction(action){
     action==="automation-center" ||
     action==="smart-rules"
   ){
-    openV126AutomationRulesA42();
+    openV126AutomationRules();
     return true;
   }
 
   if(action==="scenes"){
     setNativeBackTarget(V126_PARENT_MAP.scenes || getNativeBackTarget());
     setActiveTab(V126_PARENT_MAP.scenes || getNativeBackTarget());
-    openV126ScenesA42();
+    openV126Scenes();
     return true;
   }
 
   if(action==="routines"){
     setNativeBackTarget(V126_PARENT_MAP.routines || getNativeBackTarget());
     setActiveTab(V126_PARENT_MAP.routines || getNativeBackTarget());
-    openV126RoutinesA42();
+    openV126Routines();
     return true;
   }
 
@@ -2976,6 +3102,8 @@ window.NoorBrainMobile126={
   version:VERSION,
   navigate,
   action:runAction,
+  sendHalo:sendV126Halo,
+  setHaloStatus:v126HaloStatus,
   mount:shell,
   bridge: V126_MODULE_BRIDGE
 };

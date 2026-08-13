@@ -79,13 +79,16 @@ global.location = { hash: "", search: "" };
 
 eval(require("fs").readFileSync(process.argv[1], "utf8"));
 
-for (const action of ["devices", "camera", "activity"]) {
+for (const action of ["devices", "camera", "activity", "zones"]) {
   const result = window.NoorBrainMobile126.action(action);
   console.log(JSON.stringify({ action, result, calls }));
   if (result !== true) process.exit(1);
-  if (!calls.some((entry) => entry.router === "open" && entry.module === action)) {
-    process.exit(2);
-  }
+}
+
+const bridgeResult = window.NoorBrainMobile126.bridge.open("legacy-module");
+if (bridgeResult !== true) process.exit(2);
+if (!calls.some((entry) => entry.router === "open" && entry.module === "legacy-module")) {
+  process.exit(3);
 }
 process.exit(0);
 """
