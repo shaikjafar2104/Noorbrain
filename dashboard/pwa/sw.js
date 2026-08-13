@@ -1,12 +1,15 @@
-const CACHE_NAME = "noorbrain-production-v16-1";
+const CACHE_NAME = "noorbrain-v126-full-product-1";
 
 const CORE = [
-  "/mobile",
+  "/mobile?v126=1",
   "/studio",
-  "/dashboard-static/js/electronic-voice-off.js?v=20260802-16",
-  "/dashboard-static/js/unified-product-ui.js?v=20260802-16",
-  "/dashboard-static/js/dashboard-camera-controls-v16.js?v=20260802-162",
-  "/dashboard-static/css/production-mobile-v16.css?v=20260802-162"
+  "/dashboard-static/css/noorbrain-mobile-shell-v126.css?v=20260813-full-product",
+  "/dashboard-static/css/automation-center-v12.css?v=20260813-full-product",
+  "/dashboard-static/js/mobile-rules-v12.js?v=20260813-full-product",
+  "/dashboard-static/js/automation-center-v12.js?v=20260813-full-product",
+  "/dashboard-static/js/noorbrain-mobile-shell-v126.js?v=20260813-full-product",
+  "/dashboard-static/js/noorbrain-mobile-mount-v126.js?v=20260813-1",
+  "/dashboard-static/js/halo-mic-final-fix.js?v=1786652853"
 ];
 
 self.addEventListener("install", event => {

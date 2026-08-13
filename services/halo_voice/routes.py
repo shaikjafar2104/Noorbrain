@@ -48,6 +48,19 @@ def load_config() -> dict[str, Any]:
             config.update(saved)
     except Exception:
         pass
+
+    model = str(config.get("model") or "base").strip()
+    model_path = Path(model).expanduser()
+
+    if not model_path.is_absolute():
+        local_model = ROOT / model_path
+        if local_model.exists():
+            config["model"] = str(local_model)
+    elif not model_path.exists():
+        bundled_model = ROOT / "models" / model_path.name
+        if bundled_model.exists():
+            config["model"] = str(bundled_model)
+
     return config
 
 

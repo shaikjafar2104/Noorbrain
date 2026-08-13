@@ -245,6 +245,18 @@ function card(item, tab) {
       <div class="nbac-card-actions">
 
         ${
+          ["smart","scenes","routines","reminders"].includes(tab)
+          ? `
+            <button
+              data-action="toggle"
+              data-id="${esc(item.id)}"
+              type="button"
+            >${item.enabled === false ? "Enable" : "Disable"}</button>
+          `
+          : ""
+        }
+
+        ${
           ["smart","scenes","routines"].includes(tab)
           ? `
             <button
@@ -367,6 +379,32 @@ async function action(type,id) {
     return;
   }
 
+  if (type === "toggle") {
+    const enabled=item.enabled === false;
+    const path={
+      smart:`${API.smart}/${id}`,
+      scenes:`${API.scenes}/${id}`,
+      routines:`${API.routines}/${id}`,
+      reminders:`${API.reminders}/${id}/toggle`
+    }[state.tab];
+
+    if(!path) return;
+
+    try {
+      $("nbacStatus").textContent="Updating…";
+      await request(path,{
+        method:"PATCH",
+        body:JSON.stringify({enabled})
+      });
+      await load();
+    } catch(e) {
+      $("nbacStatus").textContent="Update failed";
+      alert(e.message);
+    }
+
+    return;
+  }
+
   if (type === "run") {
     const path = {
       smart:
@@ -392,7 +430,12 @@ async function action(type,id) {
           JSON.stringify({confirmed:true});
       }
 
-      await request(path,options);
+      const result=await request(path,options);
+      const failure=executionFailure(result,state.tab);
+
+      if(failure){
+        throw new Error(failure);
+      }
 
       $("nbacStatus").textContent =
         "Run complete";
@@ -420,6 +463,30 @@ async function action(type,id) {
       )
     );
   }
+}
+
+function executionFailure(result,tab) {
+  const status=String(result?.status || "").toLowerCase();
+
+  if(["failed","error","execution_failed","needs_confirmation"].includes(status)){
+    return result?.detail || result?.message || `Execution ${status.replaceAll("_"," ")}.`;
+  }
+
+  const scene=tab === "routines"
+    ? result?.scene_result
+    : result;
+
+  if((tab === "scenes" || tab === "routines") && scene){
+    const errors=Number(scene.error_count || 0);
+    const successes=Number(scene.success_count || 0);
+
+    if(errors > 0 || successes < 1){
+      const first=(scene.results || []).find(item=>item.status !== "ok");
+      return first?.reason || "No scene action executed successfully.";
+    }
+  }
+
+  return "";
 }
 
 async function load() {
@@ -737,6 +804,12 @@ function sceneOptions(selected="") {
 }
 
 function smartFields(item={}) {
+  const action=(item.actions || [])[0] || {};
+  const actionText=
+    action.kind === "halo" && action.name === "speak"
+      ? action.arguments?.text || ""
+      : "";
+
   return `
     ${field(
       "Rule name",
@@ -764,15 +837,23 @@ function smartFields(item={}) {
       </select>`
     )}
 
+    ${field(
+      "HALO speech action",
+      `<textarea id="nbafActionText" placeholder="What HALO should say">${esc(actionText)}</textarea>`,
+      (item.actions || []).length && !actionText
+        ? "This rule has an existing non-speech action. Leave blank to preserve it."
+        : "A manual run queues this message through NoorBrain's real TTS service."
+    )}
+
     ${checkbox(
       "nbafEnabled",
       item.enabled !== false
     )}
 
     <div class="nbaf-info">
-      New Smart Rules use a manual schedule.
-      Conditions and actions can be expanded after
-      devices are configured.
+      New Smart Rules use a manual schedule and require
+      a real action. Failed TTS or device execution is
+      reported as a failed run.
     </div>
   `;
 }
@@ -926,6 +1007,13 @@ async function open(tab,item=null) {
   if (tab === "reminders") {
     close();
 
+    if (window.NoorMobileRulesV12?.open) {
+      await window.NoorMobileRulesV12.open(
+        item?.id || "new"
+      );
+      return;
+    }
+
     const button=document.querySelector(
       '[data-page="reminder-rules"]'
     );
@@ -997,6 +1085,23 @@ function payload() {
   const {tab}=editing;
 
   if (tab==="smart") {
+    const actionText=val("nbafActionText");
+    let actions=editing.item?.actions || [];
+
+    if(actionText){
+      actions=[{
+        kind:"halo",
+        name:"speak",
+        arguments:{text:actionText}
+      }];
+    }
+
+    if(!actions.length){
+      throw new Error(
+        "Add a HALO speech action before saving this rule."
+      );
+    }
+
     return {
       name:val("nbafName"),
       description:val("nbafDescription"),
@@ -1006,8 +1111,7 @@ function payload() {
       schedule:
         editing.item?.schedule ||
         {kind:"manual"},
-      actions:
-        editing.item?.actions || [],
+      actions,
       metadata:
         editing.item?.metadata || {},
       enabled:checked("nbafEnabled")

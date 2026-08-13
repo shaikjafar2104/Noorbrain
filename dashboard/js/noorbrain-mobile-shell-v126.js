@@ -1121,15 +1121,18 @@ async function openV126Devices(){
       ? d
       : (d.devices||[]);
 
+    const onlineCount=devices.filter(device=>device.online===true).length;
+
     const cards=devices.length
       ? devices.map(device=>`
           <button
             class="nb126-card"
             type="button"
             data-v126-device-toggle="${esc(device.id||"")}"
+            ${device.online===true ? "" : "disabled"}
           >
             <div>
-              <small>${esc(device.type||"DEVICE")}</small>
+              <small>${esc(device.device_type||device.type||"DEVICE")}</small>
               <h3>${esc(device.name||device.id||"Device")}</h3>
               <p>
                 ${esc(device.room||"Home")}
@@ -1139,6 +1142,8 @@ async function openV126Devices(){
                   device.status ??
                   "unknown"
                 ))}
+                •
+                ${device.online===true ? "Online" : "Offline"}
               </p>
             </div>
           </button>
@@ -1150,7 +1155,7 @@ async function openV126Devices(){
 
     nb126Page(
       "Devices",
-      `${devices.length} connected device${devices.length===1?"":"s"}`,
+      `${devices.length} registered • ${onlineCount} online`,
       `
         <div class="nb126-grid">${cards}</div>
 
@@ -1162,7 +1167,7 @@ async function openV126Devices(){
           <div>
             <small>SETUP</small>
             <h3>＋ Add Device</h3>
-            <p>Connect a real NoorBrain device</p>
+            <p>Register a real device configuration</p>
           </div>
         </button>
       `
@@ -1219,7 +1224,7 @@ async function openV126Devices(){
 function openV126AddDevice(){
   nb126Page(
     "Add Device",
-    "Connect a real device",
+    "Register a real device",
     `
       <div class="nb126-card">
         <small>DEVICE SETUP</small>
@@ -1235,10 +1240,16 @@ function openV126AddDevice(){
 
         <label>
           Type
-          <input
-            id="v126DeviceType"
-            placeholder="light"
-          >
+          <select id="v126DeviceType">
+            <option value="light">Light</option>
+            <option value="fan">Fan</option>
+            <option value="plug">Plug</option>
+            <option value="relay">Relay</option>
+            <option value="switch">Switch</option>
+            <option value="sensor">Sensor</option>
+            <option value="camera">Camera</option>
+            <option value="other">Other</option>
+          </select>
         </label>
 
         <label>
@@ -1249,13 +1260,42 @@ function openV126AddDevice(){
           >
         </label>
 
+        <label>
+          Transport
+          <select id="v126DeviceProtocol">
+            <option value="logical">Not configured</option>
+            <option value="http">HTTP / ESP32</option>
+            <option value="mqtt">MQTT</option>
+          </select>
+        </label>
+
+        <label>
+          IP address or base URL
+          <input
+            id="v126DeviceAddress"
+            placeholder="192.168.1.50"
+          >
+        </label>
+
+        <label>
+          MQTT command topic
+          <input
+            id="v126DeviceTopic"
+            placeholder="home/living-room/light/set"
+          >
+        </label>
+
         <button
           id="v126DeviceCreate"
           type="button"
         >
-          Add Device
+          Register Device
         </button>
 
+        <small>
+          Registration does not claim the device is online. NoorBrain only
+          changes state after a configured transport executes successfully.
+        </small>
         <small id="v126DeviceMessage"></small>
       </div>
     `
@@ -1273,6 +1313,18 @@ function openV126AddDevice(){
 
       const room=document.getElementById(
         "v126DeviceRoom"
+      ).value.trim();
+
+      const protocol=document.getElementById(
+        "v126DeviceProtocol"
+      ).value;
+
+      const address=document.getElementById(
+        "v126DeviceAddress"
+      ).value.trim();
+
+      const commandTopic=document.getElementById(
+        "v126DeviceTopic"
       ).value.trim();
 
       const msg=document.getElementById(
@@ -1295,7 +1347,20 @@ function openV126AddDevice(){
             body:JSON.stringify({
               name,
               device_type:type||"other",
-              room:room||"Home"
+              room:room||"Home",
+              online:false,
+              ip_address:
+                address && !address.includes("://")
+                  ? address
+                  : null,
+              metadata:{
+                protocol,
+                base_url:
+                  address.includes("://")
+                    ? address
+                    : null,
+                command_topic:commandTopic||null
+              }
             })
           }
         );
@@ -2725,7 +2790,6 @@ function v126SpeakReply(text){
       type:"noorbrain-native-speak",
       text:reply
     },"*");
-    return;
   }
 
   if("speechSynthesis" in window && window.SpeechSynthesisUtterance){
@@ -2871,7 +2935,10 @@ function shell(){
     }
   }, true);
 
-  navigate("home",false);
+  const initialMatch=location.hash.match(
+    /^#nb-(home|automation|halo|islamic|more)$/
+  );
+  navigate(initialMatch?.[1] || "home",false);
 }
 
 function navigate(name,push=true){
@@ -3000,15 +3067,22 @@ function runAction(action){
   }
 
   if(
-    action==="automation" ||
     action==="automation-center" ||
     action==="smart-rules"
   ){
+    if(window.NoorAutomationCenterV12?.open){
+      window.NoorAutomationCenterV12.open("smart");
+      return true;
+    }
     openV126AutomationRules();
     return true;
   }
 
   if(action==="scenes"){
+    if(window.NoorAutomationCenterV12?.open){
+      window.NoorAutomationCenterV12.open("scenes");
+      return true;
+    }
     setNativeBackTarget(V126_PARENT_MAP.scenes || getNativeBackTarget());
     setActiveTab(V126_PARENT_MAP.scenes || getNativeBackTarget());
     openV126Scenes();
@@ -3016,6 +3090,10 @@ function runAction(action){
   }
 
   if(action==="routines"){
+    if(window.NoorAutomationCenterV12?.open){
+      window.NoorAutomationCenterV12.open("routines");
+      return true;
+    }
     setNativeBackTarget(V126_PARENT_MAP.routines || getNativeBackTarget());
     setActiveTab(V126_PARENT_MAP.routines || getNativeBackTarget());
     openV126Routines();
@@ -3043,6 +3121,10 @@ function runAction(action){
     action==="islamic-rules" ||
     action==="reminders"
   ){
+    if(window.NoorMobileRulesV12?.open){
+      window.NoorMobileRulesV12.open();
+      return true;
+    }
     setNativeBackTarget(V126_PARENT_MAP["islamic-rules"] || getNativeBackTarget());
     setActiveTab(V126_PARENT_MAP["islamic-rules"] || getNativeBackTarget());
     openV126IslamicRules();

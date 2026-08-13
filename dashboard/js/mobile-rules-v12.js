@@ -758,7 +758,7 @@
           ? `/${encodeURIComponent(editing)}`
           : "",
         {
-          method: editing ? "PATCH" : "POST",
+          method: editing ? "PUT" : "POST",
           body: JSON.stringify(payload)
         }
       );
@@ -778,12 +778,22 @@
   }
 
   async function toggleRule(id) {
+    const rule=rules.find(item=>String(item.id)===String(id));
+
+    if(!rule){
+      status("Reminder rule not found.", true);
+      return;
+    }
+
     try {
       status("Updating rule…");
 
       await request(
         `/${encodeURIComponent(id)}/toggle`,
-        { method: "POST" }
+        {
+          method: "PATCH",
+          body: JSON.stringify({enabled:!rule.enabled})
+        }
       );
 
       await load();
@@ -865,7 +875,7 @@
     }
   }
 
-  async function open() {
+  async function open(target = null) {
     createPanel();
 
     $("nbRulesV12").hidden = false;
@@ -873,6 +883,12 @@
 
     closeEditor();
     await load();
+
+    if (target === "new") {
+      newRule();
+    } else if (target) {
+      editRule(String(target));
+    }
   }
 
   function close() {

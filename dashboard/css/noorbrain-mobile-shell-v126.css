@@ -718,7 +718,7 @@ body.noorbrain-v126-mounted{
  * for later feature bridges.
  */
 body.noorbrain-v126-mounted
-> :not(#noorbrainMobile126):not(script):not(style):not(link){
+> :not(#noorbrainMobile126):not(#nbAutomationCenterV12):not(#nbAutomationFormV12):not(#nbRulesV12):not(script):not(style):not(link){
   display:none !important;
 }
 
@@ -1096,4 +1096,3 @@ body.noorbrain-v126-mounted #noorbrainMobile126 [data-nb126-action] {
     flex:0 0 auto;
   }
 }
-

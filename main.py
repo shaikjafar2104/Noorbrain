@@ -1121,13 +1121,14 @@ app.include_router(family_linking_router)
 from services.personalized_halo.routes import router as personalized_halo_router
 app.include_router(personalized_halo_router)
 
-# NOORBRAIN P3.3 MOBILE NOTIFICATIONS
-from services.mobile_notifications.routes import router as mobile_notifications_router
-app.include_router(mobile_notifications_router)
-
 # NOORBRAIN P3.4-P3.6 FINAL FAMILY MOBILE INTELLIGENCE
 from services.mobile_notifications.routes_final import router as mobile_notifications_final_router
 app.include_router(mobile_notifications_final_router)
+
+# NOORBRAIN P3.3 MOBILE NOTIFICATIONS
+# Static routes must precede the base router's /{notification_id} route.
+from services.mobile_notifications.routes import router as mobile_notifications_router
+app.include_router(mobile_notifications_router)
 
 # NOORBRAIN UI RECOVERY
 from services.ui_recovery.routes import router as ui_recovery_router

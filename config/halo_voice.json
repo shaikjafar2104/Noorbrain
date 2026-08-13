@@ -1,6 +1,6 @@
 {
   "enabled": true,
-  "model": "/home/jshome/Projects/NoorBrain/models/faster-whisper-tiny.en",
+  "model": "models/faster-whisper-tiny.en",
   "device": "cpu",
   "compute_type": "int8",
   "language": "en",
