@@ -11,6 +11,7 @@ AUTOMATION = (ROOT / "dashboard/js/automation-center-v12.js").read_text()
 RULES = (ROOT / "dashboard/js/mobile-rules-v12.js").read_text()
 SHELL_CSS = (ROOT / "dashboard/css/noorbrain-mobile-shell-v126.css").read_text()
 SETTINGS = (ROOT / "dashboard/js/mobile-noor-settings-v11.js").read_text()
+PRODUCT_DASHBOARD = (ROOT / "dashboard/js/product-dashboard-v12.js").read_text()
 CONTROL_MAP = json.loads((ROOT / "tests/v126_functional_map.json").read_text())
 with zipfile.ZipFile(ROOT / "NoorBrainMobile-PERMANENT-MIC-FIX.apk") as archive:
     APK_APP = archive.read("assets/public/app.js").decode("utf-8")
@@ -47,6 +48,11 @@ def test_halo_tts_is_single_webview_fallback_and_failure_safe() -> None:
     assert 'V126_HALO_TTS_ERROR' in SHELL
     assert 'type:"noorbrain-native-speak"' not in SHELL
     assert 'type: "noorbrain-native-speak"' not in APK_APP
+
+
+def test_product_dashboard_uses_registered_activity_route() -> None:
+    assert 'json("/api/activity/activities?limit=20")' in PRODUCT_DASHBOARD
+    assert 'json("/api/activity/events")' not in PRODUCT_DASHBOARD
 
 
 def test_v126_visible_features_use_registered_real_routes() -> None:

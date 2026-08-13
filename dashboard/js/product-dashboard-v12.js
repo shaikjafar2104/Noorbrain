@@ -525,7 +525,7 @@ async function refreshMobile() {
     json("/api/person-presence/health"),
     json("/api/pi-wake-v16/health"),
     json("/api/activity-intelligence/events"),
-    json("/api/activity/events"),
+    json("/api/activity/activities?limit=20"),
     json("/api/person-presence/events")
   ]);
 
