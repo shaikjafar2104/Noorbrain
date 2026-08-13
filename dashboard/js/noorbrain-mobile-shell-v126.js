@@ -27,6 +27,7 @@ const TABS={
 };
 
 const $=id=>document.getElementById(id);
+let v126HaloBusy=false;
 
 function esc(v){
   return String(v??"")
@@ -1070,13 +1071,32 @@ function nb126Loading(title,subtitle){
 }
 
 async function nb126Fetch(url,options){
-  const response=await fetch(
-    url,
-    Object.assign(
-      {cache:"no-store"},
-      options||{}
-    )
-  );
+  const supplied=options||{};
+  const controller=(
+    !supplied.signal && "AbortController" in window
+  ) ? new AbortController() : null;
+  const timeout=controller
+    ? window.setTimeout(()=>controller.abort(),30000)
+    : null;
+  let response;
+
+  try{
+    response=await fetch(
+      url,
+      Object.assign(
+        {cache:"no-store"},
+        supplied,
+        controller ? {signal:controller.signal} : {}
+      )
+    );
+  }catch(error){
+    if(error?.name==="AbortError"){
+      throw new Error("Request timed out. Check the NoorBrain connection.");
+    }
+    throw error;
+  }finally{
+    if(timeout!==null) window.clearTimeout(timeout);
+  }
 
   let data=null;
 
@@ -1690,25 +1710,23 @@ async function openV126Media(){
           );
           audio.volume = 1;
 
-          await Promise.allSettled([
+          const results=await Promise.allSettled([
             audio.play(),
-            fetch(
+            nb126Fetch(
               `/api/media/${encodeURIComponent(mediaId)}/play`,
               {method:"POST", cache:"no-store"}
             )
           ]);
 
-        }catch(error){
-          try{
-            await nb126Fetch(
-              "/api/media/"+
-              encodeURIComponent(mediaId)+
-              "/play",
-              {method:"POST"}
+          if(results.every(result=>result.status==="rejected")){
+            throw new Error(
+              results.map(result=>result.reason?.message)
+                .filter(Boolean).join(" • ") || "Audio playback failed."
             );
-          }catch(playError){
-            alert("Playback failed: "+playError.message);
           }
+
+        }catch(error){
+          alert("Playback failed: "+error.message);
         }
       });
     });
@@ -2785,13 +2803,6 @@ function v126SpeakReply(text){
   const reply=String(text||"").trim();
   if(!reply) return;
 
-  if(v126NativeApp()){
-    window.parent.postMessage({
-      type:"noorbrain-native-speak",
-      text:reply
-    },"*");
-  }
-
   if("speechSynthesis" in window && window.SpeechSynthesisUtterance){
     try{
       window.speechSynthesis.cancel();
@@ -2806,6 +2817,8 @@ function v126SpeakReply(text){
 }
 
 async function sendV126Halo(message){
+  if(v126HaloBusy) return false;
+
   const input=document.getElementById("nb126HaloInput");
   const text=String(message ?? input?.value ?? "").trim();
 
@@ -2815,6 +2828,7 @@ async function sendV126Halo(message){
   }
 
   if(input) input.value=text;
+  v126HaloBusy=true;
   v126HaloStatus("Thinking…","thinking");
 
   try{
@@ -2841,6 +2855,8 @@ async function sendV126Halo(message){
   }catch(error){
     v126HaloStatus(error.message || "Noor request failed.","error");
     throw error;
+  }finally{
+    v126HaloBusy=false;
   }
 }
 
@@ -2992,28 +3008,29 @@ function runAction(action){
   }
 
   if(action==="halo-live"){
-    navigate("halo", true);
+    if(document.body.dataset.nb126Page!=="halo"){
+      navigate("halo", true);
+    }
 
     setTimeout(()=>{
-      if(v126NativeApp()){
-        v126HaloStatus("Starting microphone…","listening");
-        window.parent.postMessage(
-          {type:"noorbrain-native-record-toggle"},
-          "*"
-        );
-        return;
-      }
-
       const mic = window.NoorBrainHaloMicFinalFix;
 
       if(!mic || typeof mic.toggle !== "function"){
         console.error("V126_HALO_MIC_API_UNAVAILABLE");
+        v126HaloStatus(
+          "Microphone controller unavailable. Reload NoorBrain and try again.",
+          "error"
+        );
         return;
       }
 
       console.log("V126_HALO_MIC_TOGGLE");
 
-      Promise.resolve(mic.toggle()).catch(error=>{
+      Promise.resolve(mic.toggle(
+        document.querySelector(
+          ".nb126-orb[data-nb126-action='halo-live']"
+        )
+      )).catch(error=>{
         console.error(
           "V126_HALO_MIC_TOGGLE_FAILED",
           error
@@ -3139,6 +3156,13 @@ function runAction(action){
   }
 
   if(action==="settings"){
+    if(window.NoorMobileSettingsV11?.open){
+      window.NoorMobileSettingsV11.open().catch(error=>{
+        console.error("V126_SETTINGS_ERROR",error);
+        openV126Settings();
+      });
+      return true;
+    }
     setNativeBackTarget(V126_PARENT_MAP.settings || getNativeBackTarget());
     setActiveTab(V126_PARENT_MAP.settings || getNativeBackTarget());
     openV126Settings();

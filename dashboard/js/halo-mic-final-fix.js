@@ -1,15 +1,46 @@
 (() => {
   "use strict";
 
-  const VERSION = "3.0.0";
+  const VERSION = "3.1.0";
   const VOICE_API = "/api/halo-voice";
+  const NATIVE_START_TIMEOUT_MS = 15000;
+  const RECORDING_TIMEOUT_MS = 12000;
+  const PROCESSING_TIMEOUT_MS = 45000;
   const state = {
     recorder: null,
     stream: null,
     chunks: [],
     recording: false,
     activeButton: null,
+    mode: "idle",
+    operation: 0,
+    timer: null,
+    processing: false,
+    nativeTranscriptHandled: false,
+    lastTranscript: "",
+    lastTranscriptAt: 0,
   };
+
+  function isNativeApp() {
+    return new URLSearchParams(location.search)
+      .get("native_app") === "1";
+  }
+
+  function clearTimer() {
+    if (state.timer !== null) {
+      window.clearTimeout(state.timer);
+      state.timer = null;
+    }
+  }
+
+  function scheduleTimer(callback, delay) {
+    clearTimer();
+    const operation = state.operation;
+    state.timer = window.setTimeout(() => {
+      state.timer = null;
+      if (operation === state.operation) callback();
+    }, delay);
+  }
 
   function statusNode() {
     return document.querySelector(
@@ -68,6 +99,44 @@
           : "🎤";
       }
     });
+
+    document.querySelectorAll(
+      ".nb126-orb[data-nb126-action='halo-live']"
+    ).forEach(button => {
+      button.setAttribute("aria-pressed", String(recording));
+      button.dataset.voiceMode = recording ? "listening" : state.mode;
+    });
+
+    document.querySelectorAll(".nb126-halo-prompt")
+      .forEach(node => {
+        node.textContent = recording ? "Tap to stop" : "Tap to talk";
+      });
+  }
+
+  function setMode(mode, message = "", statusMode = "") {
+    state.mode = mode;
+    state.recording = mode === "listening";
+    setButtonsRecording(state.recording);
+    if (message) setStatus(message, statusMode || mode);
+  }
+
+  function reset(message = "", mode = "") {
+    clearTimer();
+    state.operation += 1;
+    state.processing = false;
+    state.nativeTranscriptHandled = false;
+    state.chunks = [];
+    state.recorder = null;
+    state.stream = null;
+    state.activeButton = null;
+    setMode("idle", message, mode);
+  }
+
+  function fail(error, fallback = "Voice processing failed.") {
+    const message = String(error?.message || error || fallback);
+    state.stream?.getTracks?.().forEach(track => track.stop());
+    reset(message, "error");
+    return false;
   }
 
   function chooseMimeType() {
@@ -224,6 +293,13 @@
   }
 
   async function startRecording(button) {
+    if (state.mode !== "idle") return false;
+
+    state.operation += 1;
+    const operation = state.operation;
+    state.activeButton = button || null;
+    setMode("starting", "Requesting microphone…", "thinking");
+
     if (!window.isSecureContext) {
       throw new Error(
         "Microphone requires HTTPS or localhost."
@@ -251,6 +327,11 @@
         },
       });
 
+    if (operation !== state.operation) {
+      stream.getTracks().forEach(track => track.stop());
+      return false;
+    }
+
     const mimeType = chooseMimeType();
 
     const options = mimeType
@@ -267,7 +348,6 @@
     state.stream = stream;
     state.recorder = recorder;
     state.chunks = [];
-    state.recording = true;
     state.activeButton = button;
 
     recorder.ondataavailable = event => {
@@ -277,25 +357,28 @@
     };
 
     recorder.onerror = event => {
-      setStatus(
-        event.error?.message
-        || "Microphone recording failed.",
-        "error"
-      );
+      if (operation !== state.operation) return;
+      fail(event.error, "Microphone recording failed.");
     };
 
     recorder.onstop = async () => {
-      state.recording = false;
+      if (operation !== state.operation || state.processing) return;
+      state.processing = true;
+      clearTimer();
 
       state.stream
         ?.getTracks()
         .forEach(track => track.stop());
 
-      setButtonsRecording(false);
-      setStatus(
+      setMode(
+        "processing",
         "Transcribing on NoorBrain…",
         "thinking"
       );
+
+      scheduleTimer(() => {
+        fail("Voice processing timed out. Please try again.");
+      }, PROCESSING_TIMEOUT_MS);
 
       try {
         const blob = new Blob(
@@ -318,58 +401,173 @@
           result.command || result.text || ""
         ).trim();
 
+        if (operation !== state.operation) return;
+
         setStatus(
           `Heard: ${result.text}`,
           "heard"
         );
 
         await sendToHalo(command);
+        if (operation === state.operation) reset();
       } catch (error) {
-        setStatus(
-          error.message
-          || "Voice processing failed.",
-          "error"
-        );
-      } finally {
-        state.chunks = [];
-        state.recorder = null;
-        state.stream = null;
-        state.activeButton = null;
+        if (operation === state.operation) fail(error);
       }
     };
 
     recorder.start(250);
-    setButtonsRecording(true);
-
-    setStatus(
+    setMode(
+      "listening",
       "Listening… speak for 3–8 seconds, then press Stop.",
       "listening"
     );
+
+    scheduleTimer(() => {
+      stopRecording("automatic timeout");
+    }, RECORDING_TIMEOUT_MS);
+
+    return true;
   }
 
-  function stopRecording() {
+  function stopRecording(reason = "second tap") {
     if (
       state.recorder
       && state.recording
       && state.recorder.state !== "inactive"
     ) {
+      clearTimer();
+      setMode(
+        "stopping",
+        reason === "automatic timeout"
+          ? "Recording limit reached. Processing voice…"
+          : "Processing voice…",
+        "thinking"
+      );
       state.recorder.stop();
+      return true;
     }
+    return false;
+  }
+
+  function postNativeToggle() {
+    window.parent.postMessage(
+      { type: "noorbrain-native-record-toggle" },
+      "*"
+    );
+  }
+
+  function startNative(button) {
+    if (state.mode !== "idle") return false;
+
+    state.operation += 1;
+    state.activeButton = button || null;
+    state.nativeTranscriptHandled = false;
+    setMode("starting", "Starting microphone…", "thinking");
+    postNativeToggle();
+
+    scheduleTimer(() => {
+      fail("The Android microphone did not start. Tap to try again.");
+    }, NATIVE_START_TIMEOUT_MS);
+    return true;
+  }
+
+  function stopNative(reason = "second tap") {
+    if (state.mode !== "listening") return false;
+
+    clearTimer();
+    setMode(
+      "stopping",
+      reason === "automatic timeout"
+        ? "Recording limit reached. Processing voice…"
+        : "Processing voice…",
+      "thinking"
+    );
+    postNativeToggle();
+
+    scheduleTimer(() => {
+      fail("Android voice processing timed out. Tap to try again.");
+    }, PROCESSING_TIMEOUT_MS);
+    return true;
+  }
+
+  async function handleNativeMessage(event) {
+    if (!isNativeApp()) return false;
+    const data = event?.data || {};
+
+    if (data.type === "noorbrain-native-listening") {
+      if (state.mode !== "starting") return false;
+      setMode(
+        "listening",
+        "Listening… tap again when finished.",
+        "listening"
+      );
+      scheduleTimer(() => stopNative("automatic timeout"), RECORDING_TIMEOUT_MS);
+      return true;
+    }
+
+    if (data.type === "noorbrain-native-processing") {
+      if (!["listening", "stopping"].includes(state.mode)) return false;
+      clearTimer();
+      setMode("processing", "Transcribing on NoorBrain…", "thinking");
+      scheduleTimer(() => {
+        fail("Android transcription timed out. Tap to try again.");
+      }, PROCESSING_TIMEOUT_MS);
+      return true;
+    }
+
+    if (data.type === "noorbrain-native-error") {
+      if (state.mode === "idle") return false;
+      fail(data.message || "Android microphone failed.");
+      return true;
+    }
+
+    if (data.type !== "noorbrain-native-transcript") return false;
+    if (state.mode === "idle" || state.nativeTranscriptHandled) return false;
+
+    const text = String(data.text || "").trim();
+    const now = Date.now();
+    if (text && text === state.lastTranscript && now - state.lastTranscriptAt < 30000) {
+      return false;
+    }
+
+    state.nativeTranscriptHandled = true;
+    state.lastTranscript = text;
+    state.lastTranscriptAt = now;
+    clearTimer();
+
+    if (!text) {
+      fail("No clear speech detected. Please try again.");
+      return true;
+    }
+
+    const operation = state.operation;
+    setMode("conversation", `Heard: ${text}`, "heard");
+
+    try {
+      await sendToHalo(text);
+      if (operation === state.operation) reset();
+    } catch (error) {
+      if (operation === state.operation) fail(error, "Noor request failed.");
+    }
+    return true;
   }
 
   function toggle(button) {
-    if (state.recording) {
+    if (isNativeApp()) {
+      if (state.mode === "listening") return Promise.resolve(stopNative());
+      if (state.mode !== "idle") return Promise.resolve(false);
+      return Promise.resolve(startNative(button));
+    }
+
+    if (state.mode === "listening") {
       stopRecording();
       return Promise.resolve();
     }
 
+    if (state.mode !== "idle") return Promise.resolve(false);
+
     return startRecording(button).catch(error => {
-      setStatus(
-        error.message
-        || "Microphone failed.",
-        "error"
-      );
-      return false;
+      return fail(error, "Microphone failed.");
     });
   }
 
@@ -488,12 +686,16 @@
       1500
     );
 
+    window.addEventListener("message", handleNativeMessage);
+
     window.NoorBrainHaloMicFinalFix = {
       version: VERSION,
       start: startRecording,
       stop: stopRecording,
       toggle,
       isRecording: () => state.recording,
+      mode: () => state.mode,
+      handleNativeMessage,
       patch: patchAllMicrophones,
     };
 

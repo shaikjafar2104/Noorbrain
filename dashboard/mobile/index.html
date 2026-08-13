@@ -37,7 +37,8 @@
   
   <link rel="stylesheet" href="/dashboard-static/css/custom-zone-manager-v12.css?v=20260812-d4">
   <link rel="stylesheet" href="/dashboard-static/css/islamic-rule-creator-v12.css?v=20260812-d53">
-  <link rel="stylesheet" href="/dashboard-static/css/noorbrain-mobile-shell-v126.css?v=20260813-full-product">
+  <link rel="stylesheet" href="/dashboard-static/css/noorbrain-mobile-shell-v126.css?v=20260813-product-finish">
+  <link rel="stylesheet" href="/dashboard-static/css/halo-mic-final-fix.css?v=20260813-product-finish">
 </head>
 <body>
   <div class="nbv2-app" id="nbv2App">
@@ -184,6 +185,13 @@
     event?.stopPropagation();
     event?.stopImmediatePropagation();
 
+    const mic = window.NoorBrainHaloMicFinalFix;
+    if (mic && typeof mic.toggle === "function") {
+      Promise.resolve(mic.toggle(event?.currentTarget))
+        .catch(error => console.error("NATIVE_MIC_TOGGLE_FAILED", error));
+      return;
+    }
+
     window.parent.postMessage(
       { type: "noorbrain-native-record-toggle" },
       "*"
@@ -221,98 +229,6 @@
     );
   }
 
-  window.addEventListener("message", async event => {
-    const data = event.data || {};
-
-    const noorButton =
-      document.getElementById("nbv2HaloMic");
-
-    const haloButton =
-      document.getElementById("nbs4Mic");
-
-    const reply =
-      document.getElementById("nbv2HaloReply");
-
-    const haloStatus =
-      document.getElementById("nb126HaloStatus") ||
-      document.getElementById("nbs4Status");
-
-    function status(text) {
-      if (reply) reply.textContent = text;
-      if (haloStatus) haloStatus.textContent = text;
-    }
-
-    if (data.type === "noorbrain-native-listening") {
-      if (noorButton) noorButton.textContent = "■ Stop";
-      window.NoorBrainMobile126?.setHaloStatus?.(
-        "Listening… tap Stop when finished.",
-        "listening"
-      );
-      status("Listening… tap Stop when finished.");
-      return;
-    }
-
-    if (data.type === "noorbrain-native-processing") {
-      if (noorButton) noorButton.textContent = "🎤 Push to Talk";
-      window.NoorBrainMobile126?.setHaloStatus?.(
-        "Processing voice…",
-        "thinking"
-      );
-      status("Processing voice…");
-      return;
-    }
-
-    if (data.type === "noorbrain-native-error") {
-      if (noorButton) noorButton.textContent = "🎤 Push to Talk";
-      window.NoorBrainMobile126?.setHaloStatus?.(
-        data.message || "Microphone failed.",
-        "error"
-      );
-      status(data.message || "Microphone failed.");
-      return;
-    }
-
-    if (data.type === "noorbrain-native-transcript") {
-      if (noorButton) noorButton.textContent = "🎤 Push to Talk";
-
-      const text = String(data.text || "").trim();
-
-      if (!text) {
-        status("No speech detected.");
-        return;
-      }
-
-      const input =
-        document.getElementById("nb126HaloInput") ||
-        document.getElementById("nbv2HaloInput");
-
-      if (input) {
-        input.value = text;
-        input.dispatchEvent(
-          new Event("input", { bubbles: true })
-        );
-      }
-
-      status("Heard: " + text);
-
-      if (window.NoorBrainMobile126?.sendHalo) {
-        try {
-          await window.NoorBrainMobile126.sendHalo(text);
-        } catch (error) {
-          status(error.message || "Noor request failed.");
-        }
-      } else if (window.NoorBrainMobileV2?.sendHalo) {
-        try {
-          await window.NoorBrainMobileV2.sendHalo(text);
-        } catch (error) {
-          status(error.message || "Noor request failed.");
-        }
-      } else {
-        document.getElementById("nbv2HaloSend")?.click();
-      }
-    }
-  });
-
   install();
 
   new MutationObserver(() => install()).observe(
@@ -343,8 +259,8 @@
   <script src="/dashboard-static/js/custom-zone-manager-v12.js?v=20260812-d4"></script>
   <script src="/dashboard-static/js/islamic-rule-creator-v12.js?v=20260812-d53"></script>
   <script src="/dashboard-static/js/islamic-rule-creator-nav-v12.js?v=20260812-d53"></script>
-  <script src="/dashboard-static/js/noorbrain-mobile-shell-v126.js?v=20260813-full-product"></script>
+  <script src="/dashboard-static/js/noorbrain-mobile-shell-v126.js?v=20260813-product-finish"></script>
   <script src="/dashboard-static/js/noorbrain-mobile-mount-v126.js?v=20260813-1"></script>
-  <script src="/dashboard-static/js/halo-mic-final-fix.js?v=1786652853"></script>
+  <script src="/dashboard-static/js/halo-mic-final-fix.js?v=20260813-product-finish"></script>
 </body>
 </html>

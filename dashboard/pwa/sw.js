@@ -1,15 +1,16 @@
-const CACHE_NAME = "noorbrain-v126-full-product-1";
+const CACHE_NAME = "noorbrain-v126-product-finish-1";
 
 const CORE = [
   "/mobile?v126=1",
   "/studio",
-  "/dashboard-static/css/noorbrain-mobile-shell-v126.css?v=20260813-full-product",
+  "/dashboard-static/css/noorbrain-mobile-shell-v126.css?v=20260813-product-finish",
+  "/dashboard-static/css/halo-mic-final-fix.css?v=20260813-product-finish",
   "/dashboard-static/css/automation-center-v12.css?v=20260813-full-product",
   "/dashboard-static/js/mobile-rules-v12.js?v=20260813-full-product",
   "/dashboard-static/js/automation-center-v12.js?v=20260813-full-product",
-  "/dashboard-static/js/noorbrain-mobile-shell-v126.js?v=20260813-full-product",
+  "/dashboard-static/js/noorbrain-mobile-shell-v126.js?v=20260813-product-finish",
   "/dashboard-static/js/noorbrain-mobile-mount-v126.js?v=20260813-1",
-  "/dashboard-static/js/halo-mic-final-fix.js?v=1786652853"
+  "/dashboard-static/js/halo-mic-final-fix.js?v=20260813-product-finish"
 ];
 
 self.addEventListener("install", event => {
