@@ -134,11 +134,16 @@ class DeviceGroupManager:
                     "reason": str(exc),
                 })
 
+        success_count = sum(1 for item in results if item["status"] == "ok")
+        error_count = sum(1 for item in results if item["status"] != "ok")
+
         return {
-            "status": "ok",
+            "status": "ok" if results and error_count == 0 else "failed",
             "group": group,
             "action": action,
             "results": results,
+            "success_count": success_count,
+            "error_count": error_count,
         }
 
 

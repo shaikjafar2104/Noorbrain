@@ -1,21 +1,9 @@
 from fastapi import APIRouter
+from services.unified_device_runtime.service import unified_device_runtime
 
 router=APIRouter(prefix="/api/mobile-v3/devices",tags=["devices"])
 
-DEVICES=[
-
-{"id":"light","name":"Hall Light","state":"off"},
-
-{"id":"fan","name":"Hall Fan","state":"off"},
-
-{"id":"tv","name":"Living TV","state":"off"},
-
-{"id":"ac","name":"Bedroom AC","state":"off"}
-
-]
-
 @router.get("")
 def devices():
-
-    return {"devices":DEVICES}
-
+    items = unified_device_runtime.list_devices()
+    return {"status": "ok", "count": len(items), "devices": items}

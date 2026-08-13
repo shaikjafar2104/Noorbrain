@@ -38,11 +38,14 @@ class SmartHomeStore:
 
     def summary(self) -> dict[str, Any]:
         data = self.read()
-        online = sum(1 for d in data["devices"] if d.get("online"))
+        from services.unified_device_runtime.service import unified_device_runtime
+
+        devices = unified_device_runtime.list_devices()
+        online = sum(1 for d in devices if d.get("online"))
         return {
             "status": "ok",
             "room_count": len(data["rooms"]),
-            "device_count": len(data["devices"]),
+            "device_count": len(devices),
             "online_devices": online,
             "scene_count": len(data["scenes"]),
         }

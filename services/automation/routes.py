@@ -84,6 +84,8 @@ def toggle_device(device_id: str) -> dict[str, Any]:
         device = device_manager.toggle(device_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     return {"status": "ok", "device": device.model_dump(mode="json")}
 
@@ -94,6 +96,8 @@ def turn_device_on(device_id: str) -> dict[str, Any]:
         device = device_manager.set_state(device_id, DeviceState.ON)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     return {"status": "ok", "device": device.model_dump(mode="json")}
 
@@ -104,5 +108,7 @@ def turn_device_off(device_id: str) -> dict[str, Any]:
         device = device_manager.set_state(device_id, DeviceState.OFF)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     return {"status": "ok", "device": device.model_dump(mode="json")}

@@ -156,19 +156,24 @@ class SceneManager:
                     "reason": str(exc),
                 })
 
+        success_count = sum(1 for item in results if item["status"] == "ok")
+        error_count = sum(1 for item in results if item["status"] != "ok")
+        status = "ok" if success_count == len(results) and results else "failed"
+
         now = utc_now()
-        scene["last_run_at"] = now
-        scene["run_count"] = int(scene.get("run_count", 0)) + 1
+        if status == "ok":
+            scene["last_run_at"] = now
+            scene["run_count"] = int(scene.get("run_count", 0)) + 1
         scene["updated_at"] = now
         scenes[index] = scene
         self._write({"schema_version": 1, "updated_at": now, "scenes": scenes})
 
         return {
-            "status": "ok",
+            "status": status,
             "scene": scene,
             "results": results,
-            "success_count": sum(1 for item in results if item["status"] == "ok"),
-            "error_count": sum(1 for item in results if item["status"] == "error"),
+            "success_count": success_count,
+            "error_count": error_count,
         }
 
 

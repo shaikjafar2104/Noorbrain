@@ -44,6 +44,13 @@ async def create_rule(
             detail="Rule name is required.",
         )
 
+    actions = list(payload.get("actions") or [])
+    if not actions:
+        raise HTTPException(
+            status_code=422,
+            detail="At least one automation action is required.",
+        )
+
     rule = await asyncio.to_thread(
         automation_store.create_rule,
         {
@@ -52,8 +59,9 @@ async def create_rule(
             "condition_mode": payload.get("condition_mode", "all"),
             "conditions": list(payload.get("conditions") or []),
             "schedule": dict(payload.get("schedule") or {"kind": "manual"}),
-            "actions": list(payload.get("actions") or []),
+            "actions": actions,
             "metadata": dict(payload.get("metadata") or {}),
+            "enabled": bool(payload.get("enabled", True)),
         },
     )
 
@@ -81,6 +89,12 @@ async def update_rule(
     rule_id: str,
     payload: dict[str, Any] = Body(...),
 ) -> dict[str, Any]:
+    if "actions" in payload and not list(payload.get("actions") or []):
+        raise HTTPException(
+            status_code=422,
+            detail="At least one automation action is required.",
+        )
+
     try:
         rule = await asyncio.to_thread(
             automation_store.update_rule,

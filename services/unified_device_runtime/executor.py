@@ -10,9 +10,12 @@ class PhysicalDeviceExecutor:
 
     @staticmethod
     def _protocol(device: dict[str, Any]) -> str:
+        metadata = dict(device.get("metadata") or {})
         return str(
             device.get("protocol")
             or device.get("transport")
+            or metadata.get("protocol")
+            or metadata.get("transport")
             or "logical"
         ).strip().lower()
 
