@@ -9,6 +9,7 @@ MIC = (ROOT / "dashboard/js/halo-mic-final-fix.js").read_text()
 MOBILE = (ROOT / "dashboard/mobile/index.html").read_text()
 AUTOMATION = (ROOT / "dashboard/js/automation-center-v12.js").read_text()
 RULES = (ROOT / "dashboard/js/mobile-rules-v12.js").read_text()
+AUDIO = (ROOT / "dashboard/js/audio-intercom-v126.js").read_text()
 SHELL_CSS = (ROOT / "dashboard/css/noorbrain-mobile-shell-v126.css").read_text()
 SETTINGS = (ROOT / "dashboard/js/mobile-noor-settings-v11.js").read_text()
 PRODUCT_DASHBOARD = (ROOT / "dashboard/js/product-dashboard-v12.js").read_text()
@@ -27,7 +28,11 @@ def test_halo_uses_real_conversation_and_transcription_apis() -> None:
 
 def test_native_microphone_and_webview_tts_fallback_are_wired_to_v126() -> None:
     assert 'type: "noorbrain-native-record-toggle"' in MIC
-    assert 'type: "noorbrain-native-speak"' not in APK_APP
+    assert 'data.type === "noorbrain-native-speak"' in APK_APP
+    assert 'document.createElement("iframe")' in APK_APP
+    assert 'window.location.replace' not in APK_APP
+    assert 'emit("NATIVE_START_ACK"' in APK_APP
+    assert 'emit("NATIVE_STOP_ACK"' in APK_APP
     assert 'window.NoorBrainMobile126.sendHalo(clean)' in MIC
     assert '"speechSynthesis" in window' in SHELL
 
@@ -46,8 +51,9 @@ def test_halo_tts_is_single_webview_fallback_and_failure_safe() -> None:
     assert 'window.speechSynthesis.cancel()' in SHELL
     assert 'window.speechSynthesis.speak(utterance)' in SHELL
     assert 'V126_HALO_TTS_ERROR' in SHELL
-    assert 'type:"noorbrain-native-speak"' not in SHELL
-    assert 'type: "noorbrain-native-speak"' not in APK_APP
+    assert 'type:"noorbrain-native-speak"' in SHELL
+    assert 'if(v126NativeApp() && window.parent!==window)' in SHELL
+    assert 'data.type === "noorbrain-native-speak"' in APK_APP
 
 
 def test_product_dashboard_uses_registered_activity_route() -> None:
@@ -120,8 +126,10 @@ def test_every_mapped_v126_control_has_real_wiring_and_ui_result() -> None:
         assert (
             item["action"] in SHELL
             or item["action"] in MIC
+            or item["action"] in AUDIO
             or action_marker in SHELL
             or action_marker in MIC
+            or action_marker in AUDIO
         )
         assert item["result"]
         if item["backend"]:
@@ -134,8 +142,13 @@ def test_every_mapped_v126_control_has_real_wiring_and_ui_result() -> None:
                 assert (
                     marker in SHELL
                     or marker in MIC
+                    or marker in AUDIO
                     or marker in AUTOMATION
                     or marker in RULES
                     or marker in SETTINGS
                     or marker in APK_APP
+                    or (
+                        marker.startswith("/api/playback/")
+                        and 'const API = "/api/playback"' in AUDIO
+                    )
                 )

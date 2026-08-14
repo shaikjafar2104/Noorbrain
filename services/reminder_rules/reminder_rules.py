@@ -15,21 +15,11 @@ Rules are stored in config/reminder_rules.json.
 from collections import deque
 from datetime import datetime
 from pathlib import Path
-import base64
 import json
 import shutil
-import subprocess
 import threading
 import time
-import urllib.request
 import uuid
-
-from services.media_library.media_manager import (
-    MediaLibraryError,
-    MediaNotFoundError,
-    media_library,
-)
-
 
 class ReminderRulesEngine:
 
@@ -164,10 +154,17 @@ class ReminderRulesEngine:
         if trigger not in {
             "appeared",
             "entered_zone",
+            "zone_occupied",
+            "zone_exited",
             "moved_zone",
             "left_zone",
             "stayed",
-            "disappeared"
+            "disappeared",
+            "scheduled_time",
+            "prayer_time",
+            "before_prayer",
+            "after_prayer",
+            "habit_condition",
         }:
             trigger = "entered_zone"
 
@@ -197,6 +194,12 @@ class ReminderRulesEngine:
         if media_id is not None:
             media_id = str(media_id).strip() or None
 
+        target_node = str(rule.get("target_node") or "").strip() or None
+        action_type = str(rule.get("action_type") or ("media" if media_id else "tts")).strip().lower()
+        if action_type not in {"tts", "media", "dua", "azkar", "reminder_audio", "notification", "device_action", "scene", "routine"}:
+            action_type = "tts"
+        days = rule.get("days") if isinstance(rule.get("days"), list) else []
+
         return {
             "id": str(
                 rule.get("id") or uuid.uuid4()
@@ -213,6 +216,13 @@ class ReminderRulesEngine:
                 rule.get("speak", True)
             ),
             "media_id": media_id,
+            "action_type": action_type,
+            "target_node": target_node,
+            "days": [str(day).strip().lower() for day in days if str(day).strip()],
+            "time_start": str(rule.get("time_start") or "").strip() or None,
+            "time_end": str(rule.get("time_end") or "").strip() or None,
+            "require_target_online": bool(rule.get("require_target_online", True)),
+            "last_triggered": rule.get("last_triggered"),
             "created_at": float(
                 rule.get(
                     "created_at",
@@ -238,6 +248,9 @@ class ReminderRulesEngine:
                 raise ValueError(
                     "Reminder message required"
                 )
+
+            if rule["action_type"] in {"tts", "media", "dua", "azkar", "reminder_audio"} and not rule.get("target_node"):
+                raise ValueError("A target Raspberry Pi speaker is required")
 
             self._rules.append(rule)
             self._save()
@@ -268,6 +281,9 @@ class ReminderRulesEngine:
                     raise ValueError(
                         "Reminder message required"
                     )
+
+                if updated["action_type"] in {"tts", "media", "dua", "azkar", "reminder_audio"} and not updated.get("target_node"):
+                    raise ValueError("A target Raspberry Pi speaker is required")
 
                 self._rules[index] = updated
                 self._save()
@@ -333,6 +349,17 @@ class ReminderRulesEngine:
             if event_zone != required_zone:
                 return False
 
+        days = rule.get("days") or []
+        if days and datetime.now().strftime("%A").lower() not in days:
+            return False
+
+        start = rule.get("time_start")
+        end = rule.get("time_end")
+        if start and end:
+            current = datetime.now().strftime("%H:%M")
+            if not (start <= current <= end):
+                return False
+
         return True
 
     # --------------------------------------------------
@@ -392,88 +419,6 @@ class ReminderRulesEngine:
             return template
 
     # --------------------------------------------------
-    @staticmethod
-    def _speak(message):
-        # Electronic/robotic TTS is intentionally disabled.  A text-only rule
-        # remains visible in history but never produces synthetic browser or
-        # espeak audio.  Select a recorded Media Library item for playback.
-        return {
-            "spoken": False,
-            "electronic_voice": False,
-            "speech_suppressed": True,
-            "speech_reason": "Recorded audio required",
-        }
-
-    # --------------------------------------------------
-    @staticmethod
-    def _audio_routing():
-        project_root = Path(__file__).resolve().parents[2]
-        path = project_root / "data" / "dual_audio_v15.json"
-        defaults = {
-            "output_mode": "both",
-            "pi_node_url": "http://192.168.2.29:8010",
-            "app_audio": True,
-            "pi_audio": True,
-        }
-        try:
-            loaded = json.loads(path.read_text(encoding="utf-8"))
-            if isinstance(loaded, dict):
-                defaults.update(loaded)
-        except Exception:
-            pass
-        return defaults
-
-    # --------------------------------------------------
-    @classmethod
-    def _play_media(cls, media_id):
-        item = media_library.get_item(media_id)
-        file_path = media_library.get_file_path(media_id)
-        routing = cls._audio_routing()
-        mode = str(routing.get("output_mode") or "both")
-        app_enabled = mode in {"app", "both"} and bool(routing.get("app_audio", True))
-        pi_enabled = mode in {"pi", "both"} and bool(routing.get("pi_audio", True))
-
-        result = {
-            "media_played": False,
-            "media_id": media_id,
-            "media_name": item.get("name") or item.get("original_filename") or "Selected audio",
-            "app_audio_url": item.get("api_file_url") if app_enabled else None,
-            "app_targeted": app_enabled,
-            "pi_targeted": pi_enabled,
-            "pi_played": False,
-        }
-
-        if pi_enabled:
-            # Never pause the camera/AI loop while a complete Dua is playing.
-            # The Pi request runs in its own daemon thread.
-            audio_bytes = file_path.read_bytes()
-            pi_url = str(routing.get("pi_node_url") or "http://192.168.2.29:8010")
-            audio_format = file_path.suffix.lstrip(".").lower() or "wav"
-
-            def send_to_pi():
-                payload = json.dumps({
-                    "audio_base64": base64.b64encode(audio_bytes).decode("ascii"),
-                    "format": audio_format,
-                }).encode("utf-8")
-                request = urllib.request.Request(
-                    pi_url.rstrip("/") + "/play",
-                    data=payload,
-                    headers={"Content-Type": "application/json"},
-                    method="POST",
-                )
-                try:
-                    with urllib.request.urlopen(request, timeout=120) as response:
-                        response.read()
-                except Exception:
-                    pass
-
-            threading.Thread(target=send_to_pi, daemon=True).start()
-            result["pi_played"] = True
-            result["pi_queued"] = True
-
-        result["media_played"] = bool(result["pi_played"] or app_enabled)
-        return result
-
     # --------------------------------------------------
     def _fire(self, rule, event, test=False):
         now = time.time()
@@ -483,35 +428,20 @@ class ReminderRulesEngine:
             event
         )
 
-        speech_result = {
-            "spoken": False
-        }
-
-        media_result = {
-            "media_played": False,
-            "media_id": rule.get("media_id")
-        }
-
-        selected_media_id = rule.get("media_id")
-
-        if selected_media_id:
+        playback_result = {"playback_status": "not_requested", "laptop_playback": False}
+        action_type = rule.get("action_type") or ("media" if rule.get("media_id") else "tts")
+        if action_type in {"tts", "media", "dua", "azkar", "reminder_audio"}:
             try:
-                media_result = self._play_media(selected_media_id)
-
-            except (
-                MediaLibraryError,
-                MediaNotFoundError,
-                KeyError,
-                OSError
-            ) as error:
-                media_result = {
-                    "media_played": False,
-                    "media_id": selected_media_id,
-                    "media_error": str(error)
-                }
-
-        elif rule.get("speak", True):
-            speech_result = self._speak(message)
+                from services.playback_router import playback_router
+                routed = playback_router.play({
+                    "target_node": rule.get("target_node"),
+                    "type": action_type,
+                    "content": message,
+                    "media_id": rule.get("media_id"),
+                })
+                playback_result = {"playback_status": "played", "playback": routed, "laptop_playback": False}
+            except Exception as error:
+                playback_result = {"playback_status": "failed", "playback_error": str(error), "laptop_playback": False}
 
         record = {
             "reminder_id": str(uuid.uuid4()),
@@ -531,8 +461,9 @@ class ReminderRulesEngine:
                 now
             ).strftime("%Y-%m-%d %H:%M:%S"),
             "test": bool(test),
-            **speech_result,
-            **media_result
+            "action_type": action_type,
+            "target_node": rule.get("target_node"),
+            **playback_result,
         }
 
         self._history.appendleft(record)
@@ -545,6 +476,12 @@ class ReminderRulesEngine:
 
             self._last_fired[key] = now
             self._save_cooldowns()
+            with self._lock:
+                for stored in self._rules:
+                    if stored["id"] == rule["id"]:
+                        stored["last_triggered"] = now
+                        break
+                self._save()
 
         return record
 

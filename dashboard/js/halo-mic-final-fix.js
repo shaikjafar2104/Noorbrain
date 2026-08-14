@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "3.2.0";
+  const VERSION = "3.3.0";
   const VOICE_API = "/api/halo-voice";
   const NATIVE_START_TIMEOUT_MS = 15000;
   const RECORDING_TIMEOUT_MS = 12000;
@@ -20,6 +20,7 @@
     lastTranscript: "",
     lastTranscriptAt: 0,
     diagnostics: [],
+    nativeSessionId: "",
   };
 
   function trace(event, detail = {}) {
@@ -147,6 +148,7 @@
     state.recorder = null;
     state.stream = null;
     state.activeButton = null;
+    state.nativeSessionId = "";
     setMode("idle", message, mode);
     trace("VOICE_IDLE", {message: String(message || "")});
   }
@@ -493,9 +495,17 @@
     return window.Capacitor?.Plugins || {};
   }
 
-  function postNativeToggle() {
+  function postNativeCommand(action, reason = "") {
+    if (!state.nativeSessionId) {
+      state.nativeSessionId = `halo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    }
     window.parent.postMessage(
-      {type: "noorbrain-native-record-toggle"},
+      {
+        type: "noorbrain-native-record-toggle",
+        action,
+        reason,
+        session_id: state.nativeSessionId,
+      },
       "*"
     );
   }
@@ -557,7 +567,7 @@
     const recorder = nativePlugins().CapacitorAudioRecorder;
     if (!recorder?.startRecording || !recorder?.stopRecording) {
       trace("NATIVE_START_SENT", {transport: "parent-relay"});
-      postNativeToggle();
+      postNativeCommand("start");
       return true;
     }
 
@@ -600,13 +610,14 @@
 
     const recorder = nativePlugins().CapacitorAudioRecorder;
     if (!recorder?.stopRecording) {
-      postNativeToggle();
+      postNativeCommand("stop", reason);
       return true;
     }
 
     try {
       const result = await recorder.stopRecording();
       if (operation !== state.operation) return false;
+      trace("NATIVE_STOP_ACK", {native: true, transport: "capacitor-direct"});
       setMode("processing", "Transcribing on NoorBrain…", "thinking");
 
       const blob = await nativeRecordingBlob(result);
@@ -635,10 +646,19 @@
   async function handleNativeMessage(event) {
     if (!isNativeApp()) return false;
     const data = event?.data || {};
+    const nativeEvent = String(data.event || "");
 
-    if (data.type === "noorbrain-native-listening") {
+    if (data.type === "noorbrain-native-start-ack" || nativeEvent === "NATIVE_START_ACK") {
       if (state.mode !== "starting") return false;
       trace("NATIVE_START_ACK", {transport: "parent-relay"});
+      return true;
+    }
+
+    if (data.type === "noorbrain-native-listening" || nativeEvent === "RECORDING_STARTED") {
+      if (state.mode !== "starting") return false;
+      if (!nativeEvent) {
+        trace("NATIVE_START_ACK", {transport: "parent-relay", legacy: true});
+      }
       setMode(
         "listening",
         "Listening… tap again when finished.",
@@ -649,7 +669,22 @@
       return true;
     }
 
-    if (data.type === "noorbrain-native-processing") {
+    if (data.type === "noorbrain-native-stop-ack" || nativeEvent === "NATIVE_STOP_ACK") {
+      if (!["listening", "stopping"].includes(state.mode)) return false;
+      trace("NATIVE_STOP_ACK", {transport: "parent-relay"});
+      return true;
+    }
+
+    if (data.type === "noorbrain-native-audio-received" || nativeEvent === "NATIVE_AUDIO_RECEIVED") {
+      if (!["stopping", "processing"].includes(state.mode)) return false;
+      trace("NATIVE_AUDIO_RECEIVED", {
+        transport: "parent-relay",
+        base64Bytes: Number(data.base64_bytes || 0),
+      });
+      return true;
+    }
+
+    if (data.type === "noorbrain-native-processing" || nativeEvent === "TRANSCRIBE_START") {
       if (!["listening", "stopping"].includes(state.mode)) return false;
       clearTimer();
       setMode("processing", "Transcribing on NoorBrain…", "thinking");
@@ -660,7 +695,7 @@
       return true;
     }
 
-    if (data.type === "noorbrain-native-error") {
+    if (data.type === "noorbrain-native-error" || nativeEvent === "NATIVE_START_ERROR" || nativeEvent === "VOICE_ERROR") {
       if (state.mode === "idle") return false;
       fail(data.message || "Android microphone failed.");
       return true;
@@ -692,7 +727,17 @@
 
     try {
       await sendToHalo(text);
-      if (operation === state.operation) reset();
+      if (operation === state.operation) {
+        window.parent.postMessage(
+          {
+            type: "noorbrain-native-conversation-complete",
+            session_id: state.nativeSessionId,
+          },
+          "*"
+        );
+        state.nativeSessionId = "";
+        reset();
+      }
     } catch (error) {
       if (operation === state.operation) fail(error, "Noor request failed.");
     }

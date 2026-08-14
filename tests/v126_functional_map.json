@@ -15,7 +15,7 @@
     {"page":"home","control":"Camera","event":"camera","action":"openV126Camera","api":"GET /camera_live","backend":"main.py","result":"native V12.6 live camera with connection state"},
     {"page":"home","control":"Automation","event":"automation","action":"navigate","api":null,"backend":null,"result":"V12.6 Automation tab"},
     {"page":"home","control":"Prayer","event":"prayer","action":"openV126Prayer","api":"GET /api/prayer-intelligence/times","backend":"services/prayer_intelligence/routes.py","result":"real prayer times and next prayer"},
-    {"page":"home","control":"Dua & Azkar","event":"media","action":"openV126Media","api":"GET /api/media; POST /api/media/{id}/play","backend":"services/media_library/routes.py","result":"real library and phone/backend playback with honest failure"},
+    {"page":"home","control":"Dua & Azkar","event":"media","action":"openV126Media","api":"GET /api/media; GET /api/media/{id}/file","backend":"services/media_library/routes.py","result":"real library and explicit on-device Preview"},
     {"page":"home","control":"Smart Islamic Rules","event":"islamic-rules","action":"NoorMobileRulesV12.open","api":"GET/POST/PUT/DELETE /reminder-rules; PATCH /reminder-rules/{id}/toggle; POST /reminder-rules/{id}/test","backend":"services/reminder_rules/routes.py","result":"real reminder rule CRUD/toggle/test UI"},
     {"page":"home","control":"Zones","event":"zones","action":"openV126Zones","api":"GET /api/vision-zones/zones","backend":"services/vision_zones/routes.py","result":"native V12.6 real zone list"},
 
@@ -43,6 +43,7 @@
     {"page":"more","control":"Rooms & Zones","event":"zones","action":"openV126Zones","api":"GET /api/vision-zones/zones","backend":"services/vision_zones/routes.py","result":"native real zone list"},
     {"page":"more","control":"Camera & Vision","event":"camera","action":"openV126Camera","api":"GET /camera_live","backend":"main.py","result":"native V12.6 live camera"},
     {"page":"more","control":"Media Library","event":"media","action":"openV126Media","api":"GET /api/media","backend":"services/media_library/routes.py","result":"real media library"},
+    {"page":"more","control":"Rooms & Speakers","event":"audio-intercom","action":"NoorBrainAudioIntercom.open","api":"CRUD /api/playback/nodes; POST /api/playback/play; listen/talk/stop routes","backend":"services/playback_router/routes.py","result":"target-required Pi playback, Play Message, explicit room listening, and half-duplex talk"},
     {"page":"more","control":"Settings","event":"settings","action":"NoorMobileSettingsV11.open","api":"GET/PATCH /api/noor-settings-v11","backend":"services/noor_settings/routes.py","result":"visible real settings editor and runtime status"}
   ]
 }

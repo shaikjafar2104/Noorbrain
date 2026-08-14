@@ -144,29 +144,17 @@ class PrayerIntelligenceService:
             return {"status": "ignored"}
 
         try:
-            from services.halo_voice_runtime.tts_service import streaming_tts_service
-
-            item = streaming_tts_service.enqueue(
-                message,
-                priority=5,
-                metadata={
-                    "source": "prayer_intelligence",
-                    "prayer": event.get("prayer"),
-                    "kind": event.get("kind"),
-                },
-            )
-            streaming_tts_service.start()
-            result = {"status": "queued", "item": item}
-        except Exception:
-            try:
-                from services.reminder_engine.reminder_engine import reminder_engine
-                reminder_engine.speech_queue.put(message)
-                result = {"status": "queued_legacy"}
-            except Exception as exc:
-                result = {
-                    "status": "failed",
-                    "error": f"{type(exc).__name__}: {exc}",
-                }
+            from services.playback_router import playback_router
+            settings = self.settings()
+            result = playback_router.play({
+                "target_node": event.get("target_node") or settings.get("playback_node"),
+                "type": "media" if event.get("media_id") else "tts",
+                "content": message,
+                "media_id": event.get("media_id"),
+                "volume": event.get("volume") or settings.get("playback_volume"),
+            })
+        except Exception as exc:
+            result = {"status": "failed", "error": str(exc), "laptop_fallback": False}
 
         prayer_store.add_event({
             **event,

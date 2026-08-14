@@ -645,6 +645,7 @@ const API = {
 
 let editing = null;
 let devices = [];
+let playbackNodes = [];
 
 const $ = id => document.getElementById(id);
 
@@ -821,12 +822,17 @@ function sceneOptions(selected="") {
   `).join("");
 }
 
+function playbackNodeOptions(selected="") {
+  return `<option value="">Select Raspberry Pi speaker</option>${playbackNodes.map(node=>`<option value="${esc(node.node_id)}" ${String(node.node_id)===String(selected)?"selected":""}>${esc(node.name)} · ${esc(node.room)}${node.online===false?" · Offline":""}</option>`).join("")}`;
+}
+
 function smartFields(item={}) {
   const action=(item.actions || [])[0] || {};
   const actionText=
-    action.kind === "halo" && action.name === "speak"
+    (action.kind === "halo" && action.name === "speak") || action.kind === "playback"
       ? action.arguments?.text || ""
       : "";
+  const actionType=action.arguments?.type || (action.arguments?.media_id ? "media" : "tts");
 
   return `
     ${field(
@@ -856,12 +862,16 @@ function smartFields(item={}) {
     )}
 
     ${field(
-      "HALO speech action",
-      `<textarea id="nbafActionText" placeholder="What HALO should say">${esc(actionText)}</textarea>`,
+      "Play Message",
+      `<textarea id="nbafActionText" placeholder="What the selected room speaker should say">${esc(actionText)}</textarea>`,
       (item.actions || []).length && !actionText
         ? "This rule has an existing non-speech action. Leave blank to preserve it."
-        : "A manual run queues this message through NoorBrain's real TTS service."
+        : "Automation audio runs through the selected Raspberry Pi, never this laptop."
     )}
+
+    ${field("Action type",`<select id="nbafPlaybackType"><option value="tts" ${actionType==="tts"?"selected":""}>Speak TTS</option><option value="media" ${actionType==="media"?"selected":""}>Play Media</option><option value="dua" ${actionType==="dua"?"selected":""}>Play Dua</option><option value="azkar" ${actionType==="azkar"?"selected":""}>Play Azkar</option></select>`)}
+    ${field("Media ID",input("nbafPlaybackMedia",action.arguments?.media_id||""),"Required for Media, Dua, or Azkar actions.")}
+    ${field("Play On",`<select id="nbafPlaybackTarget">${playbackNodeOptions(action.arguments?.target_node||"")}</select>`,"A real target speaker is required.")}
 
     ${checkbox(
       "nbafEnabled",
@@ -1011,10 +1021,15 @@ function routineFields(item={}) {
 
 async function loadDevices() {
   try {
-    const data=await api(API.devices);
+    const [data,nodeData]=await Promise.all([
+      api(API.devices),
+      api("/api/playback/nodes?probe=true")
+    ]);
     devices=data.devices || [];
+    playbackNodes=nodeData.nodes || [];
   } catch {
     devices=[];
+    playbackNodes=[];
   }
 }
 
@@ -1104,13 +1119,19 @@ function payload() {
 
   if (tab==="smart") {
     const actionText=val("nbafActionText");
+    const actionMedia=val("nbafPlaybackMedia");
+    const actionType=val("nbafPlaybackType") || "tts";
     let actions=editing.item?.actions || [];
 
-    if(actionText){
+    if(actionText || actionMedia){
+      const target=val("nbafPlaybackTarget");
+      if(!target) throw new Error("Select the Raspberry Pi speaker for this rule.");
+      if(actionType==="tts" && !actionText) throw new Error("Enter the TTS message for this rule.");
+      if(actionType!=="tts" && !actionMedia) throw new Error("Enter a Media ID for this playback rule.");
       actions=[{
-        kind:"halo",
-        name:"speak",
-        arguments:{text:actionText}
+        kind:"playback",
+        name:"play",
+        arguments:{text:actionText,type:actionType,media_id:actionMedia||null,target_node:target}
       }];
     }
 

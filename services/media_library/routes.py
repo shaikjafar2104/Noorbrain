@@ -133,12 +133,19 @@ def _update_media(media_id: str, payload: MediaUpdateRequest) -> dict:
         raise _error_response(error) from error
 
 
-def _play_media(media_id: str) -> dict:
+def _play_media(media_id: str, target_node: str) -> dict:
     try:
-        return media_library.play_item(media_id)
+        from services.playback_router import playback_router
+        return playback_router.play({
+            "target_node": target_node,
+            "type": "media",
+            "media_id": media_id,
+        })
 
     except MediaLibraryError as error:
         raise _error_response(error) from error
+    except Exception as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
 
 
 def _media_file(media_id: str) -> FileResponse:
@@ -223,14 +230,14 @@ def media_file(media_id: str) -> FileResponse:
 
 @router.post("/{media_id}/play")
 @api_router.post("/{media_id}/play")
-def play_media(media_id: str) -> dict:
-    return _play_media(media_id)
+def play_media(media_id: str, target_node: str = Query(..., min_length=1)) -> dict:
+    return _play_media(media_id, target_node)
 
 
 @router.post("/play/{media_id}")
 @api_router.post("/play/{media_id}")
-def play_media_legacy(media_id: str) -> dict:
-    return _play_media(media_id)
+def play_media_legacy(media_id: str, target_node: str = Query(..., min_length=1)) -> dict:
+    return _play_media(media_id, target_node)
 
 
 @router.post("/stop")

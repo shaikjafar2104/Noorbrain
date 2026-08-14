@@ -5,7 +5,7 @@ from typing import Any
 from fastapi import APIRouter,Body,HTTPException
 router=APIRouter(prefix="/api/dual-audio-v15",tags=["Dual App Pi Audio"])
 ROOT=Path(__file__).resolve().parents[2];CONFIG=ROOT/"data/dual_audio_v15.json"
-DEFAULT={"version":"15.1.0","input_mode":"both","output_mode":"both","pi_node_url":"http://192.168.2.29:8010","electronic_tts":False,"app_audio":True,"pi_audio":True}
+DEFAULT={"version":"15.1.0","input_mode":"both","output_mode":"pi","pi_node_url":"http://192.168.2.29:8010","electronic_tts":False,"app_audio":False,"pi_audio":True}
 def read():
  if not CONFIG.is_file():return dict(DEFAULT)
  try:d=json.loads(CONFIG.read_text(encoding="utf-8"))

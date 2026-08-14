@@ -63,6 +63,7 @@ from services.anomaly.routes import router as anomaly_router
 from services.household.routes import router as household_router
 from services.reports.routes import router as reports_router
 from services.voice_ai.routes import router as voice_ai_router
+from services.playback_router.routes import router as playback_router_api
 app = FastAPI(
     title="NoorBrain",
     version="1.0.0"
@@ -71,6 +72,7 @@ app = FastAPI(
 app.include_router(noor_settings_router)
 app.include_router(noor_control_v11_router)
 app.include_router(voice_ai_router)
+app.include_router(playback_router_api)
 
 # Sprint 2: Media Library API
 app.include_router(media_library_router)

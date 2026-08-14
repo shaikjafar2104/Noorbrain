@@ -494,6 +494,13 @@ function more(){
       })}
 
       ${tile({
+        icon:"◉",
+        title:"Rooms & Speakers",
+        text:"Play Message and intercom",
+        action:"audio-intercom"
+      })}
+
+      ${tile({
         icon:"●",
         title:"Family",
         text:"Members, presence and privacy",
@@ -1957,7 +1964,7 @@ async function openV126Media(){
                   <p>${esc(item.original_filename||"")}</p>
                 </div>
                 <div class="nb126-card-actions">
-                  <button type="button" data-v126-media-play="${esc(item.id||"")}">Play</button>
+                  <button type="button" data-v126-media-play="${esc(item.id||"")}">Preview</button>
                   <button type="button" data-v126-media-edit="${esc(item.id||"")}">Edit</button>
                   <button type="button" data-v126-media-delete="${esc(item.id||"")}">Delete</button>
                 </div>
@@ -2142,6 +2149,7 @@ async function openV126IslamicRules(){
                   <p>
                     ${esc(rule.event||"")}
                     ${rule.zone ? " • "+esc(rule.zone) : ""}
+                    ${rule.target_node ? " • Play On: "+esc(rule.target_node) : " • No speaker target"}
                   </p>
                 </div>
                 <div class="nb126-card-actions">
@@ -2227,12 +2235,22 @@ function openV126IslamicRuleEditor(rule=null){
       </select></div>
       <div class="nb126-field"><label>Zone</label><input id="nb126IslamicRuleZone" value="${esc(rule?.zone||"")}" placeholder="Optional"></div>
       <div class="nb126-field"><label>Message</label><textarea id="nb126IslamicRuleMessage" required>${esc(rule?.message||"")}</textarea></div>
+      <div class="nb126-field"><label>Action</label><select id="nb126IslamicRuleAction"><option value="tts">Speak TTS</option><option value="media">Play Media</option><option value="dua">Play Dua</option><option value="azkar">Play Azkar</option></select></div>
+      <div class="nb126-field"><label>Media ID</label><input id="nb126IslamicRuleMedia" value="${esc(rule?.media_id||"")}" placeholder="Required for recorded audio"></div>
+      <div class="nb126-field"><label>Play On</label><select id="nb126IslamicRuleTarget"><option value="">Loading Raspberry Pi speakers…</option></select></div>
       <label class="nb126-check"><input id="nb126IslamicRuleEnabled" type="checkbox" ${rule?.enabled===false?"":"checked"}> Enabled</label>
       <small id="nb126IslamicRuleMessageStatus"></small>
       <button class="nb126-button nb126-button-primary nb126-full" type="submit">${editing?"Save Rule":"Create Rule"}</button>
     </form>`,
     {showBack:true,backTarget:getNativeBackTarget("islamic")}
   );
+
+  document.getElementById("nb126IslamicRuleAction").value=rule?.action_type||"tts";
+  nb126Fetch("/api/playback/nodes?probe=true").then(data=>{
+    const select=document.getElementById("nb126IslamicRuleTarget");
+    if(!select)return;
+    select.innerHTML=`<option value="">Select Raspberry Pi speaker</option>${(data.nodes||[]).map(node=>`<option value="${esc(node.node_id)}" ${rule?.target_node===node.node_id?"selected":""}>${esc(node.name)} · ${esc(node.room)}${node.online===false?" · Offline":""}</option>`).join("")}`;
+  }).catch(error=>{const select=document.getElementById("nb126IslamicRuleTarget");if(select)select.innerHTML=`<option value="">${esc(error.message)}</option>`;});
 
   document.getElementById("nb126IslamicRuleForm")?.addEventListener("submit",async event=>{
     event.preventDefault();
@@ -2250,6 +2268,9 @@ function openV126IslamicRuleEditor(rule=null){
             event:document.getElementById("nb126IslamicRuleEvent").value,
             zone:document.getElementById("nb126IslamicRuleZone").value.trim(),
             message:document.getElementById("nb126IslamicRuleMessage").value.trim(),
+            action_type:document.getElementById("nb126IslamicRuleAction").value,
+            media_id:document.getElementById("nb126IslamicRuleMedia").value.trim()||null,
+            target_node:document.getElementById("nb126IslamicRuleTarget").value,
             enabled:document.getElementById("nb126IslamicRuleEnabled").checked
           })
         }
@@ -3383,6 +3404,14 @@ function v126SpeakReply(text){
   const reply=String(text||"").trim();
   if(!reply) return;
 
+  if(v126NativeApp() && window.parent!==window){
+    window.parent.postMessage(
+      {type:"noorbrain-native-speak",text:reply},
+      "*"
+    );
+    return;
+  }
+
   if("speechSynthesis" in window && window.SpeechSynthesisUtterance){
     try{
       window.speechSynthesis.cancel();
@@ -3768,6 +3797,10 @@ function runAction(action){
     setActiveTab(V126_PARENT_MAP.settings || getNativeBackTarget());
     openV126Settings();
     return true;
+  }
+
+  if(action==="audio-intercom"){
+    return window.NoorBrainAudioIntercom?.open?.() || false;
   }
 
   const bridge = window.NoorBrainV126ModuleBridge || V126_MODULE_BRIDGE;

@@ -104,26 +104,17 @@ class IslamicReminderService:
         message = str(item.get("message") or "").strip()
 
         try:
-            from services.halo_voice_runtime.tts_service import streaming_tts_service
-            queued = streaming_tts_service.enqueue(
-                message,
-                priority=int(item.get("priority", 5)),
-                metadata={
-                    "source": "islamic_reminders",
-                    "category": item.get("category"),
-                    "person_id": item.get("person_id"),
-                    "zone": item.get("zone"),
-                },
-            )
-            streaming_tts_service.start()
-            voice = {"status": "queued", "item": queued}
-        except Exception:
-            try:
-                from services.reminder_engine.reminder_engine import reminder_engine
-                reminder_engine.speech_queue.put(message)
-                voice = {"status": "queued_legacy"}
-            except Exception as exc:
-                voice = {"status": "failed", "error": f"{type(exc).__name__}: {exc}"}
+            from services.playback_router import playback_router
+            routed = playback_router.play({
+                "target_node": item.get("target_node"),
+                "type": "media" if item.get("media_id") else "tts",
+                "content": message,
+                "media_id": item.get("media_id"),
+                "volume": item.get("volume"),
+            })
+            voice = {"status": "played", "route": routed}
+        except Exception as exc:
+            voice = {"status": "failed", "error": str(exc), "laptop_fallback": False}
 
         mobile = self._mobile_event(item)
 

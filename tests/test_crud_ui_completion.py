@@ -86,6 +86,6 @@ def test_halo_supports_apk_relay_and_direct_capacitor_with_recovery() -> None:
     assert "PROCESSING_TIMEOUT_MS = 45000" in MIC
 
 
-def test_pwa_cache_references_crud_finish_assets() -> None:
-    assert 'CACHE_NAME = "noorbrain-v126-crud-ui-finish-1"' in WORKER
-    assert "v=20260813-crud-finish" in WORKER
+def test_pwa_cache_references_audio_intercom_finish_assets() -> None:
+    assert 'CACHE_NAME = "noorbrain-v126-audio-intercom-finish-1"' in WORKER
+    assert "v=20260813-audio-intercom" in WORKER

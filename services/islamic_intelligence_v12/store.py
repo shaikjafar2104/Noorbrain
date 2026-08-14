@@ -1,6 +1,7 @@
 from __future__ import annotations
 import json,threading
 from datetime import datetime,timezone
+import time
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -22,11 +23,11 @@ class Store:
  def overview(self):
   d=self.read();return {"settings":d["settings"],"rules":d["rules"],"events":d["events"][-50:],"summary":{"rules":len(d["rules"]),"enabled":sum(1 for x in d["rules"] if x.get("enabled")),"events":len(d["events"])}}
  def add_rule(self,p):
-  with self.lock:d=self.read();r={"id":uuid4().hex,"name":p["name"],"event":p.get("event","person_entered"),"zone":p.get("zone",""),"message":p["message"],"enabled":True,"created_at":self.now()};d["rules"].append(r);self.write(d);return r
+  with self.lock:d=self.read();r={"id":uuid4().hex,"name":p["name"],"event":p.get("event","person_entered"),"zone":p.get("zone",""),"message":p["message"],"enabled":bool(p.get("enabled",True)),"action_type":p.get("action_type","tts"),"media_id":p.get("media_id"),"target_node":p.get("target_node"),"cooldown_seconds":max(0,int(p.get("cooldown_seconds",1800))),"last_triggered":None,"created_at":self.now()};d["rules"].append(r);self.write(d);return r
  def patch_rule(self,i,p):
   with self.lock:d=self.read();r=next((x for x in d["rules"] if x["id"]==i),None)
   if r:
-   for k in ("name","event","zone","message","enabled"):
+   for k in ("name","event","zone","message","enabled","action_type","media_id","target_node","cooldown_seconds"):
     if k in p:r[k]=p[k]
    self.write(d)
   return r
@@ -36,8 +37,19 @@ class Store:
   return ok
  def evaluate(self,p):
   with self.lock:
-   d=self.read();event=str(p.get("event") or "");zone=str(p.get("zone") or "");matches=[x for x in d["rules"] if x.get("enabled") and x.get("event")==event and (not x.get("zone") or x.get("zone").casefold()==zone.casefold())]
-   record={"id":uuid4().hex,"event":event,"zone":zone,"member_id":p.get("member_id"),"matches":[x["id"] for x in matches],"at":self.now()};d["events"].append(record);d["events"]=d["events"][-1000:];self.write(d);return {"event":record,"reminders":matches}
+   d=self.read();event=str(p.get("event") or "");zone=str(p.get("zone") or "");now=time.time();matches=[]
+   for rule in d["rules"]:
+    if not rule.get("enabled") or rule.get("event")!=event or (rule.get("zone") and str(rule.get("zone")).casefold()!=zone.casefold()):continue
+    previous=float(rule.get("last_triggered_epoch") or 0);cooldown=max(0,int(rule.get("cooldown_seconds",1800)))
+    if previous and now-previous<cooldown:continue
+    matches.append(rule)
+   executions=[]
+   from services.playback_router import playback_router
+   for rule in matches:
+    try:
+     routed=playback_router.play({"target_node":rule.get("target_node"),"type":rule.get("action_type") or ("media" if rule.get("media_id") else "tts"),"content":rule.get("message"),"media_id":rule.get("media_id")});executions.append({"rule_id":rule["id"],"status":"played","result":routed});rule["last_triggered"]=self.now();rule["last_triggered_epoch"]=now
+    except Exception as error:executions.append({"rule_id":rule["id"],"status":"failed","error":str(error),"laptop_fallback":False})
+   record={"id":uuid4().hex,"event":event,"zone":zone,"member_id":p.get("member_id"),"matches":[x["id"] for x in matches],"executions":executions,"at":self.now()};d["events"].append(record);d["events"]=d["events"][-1000:];self.write(d);return {"event":record,"reminders":matches,"executions":executions}
  def settings(self,p):
   with self.lock:d=self.read();d["settings"].update({k:v for k,v in p.items() if k in d["settings"]});self.write(d);return d["settings"]
 store=Store()

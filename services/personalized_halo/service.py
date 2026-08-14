@@ -249,46 +249,14 @@ class PersonalizedHALOService:
         message = str(greeting["message"])
 
         try:
-            from services.halo_voice_runtime.tts_service import (
-                streaming_tts_service,
-            )
-
-            item = streaming_tts_service.enqueue(
-                message,
-                priority=8,
-                metadata={
-                    "source": "personalized_halo",
-                    "person_id": greeting.get("person_id"),
-                    "profile_id": greeting.get("profile_id"),
-                    "zone": greeting.get("zone"),
-                    "voice_profile": greeting.get(
-                        "voice_profile"
-                    ),
-                },
-            )
-            streaming_tts_service.start()
-
-            return {
-                "status": "queued",
-                "item": item,
-            }
-        except Exception:
-            try:
-                from services.reminder_engine.reminder_engine import (
-                    reminder_engine,
-                )
-
-                reminder_engine.speech_queue.put(message)
-
-                return {
-                    "status": "queued_legacy",
-                }
-            except Exception as exc:
-                return {
-                    "status": "failed",
-                    "error": f"{type(exc).__name__}: {exc}",
-                }
-
+            from services.playback_router import playback_router
+            return playback_router.play({
+                "target_node": greeting.get("target_node"),
+                "type": "tts",
+                "content": message,
+            })
+        except Exception as exc:
+            return {"status": "failed", "error": str(exc), "laptop_fallback": False}
     @staticmethod
     def _remember(
         event: dict[str, Any],

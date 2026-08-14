@@ -758,7 +758,7 @@
                   data-ml-action="play"
                   data-media-id="${escapeHtml(id)}"
                 >
-                  ▶ Play
+                  ▶ Preview
                 </button>
 
                 <button
@@ -976,7 +976,7 @@
     }
 
     try {
-      setMessage("Starting playback…");
+      setMessage("Starting local preview…");
 
       previewAudio?.pause?.();
       previewAudio = new Audio(
@@ -986,16 +986,16 @@
 
       if ($("mlPlaybackStatus")) {
         $("mlPlaybackStatus").textContent =
-          "Playing";
+          "Previewing";
       }
 
       setMessage(
-        "Audio playback started.",
+        "Local preview started.",
         "success"
       );
     } catch (error) {
       setMessage(
-        `Playback failed: ${error.message}`,
+        `Preview failed: ${error.message}`,
         "error"
       );
     }
@@ -1006,20 +1006,13 @@
       previewAudio?.pause?.();
       if (previewAudio) previewAudio.currentTime = 0;
 
-      await request(
-        "/media/stop",
-        {
-          method: "POST"
-        }
-      );
-
       if ($("mlPlaybackStatus")) {
         $("mlPlaybackStatus").textContent =
           "Stopped";
       }
 
       setMessage(
-        "Audio playback stopped.",
+        "Local preview stopped.",
         "success"
       );
     } catch (error) {

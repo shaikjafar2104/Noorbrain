@@ -38,16 +38,21 @@ def sync() -> dict[str, Any]:
 
 
 @router.post("/play/{media_id}")
-def play(media_id: str) -> dict[str, Any]:
+def play(media_id: str, target_node: str = Query(..., min_length=1)) -> dict[str, Any]:
     try:
-        return play_media_rule(media_id)
+        return play_media_rule(media_id, target_node)
     except (MediaLibraryError, OSError, KeyError) as error:
         raise HTTPException(404, str(error)) from error
+    except Exception as error:
+        raise HTTPException(503, str(error)) from error
 
 
 @router.post("/rules", status_code=201)
 def create_rule(payload: dict = Body(...)) -> dict[str, Any]:
     media_id = str(payload.get("media_id") or "").strip()
+    target_node = str(payload.get("target_node") or "").strip()
+    if not target_node:
+        raise HTTPException(422, "A target Raspberry Pi speaker is required")
     item = next((row for row in catalog_items() if row.get("id") == media_id), None)
     if item is None:
         raise HTTPException(404, "Dua or Azkar audio not found")
@@ -59,6 +64,8 @@ def create_rule(payload: dict = Body(...)) -> dict[str, Any]:
         "cooldown_seconds": max(0, int(payload.get("cooldown_seconds", 1800))),
         "speak": False,
         "media_id": media_id,
+        "action_type": str(item.get("category") or "media").lower().rstrip("s") if item.get("category") in {"duas", "azkar"} else "media",
+        "target_node": target_node,
         "enabled": bool(payload.get("enabled", True)),
     }
     try:

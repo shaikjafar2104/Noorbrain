@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-import base64
 import json
 import re
 import threading
 import time
-import urllib.request
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from services.media_library.media_manager import media_library
+from services.playback_router import playback_router
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -19,9 +18,9 @@ DUAL_AUDIO_CONFIG = ROOT / "data" / "dual_audio_v15.json"
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "version": "16.1.0",
-    "output_mode": "both",
-    "pi_node_url": "http://192.168.2.29:8010",
-    "app_audio": True,
+    "output_mode": "pi",
+    "target_node": None,
+    "app_audio": False,
     "pi_audio": True,
     "electronic_tts": False,
     "morning": {"enabled": False, "time": "07:00", "query": "morning azkar"},
@@ -47,7 +46,7 @@ class IslamicAudioControl:
         if DUAL_AUDIO_CONFIG.is_file():
             try:
                 dual = json.loads(DUAL_AUDIO_CONFIG.read_text(encoding="utf-8"))
-                for key in ("output_mode", "pi_node_url", "app_audio", "pi_audio"):
+                for key in ("output_mode", "target_node", "app_audio", "pi_audio"):
                     if key in dual:
                         config[key] = dual[key]
             except Exception:
@@ -63,8 +62,10 @@ class IslamicAudioControl:
 
     def update_config(self, payload: dict[str, Any]) -> dict[str, Any]:
         config = self.read_config()
-        if payload.get("output_mode") in {"app", "pi", "both"}:
-            config["output_mode"] = payload["output_mode"]
+        config["output_mode"] = "pi"
+        config["app_audio"] = False
+        if "target_node" in payload:
+            config["target_node"] = str(payload.get("target_node") or "").strip() or None
         for period in ("morning", "evening"):
             incoming = payload.get(period)
             if isinstance(incoming, dict):
@@ -122,40 +123,11 @@ class IslamicAudioControl:
         scored.sort(key=lambda pair: pair[0], reverse=True)
         return scored[0][1]
 
-    @staticmethod
-    def _post_json(url: str, payload: dict[str, Any], timeout: int = 90) -> dict[str, Any]:
-        request = urllib.request.Request(
-            url,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            return json.loads(response.read().decode("utf-8"))
-
-    def play_item(self, media_id: str, source: str = "manual") -> dict[str, Any]:
+    def play_item(self, media_id: str, source: str = "manual", target_node: str | None = None) -> dict[str, Any]:
         item = media_library.get_item(media_id)
-        path = media_library.get_file_path(media_id)
-        audio = base64.b64encode(path.read_bytes()).decode("ascii")
-        audio_format = path.suffix.lower().lstrip(".") or "mp3"
         config = self.read_config()
-        output = str(config.get("output_mode") or "both")
-        pi_result: dict[str, Any] | None = None
-        if output in {"pi", "both"} and config.get("pi_audio", True):
-            try:
-                pi_result = self._post_json(
-                    str(config["pi_node_url"]).rstrip("/") + "/play",
-                    {"audio_base64": audio, "format": audio_format},
-                )
-            except Exception as error:
-                pi_result = {"status": "offline", "detail": type(error).__name__}
-        app_payload = None
-        if output in {"app", "both"} and config.get("app_audio", True):
-            app_payload = {
-                "audio_base64": audio,
-                "format": audio_format,
-                "mime_type": item.get("mime_type") or f"audio/{audio_format}",
-            }
+        selected_target = str(target_node or config.get("target_node") or "").strip()
+        routed = playback_router.play({"target_node": selected_target, "type": "media", "media_id": media_id})
         with self._lock:
             self._event_id += 1
             self._event = {
@@ -163,20 +135,22 @@ class IslamicAudioControl:
                 "created_at": datetime.now().isoformat(),
                 "source": source,
                 "item": item,
-                "app": app_payload,
+                "target_node": selected_target,
+                "playback": routed,
             }
         return {
             "status": "playing",
             "reply": f"Playing {item.get('name') or item.get('original_filename')}.",
             "item": item,
-            "output_mode": output,
-            "pi": pi_result,
-            "app": app_payload,
+            "output_mode": "pi",
+            "target_node": selected_target,
+            "playback": routed,
+            "app": None,
             "event_id": self._event_id,
         }
 
-    def play_by_query(self, query: str, source: str = "voice") -> dict[str, Any]:
-        return self.play_item(str(self.find(query)["id"]), source=source)
+    def play_by_query(self, query: str, source: str = "voice", target_node: str | None = None) -> dict[str, Any]:
+        return self.play_item(str(self.find(query)["id"]), source=source, target_node=target_node)
 
     def event_after(self, event_id: int) -> dict[str, Any] | None:
         with self._lock:

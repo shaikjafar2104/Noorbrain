@@ -5,6 +5,7 @@
 
   const API = "/reminder-rules";
   let rules = [];
+  let nodes = [];
   let editing = null;
 
   const $ = id => document.getElementById(id);
@@ -127,6 +128,9 @@
                   Entered zone
                 </option>
 
+                <option value="zone_occupied">Zone occupied</option>
+                <option value="zone_exited">Zone exited</option>
+
                 <option value="moved_zone">
                   Moved zone
                 </option>
@@ -142,6 +146,11 @@
                 <option value="disappeared">
                   Person disappeared
                 </option>
+                <option value="scheduled_time">Scheduled time</option>
+                <option value="prayer_time">Prayer time</option>
+                <option value="before_prayer">Before prayer</option>
+                <option value="after_prayer">After prayer</option>
+                <option value="habit_condition">Habit / routine condition</option>
               </select>
             </label>
 
@@ -191,6 +200,22 @@
               Media ID
               <input id="nbrMedia"
                      placeholder="Optional audio/media ID">
+            </label>
+
+            <label>
+              Action
+              <select id="nbrActionType">
+                <option value="tts">Play Message / Speak TTS</option>
+                <option value="media">Play Media</option>
+                <option value="dua">Play Dua</option>
+                <option value="azkar">Play Azkar</option>
+                <option value="reminder_audio">Prayer / Reminder Audio</option>
+              </select>
+            </label>
+
+            <label>
+              Play On
+              <select id="nbrTargetNode"><option value="">Select Raspberry Pi speaker</option></select>
             </label>
 
             <label class="nbr-switch-row">
@@ -545,6 +570,11 @@
         "?history_limit=30"
       );
 
+      const nodeResponse = await fetch("/api/playback/nodes?probe=true", {cache:"no-store"});
+      const nodeData = await nodeResponse.json().catch(() => ({}));
+      nodes = nodeResponse.ok ? (nodeData.nodes || []) : [];
+      $("nbrTargetNode").innerHTML = `<option value="">Select Raspberry Pi speaker</option>${nodes.map(node => `<option value="${esc(node.node_id)}">${esc(node.name)} · ${esc(node.room)}${node.online===false?" · Offline":""}</option>`).join("")}`;
+
       rules = data.rules || [];
 
       $("nbrCount").textContent =
@@ -595,8 +625,10 @@
                 : ""}
 
               <span>
-                ${rule.speak ? "🔊 Speak" : "🔇 No speech"}
+                ${esc(rule.action_type || (rule.media_id ? "media" : "tts"))}
               </span>
+
+              ${rule.target_node ? `<span>Play On: ${esc(nodes.find(node=>node.node_id===rule.target_node)?.name || rule.target_node)}</span>` : `<span>No speaker target</span>`}
             </div>
           </div>
 
@@ -620,6 +652,7 @@
           ${rule.media_id
             ? `<span>▶ Media</span>`
             : ""}
+          ${rule.last_triggered ? `<span>Last: ${new Date(Number(rule.last_triggered)*1000).toLocaleString()}</span>` : ""}
         </div>
 
         <div class="nbr-card-actions">
@@ -661,6 +694,8 @@
     $("nbrCooldown").value = "1800";
     $("nbrSpeak").checked = true;
     $("nbrMedia").value = "";
+    $("nbrActionType").value = "tts";
+    $("nbrTargetNode").value = "";
     $("nbrRuleEnabled").checked = true;
 
     $("nbrEditor").hidden = false;
@@ -703,6 +738,9 @@
     $("nbrMedia").value =
       rule.media_id || "";
 
+    $("nbrActionType").value = rule.action_type || (rule.media_id ? "media" : "tts");
+    $("nbrTargetNode").value = rule.target_node || "";
+
     $("nbrRuleEnabled").checked =
       Boolean(rule.enabled);
 
@@ -742,9 +780,16 @@
       speak: $("nbrSpeak").checked,
       media_id:
         $("nbrMedia").value.trim() || null,
+      action_type: $("nbrActionType").value,
+      target_node: $("nbrTargetNode").value || null,
       enabled:
         $("nbrRuleEnabled").checked
     };
+
+    if (!["notification","device_action","scene","routine"].includes(payload.action_type) && !payload.target_node) {
+      status("Select the Raspberry Pi speaker for this rule.", true);
+      return;
+    }
 
     status(
       editing

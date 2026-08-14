@@ -31,9 +31,9 @@ async def catalog(search: str = Query(default="")) -> dict[str, Any]:
 
 
 @router.post("/play/{media_id}")
-async def play(media_id: str) -> dict[str, Any]:
+async def play(media_id: str, target_node: str = Query(..., min_length=1)) -> dict[str, Any]:
     try:
-        return await asyncio.to_thread(islamic_audio.play_item, media_id, "manual")
+        return await asyncio.to_thread(islamic_audio.play_item, media_id, "manual", target_node)
     except LookupError as error:
         raise HTTPException(404, str(error)) from error
     except Exception as error:
@@ -46,7 +46,10 @@ async def play_query(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
     if not query:
         raise HTTPException(422, "Query is required.")
     try:
-        return await asyncio.to_thread(islamic_audio.play_by_query, query, "manual")
+        target_node = str(payload.get("target_node") or "").strip()
+        if not target_node:
+            raise HTTPException(422, "A target Raspberry Pi speaker is required.")
+        return await asyncio.to_thread(islamic_audio.play_by_query, query, "manual", target_node)
     except LookupError as error:
         raise HTTPException(404, str(error)) from error
 

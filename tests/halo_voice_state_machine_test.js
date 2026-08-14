@@ -142,9 +142,15 @@ async function run() {
   await native.api.toggle();
   assert.equal(native.messages.length, 1, "double tap while starting is ignored");
 
-  await native.message({type: "noorbrain-native-listening"});
+  await native.message({type: "noorbrain-native-start-ack", event: "NATIVE_START_ACK"});
+  assert.equal(native.api.mode(), "starting", "start ACK waits for recorder-start confirmation");
+  await native.message({type: "noorbrain-native-start-ack", event: "NATIVE_START_ACK"});
+  await native.message({type: "noorbrain-native-listening", event: "RECORDING_STARTED"});
   assert.equal(native.api.mode(), "listening");
   assert.equal(native.api.isRecording(), true);
+
+  await native.message({type: "noorbrain-native-listening", event: "RECORDING_STARTED"});
+  assert.equal(native.api.mode(), "listening", "duplicate recording confirmation is ignored");
 
   await native.api.toggle();
   assert.equal(native.api.mode(), "stopping");
@@ -153,6 +159,8 @@ async function run() {
   await native.api.toggle();
   assert.equal(native.messages.length, 2, "processing taps cannot reactivate the microphone");
 
+  await native.message({type: "noorbrain-native-stop-ack", event: "NATIVE_STOP_ACK"});
+  await native.message({type: "noorbrain-native-audio-received", event: "NATIVE_AUDIO_RECEIVED", base64_bytes: 1600});
   await native.message({type: "noorbrain-native-processing"});
   assert.equal(native.api.mode(), "processing");
   await native.message({type: "noorbrain-native-transcript", text: "What time is Maghrib?"});
@@ -254,6 +262,7 @@ async function run() {
       "NATIVE_START_ACK",
       "RECORDING_STARTED",
       "STOP_REQUEST",
+      "NATIVE_STOP_ACK",
       "NATIVE_AUDIO_RECEIVED",
       "TRANSCRIBE_START",
       "TRANSCRIBE_RESULT",

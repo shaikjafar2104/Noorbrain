@@ -176,22 +176,6 @@
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({startup_speech: false}),
       }),
-      fetch("/api/dual-audio-v15/config", {
-        method: "PATCH",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({input_mode: "both", output_mode: "both", app_audio: true, pi_audio: true}),
-      }),
-      fetch("/api/audio-camera-rules-v15/config", {
-        method: "PATCH",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-          camera_triggered_audio: true,
-          raspberry_pi_speaker: true,
-          app_speaker: true,
-          adhan_media_audio: true,
-          halo_natural_voice: false,
-        }),
-      }),
     ];
     await Promise.allSettled(requests);
   }

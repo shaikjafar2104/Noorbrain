@@ -87,15 +87,13 @@ class AutomationActionExecutor:
 
         if kind == "halo":
             if name == "speak":
-                from services.halo_voice_runtime.tts_service import streaming_tts_service
-
-                item = streaming_tts_service.enqueue(
-                    str(arguments.get("text") or ""),
-                    priority=int(arguments.get("priority", 10)),
-                    metadata={"source": "smart_automation"},
-                )
-                streaming_tts_service.start()
-                return {"status": "queued", "item": item}
+                from services.playback_router import playback_router
+                return playback_router.play({
+                    "target_node": arguments.get("target_node"),
+                    "type": "tts",
+                    "content": str(arguments.get("text") or ""),
+                    "volume": arguments.get("volume"),
+                })
 
             from services.halo_brain.brain import halo_brain
 
@@ -111,6 +109,16 @@ class AutomationActionExecutor:
         if kind == "skill":
             from services.halo_os.registry import skill_registry
             return skill_registry.execute(name, arguments)
+
+        if kind in {"playback", "media"}:
+            from services.playback_router import playback_router
+            return playback_router.play({
+                "target_node": arguments.get("target_node"),
+                "type": arguments.get("type") or ("media" if arguments.get("media_id") else "tts"),
+                "content": arguments.get("text") or arguments.get("content"),
+                "media_id": arguments.get("media_id"),
+                "volume": arguments.get("volume"),
+            })
 
         if kind == "device":
             from services.offline_agent.tool_registry import tool_registry
