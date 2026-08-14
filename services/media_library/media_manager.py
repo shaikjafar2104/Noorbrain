@@ -341,6 +341,59 @@ class MediaLibraryManager:
 
         return matching_item
 
+    def update_item(
+        self,
+        media_id: str,
+        *,
+        name: str | None = None,
+        category: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Update user-managed metadata without replacing the audio file."""
+        with self._lock:
+            data = self._read_database()
+            item = next(
+                (
+                    entry
+                    for entry in data["items"]
+                    if entry.get("id") == media_id
+                ),
+                None,
+            )
+
+            if item is None:
+                raise MediaNotFoundError("Audio file was not found.")
+
+            if name is not None:
+                clean_name = name.strip()
+                if not clean_name:
+                    raise InvalidMediaError("Display name cannot be blank.")
+                item["name"] = clean_name[:150]
+
+            if category is not None:
+                normalized_category = self._safe_category(category)
+                old_path = MEDIA_ROOT / str(item["relative_path"])
+                category_path = MEDIA_ROOT / normalized_category
+                category_path.mkdir(parents=True, exist_ok=True)
+                new_path = category_path / str(item["stored_filename"])
+
+                if old_path.resolve() != new_path.resolve():
+                    if not old_path.exists():
+                        raise MediaNotFoundError("Audio file was not found.")
+                    old_path.replace(new_path)
+
+                item["category"] = normalized_category
+                item["relative_path"] = str(
+                    Path(normalized_category) / str(item["stored_filename"])
+                )
+
+            if metadata is not None:
+                item["metadata"] = dict(metadata)
+
+            item["updated_at"] = self._now()
+            self._write_database(data)
+            return dict(item)
+
     @staticmethod
     def _find_player(file_path: Path) -> list[str] | None:
         extension = file_path.suffix.lower()

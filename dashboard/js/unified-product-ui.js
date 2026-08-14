@@ -198,6 +198,13 @@
 
   function start() {
     document.body.classList.add("nb-unified-ui-active");
+
+    /* Desktop uses routed product pages. Do not build the mixed Studio hub. */
+    if (!location.pathname.includes("/mobile")) {
+      window.setTimeout(enforceProductAudio, 300);
+      return;
+    }
+
     document.addEventListener("click", handleClick, true);
     collect();
     window.setTimeout(collect, 250);

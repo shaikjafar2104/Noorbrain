@@ -996,6 +996,48 @@ body.noorbrain-v126-mounted #noorbrainMobile126 [data-nb126-action] {
   background:var(--nb-card);
 }
 
+.nb126-card-actions,
+.nb126-media-tools{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-top:12px;
+}
+
+.nb126-card-actions button,
+.nb126-media-tools button{
+  min-height:40px;
+  padding:9px 12px;
+  border:1px solid rgba(255,255,255,.09);
+  border-radius:11px;
+  background:#1b3553;
+  color:#fff;
+  font-weight:700;
+}
+
+.nb126-media-tools{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(120px,.7fr) auto;
+  margin:0 0 14px;
+}
+
+.nb126-zone-bounds{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+
+.nb126-check{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  margin:12px 0;
+}
+
+@media(max-width:430px){
+  .nb126-media-tools{grid-template-columns:1fr;}
+}
+
 .nb126-field{
   display:flex;
   flex-direction:column;
@@ -1006,6 +1048,20 @@ body.noorbrain-v126-mounted #noorbrainMobile126 [data-nb126-action] {
   color:var(--nb-muted);
   font-size:12px;
   font-weight:800;
+}
+
+.nb126-field input,
+.nb126-field select,
+.nb126-field textarea{
+  width:100%;
+  min-height:46px;
+  box-sizing:border-box;
+  padding:11px 12px;
+  border:1px solid var(--nb-line);
+  border-radius:13px;
+  background:var(--nb-card2);
+  color:var(--nb-text);
+  font:inherit;
 }
 
 .nb126-input{

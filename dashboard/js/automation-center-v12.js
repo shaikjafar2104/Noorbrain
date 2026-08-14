@@ -19,7 +19,8 @@ const state = {
     scenes: [],
     groups: [],
     routines: [],
-    reminders: []
+    reminders: [],
+    runs: []
   }
 };
 
@@ -323,10 +324,23 @@ function render() {
     return;
   }
 
+  const history = state.tab === "smart" ? `
+    <section class="nbac-history">
+      <h3>Recent Runs</h3>
+      ${state.data.runs.length ? state.data.runs.slice(0, 20).map(run => `
+        <div class="nbac-card">
+          <div class="nbac-card-main">
+            <strong>${esc(run.rule_name || run.rule_id || "Automation run")}</strong>
+            <small>${esc(run.status || "unknown")} · ${esc(run.created_at || run.executed_at || "")}</small>
+          </div>
+        </div>
+      `).join("") : `<div class="nbac-empty"><p>No automation runs recorded.</p></div>`}
+    </section>` : "";
+
   $("nbacContent").innerHTML =
     `<div class="nbac-list">
       ${items.map(x => card(x,state.tab)).join("")}
-    </div>`;
+    </div>${history}`;
 
   $("nbacContent")
     .querySelectorAll("[data-action]")
@@ -501,13 +515,15 @@ async function load() {
       scenes,
       groups,
       routines,
-      reminders
+      reminders,
+      runs
     ] = await Promise.all([
       request(API.smart),
       request(API.scenes),
       request(API.groups),
       request(API.routines),
-      request(API.reminders)
+      request(API.reminders),
+      request("/api/smart-automation/runs?limit=50")
     ]);
 
     state.data.smart =
@@ -524,6 +540,8 @@ async function load() {
 
     state.data.reminders =
       reminders.rules || [];
+
+    state.data.runs = runs.runs || [];
 
     $("nbacCountSmart").textContent =
       state.data.smart.length;

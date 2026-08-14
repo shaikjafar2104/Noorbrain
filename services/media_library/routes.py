@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import (
     APIRouter,
@@ -34,6 +34,12 @@ api_router = APIRouter(
 
 class CategoryCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=50)
+
+
+class MediaUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=150)
+    category: str | None = Field(default=None, min_length=1, max_length=50)
+    metadata: dict[str, Any] | None = None
 
 
 def _error_response(error: Exception) -> HTTPException:
@@ -110,6 +116,23 @@ def _delete_media(media_id: str) -> dict:
         raise _error_response(error) from error
 
 
+def _update_media(media_id: str, payload: MediaUpdateRequest) -> dict:
+    try:
+        item = media_library.update_item(
+            media_id,
+            name=payload.name,
+            category=payload.category,
+            metadata=payload.metadata,
+        )
+        return {
+            "status": "updated",
+            "message": "Audio metadata updated successfully.",
+            "item": item,
+        }
+    except MediaLibraryError as error:
+        raise _error_response(error) from error
+
+
 def _play_media(media_id: str) -> dict:
     try:
         return media_library.play_item(media_id)
@@ -174,6 +197,12 @@ def create_category(payload: CategoryCreateRequest) -> dict:
 @api_router.get("/{media_id}")
 def get_media(media_id: str) -> dict:
     return _get_media(media_id)
+
+
+@router.patch("/{media_id}")
+@api_router.patch("/{media_id}")
+def update_media(media_id: str, payload: MediaUpdateRequest) -> dict:
+    return _update_media(media_id, payload)
 
 
 @router.post("/upload", status_code=201)

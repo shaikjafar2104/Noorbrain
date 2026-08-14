@@ -117,6 +117,9 @@ const V126_PARENT_MAP = {
   media: "islamic",
   "islamic-rules": "islamic",
   notifications: "more",
+  family: "more",
+  plugins: "more",
+  habits: "more",
   settings: "more"
 };
 
@@ -427,6 +430,13 @@ function islamic(){
         })}
 
         ${tile({
+          icon:"🔔",
+          title:"Reminder Rules",
+          text:"Messages, audio and tests",
+          action:"reminders"
+        })}
+
+        ${tile({
           icon:"⌂",
           title:"Room Reminders",
           text:"Zone-aware guidance",
@@ -481,6 +491,34 @@ function more(){
         title:"Media Library",
         text:"Manage your audio",
         action:"media"
+      })}
+
+      ${tile({
+        icon:"●",
+        title:"Family",
+        text:"Members, presence and privacy",
+        action:"family"
+      })}
+
+      ${tile({
+        icon:"✦",
+        title:"Habit Learning",
+        text:"Patterns and suggestions",
+        action:"habits"
+      })}
+
+      ${tile({
+        icon:"◇",
+        title:"Plugins",
+        text:"Installed extensions",
+        action:"plugins"
+      })}
+
+      ${tile({
+        icon:"♢",
+        title:"Notifications",
+        text:"Alerts and delivery",
+        action:"notifications"
       })}
 
       ${tile({
@@ -619,7 +657,8 @@ async function openV126Zones(){
         title: "Rooms & Zones",
         subtitle: "Camera detection areas",
         showBack: true,
-        backTarget: getNativeBackTarget("home")
+        backTarget: getNativeBackTarget("home"),
+        rightAction: `<button type="button" id="nb126ZoneAdd">+ Add</button>`
       })}
 
       <div class="nb126-page-body">
@@ -642,6 +681,8 @@ async function openV126Zones(){
   });
 
   const list=document.getElementById("nb126ZonesList");
+  document.getElementById("nb126ZoneAdd")
+    ?.addEventListener("click",()=>openV126ZoneEditor());
 
   try{
     let response=await fetch(
@@ -663,14 +704,14 @@ async function openV126Zones(){
       list.innerHTML=`
         <div class="nb126-card">
           <b>No zones configured</b>
-          <small>Create zones from the NoorBrain dashboard.</small>
+          <small>Tap Add to create a real camera zone.</small>
         </div>
       `;
       return true;
     }
 
     list.innerHTML=zones.map(zone=>`
-      <div class="nb126-card">
+      <div class="nb126-card" data-v126-zone-row="${esc(zone.id||"")}">
         <div>
           <small>ZONE</small>
           <h3>${esc(zone.name || "Unnamed Zone")}</h3>
@@ -679,8 +720,33 @@ async function openV126Zones(){
             ${zone.camera_id ? " • "+esc(zone.camera_id) : ""}
           </p>
         </div>
+        <div class="nb126-card-actions">
+          <button type="button" data-v126-zone-edit="${esc(zone.id||"")}">Edit</button>
+          <button type="button" data-v126-zone-delete="${esc(zone.id||"")}">Delete</button>
+        </div>
       </div>
     `).join("");
+
+    list.querySelectorAll("[data-v126-zone-edit]").forEach(button => {
+      button.addEventListener("click", () => {
+        const zone = zones.find(item => String(item.id) === String(button.dataset.v126ZoneEdit));
+        if (zone) openV126ZoneEditor(zone);
+      });
+    });
+
+    list.querySelectorAll("[data-v126-zone-delete]").forEach(button => {
+      button.addEventListener("click", async () => {
+        const id = button.dataset.v126ZoneDelete;
+        const zone = zones.find(item => String(item.id) === String(id));
+        if (!confirm(`Delete zone \"${zone?.name || id}\"?`)) return;
+        try {
+          await nb126Fetch(`/api/vision-zones/zones/${encodeURIComponent(id)}`, {method: "DELETE"});
+          await openV126Zones();
+        } catch (error) {
+          alert("Zone delete failed: " + error.message);
+        }
+      });
+    });
 
     logV126("RESULT",{
       action:"zones",
@@ -702,6 +768,70 @@ async function openV126Zones(){
     console.error("V126_ZONES_ERROR",error);
     return false;
   }
+}
+
+function openV126ZoneEditor(zone=null){
+  const points=Array.isArray(zone?.points) ? zone.points : [];
+  const xs=points.map(point=>Number(point.x));
+  const ys=points.map(point=>Number(point.y));
+  const bounds={
+    x1:xs.length ? Math.min(...xs) : 0.1,
+    y1:ys.length ? Math.min(...ys) : 0.1,
+    x2:xs.length ? Math.max(...xs) : 0.9,
+    y2:ys.length ? Math.max(...ys) : 0.9
+  };
+  const editing=Boolean(zone?.id);
+
+  nb126Page(
+    editing ? "Edit Zone" : "Add Zone",
+    "Normalized camera bounds from 0 to 1",
+    `<form id="nb126ZoneForm" class="nb126-form-card">
+      <div class="nb126-field"><label>Name</label><input id="nb126ZoneName" required value="${esc(zone?.name||"")}"></div>
+      <div class="nb126-field"><label>Camera ID</label><input id="nb126ZoneCamera" required value="${esc(zone?.camera_id||"primary")}"></div>
+      <div class="nb126-zone-bounds">
+        ${[["X1","x1"],["Y1","y1"],["X2","x2"],["Y2","y2"]].map(([label,key])=>`
+          <div class="nb126-field"><label>${label}</label><input id="nb126Zone${label}" type="number" min="0" max="1" step="0.01" value="${bounds[key]}"></div>
+        `).join("")}
+      </div>
+      <label class="nb126-check"><input id="nb126ZoneEnabled" type="checkbox" ${zone?.enabled===false?"":"checked"}> Enabled</label>
+      <small id="nb126ZoneMessage"></small>
+      <button type="submit" class="nb126-button nb126-button-primary nb126-full">${editing?"Save Zone":"Create Zone"}</button>
+    </form>`,
+    {showBack:true,backTarget:getNativeBackTarget("home")}
+  );
+
+  document.getElementById("nb126ZoneForm")?.addEventListener("submit",async event=>{
+    event.preventDefault();
+    const number=id=>Number(document.getElementById(id).value);
+    const x1=number("nb126ZoneX1"), y1=number("nb126ZoneY1");
+    const x2=number("nb126ZoneX2"), y2=number("nb126ZoneY2");
+    const message=document.getElementById("nb126ZoneMessage");
+    if(!(x1<x2 && y1<y2)){
+      message.textContent="X1/Y1 must be smaller than X2/Y2.";
+      return;
+    }
+    try{
+      await nb126Fetch(
+        editing
+          ? `/api/vision-zones/zones/${encodeURIComponent(zone.id)}`
+          : "/api/vision-zones/zones",
+        {
+          method:editing ? "PUT" : "POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({
+            name:document.getElementById("nb126ZoneName").value.trim(),
+            camera_id:document.getElementById("nb126ZoneCamera").value.trim(),
+            points:[{x:x1,y:y1},{x:x2,y:y1},{x:x2,y:y2},{x:x1,y:y2}],
+            enabled:document.getElementById("nb126ZoneEnabled").checked,
+            metadata:{...(zone?.metadata||{}),source:"v12.6-mobile"}
+          })
+        }
+      );
+      await openV126Zones();
+    }catch(error){
+      message.textContent=error.message;
+    }
+  });
 }
 
 
@@ -955,6 +1085,14 @@ function openV126Camera(){
           </button>
 
         </div>
+
+        <div class="nb126-card">
+          <div class="nb126-section-title">
+            <div><small>CAMERAS</small><h3>Configured Cameras</h3></div>
+            <button id="nb126CameraAdd" type="button">+ Add</button>
+          </div>
+          <div id="nb126CameraList"><small>Loading camera configuration…</small></div>
+        </div>
       </div>
 
     </section>
@@ -1005,12 +1143,71 @@ function openV126Camera(){
     load
   );
 
+  document.getElementById("nb126CameraAdd")
+    ?.addEventListener("click",openV126CameraEditor);
+  loadV126CameraConfig();
+
   console.log(
     "V126_CAMERA_OPEN",
     "/camera_live"
   );
 
   return true;
+}
+
+async function loadV126CameraConfig(){
+  const list=document.getElementById("nb126CameraList");
+  if(!list) return;
+  try{
+    const data=await nb126Fetch("/api/mobile-v2/config");
+    const cameras=data.config?.cameras||[];
+    list.innerHTML=cameras.length ? cameras.map(camera=>`
+      <div class="nb126-list-row" data-v126-camera-row="${esc(camera.id||"")}">
+        <div class="nb126-list-main"><b>${esc(camera.name||"Camera")}</b><small>${esc(camera.room||"Home")} · ${esc(camera.stream_url||"")}</small></div>
+        <button type="button" data-v126-camera-delete="${esc(camera.id||"")}">Delete</button>
+      </div>
+    `).join("") : `<small>No additional cameras configured. The primary NoorBrain camera remains available above.</small>`;
+    list.querySelectorAll("[data-v126-camera-delete]").forEach(button=>{
+      button.addEventListener("click",async()=>{
+        if(!confirm("Delete this camera configuration?")) return;
+        try{
+          await nb126Fetch(`/api/mobile-v2/cameras/${encodeURIComponent(button.dataset.v126CameraDelete)}`,{method:"DELETE"});
+          await loadV126CameraConfig();
+        }catch(error){ alert("Camera delete failed: "+error.message); }
+      });
+    });
+  }catch(error){ list.innerHTML=`<small>${esc(error.message)}</small>`; }
+}
+
+function openV126CameraEditor(){
+  nb126Page(
+    "Add Camera",
+    "Register a real stream URL",
+    `<form id="nb126CameraForm" class="nb126-form-card">
+      <div class="nb126-field"><label>Name</label><input id="nb126CameraName" required placeholder="Hall Camera"></div>
+      <div class="nb126-field"><label>Room</label><input id="nb126CameraRoom" required value="Home"></div>
+      <div class="nb126-field"><label>Stream URL</label><input id="nb126CameraUrl" required placeholder="http://camera.local/stream"></div>
+      <small id="nb126CameraFormMessage"></small>
+      <button type="submit" class="nb126-button nb126-button-primary nb126-full">Add Camera</button>
+    </form>`,
+    {showBack:true,backTarget:getNativeBackTarget("home")}
+  );
+  document.getElementById("nb126CameraForm")?.addEventListener("submit",async event=>{
+    event.preventDefault();
+    const message=document.getElementById("nb126CameraFormMessage");
+    try{
+      await nb126Fetch("/api/mobile-v2/cameras",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          name:document.getElementById("nb126CameraName").value.trim(),
+          room:document.getElementById("nb126CameraRoom").value.trim(),
+          stream_url:document.getElementById("nb126CameraUrl").value.trim()
+        })
+      });
+      openV126Camera();
+    }catch(error){ message.textContent=error.message; }
+  });
 }
 
 
@@ -1107,8 +1304,10 @@ async function nb126Fetch(url,options){
   }
 
   if(!response.ok){
+    const detail=data && data.detail;
     throw new Error(
-      (data && (data.detail||data.message)) ||
+      (typeof detail==="object" ? detail.message||JSON.stringify(detail) : detail) ||
+      (data && data.message) ||
       "HTTP "+response.status
     );
   }
@@ -1145,12 +1344,7 @@ async function openV126Devices(){
 
     const cards=devices.length
       ? devices.map(device=>`
-          <button
-            class="nb126-card"
-            type="button"
-            data-v126-device-toggle="${esc(device.id||"")}"
-            ${device.online===true ? "" : "disabled"}
-          >
+          <div class="nb126-card" data-v126-device-row="${esc(device.id||"")}">
             <div>
               <small>${esc(device.device_type||device.type||"DEVICE")}</small>
               <h3>${esc(device.name||device.id||"Device")}</h3>
@@ -1166,7 +1360,12 @@ async function openV126Devices(){
                 ${device.online===true ? "Online" : "Offline"}
               </p>
             </div>
-          </button>
+            <div class="nb126-card-actions">
+              <button type="button" data-v126-device-toggle="${esc(device.id||"")}" ${device.online===true ? "" : "disabled"}>Toggle</button>
+              <button type="button" data-v126-device-edit="${esc(device.id||"")}">Edit</button>
+              <button type="button" data-v126-device-delete="${esc(device.id||"")}">Delete</button>
+            </div>
+          </div>
         `).join("")
       : nb126Empty(
           "No devices connected",
@@ -1223,6 +1422,29 @@ async function openV126Devices(){
       });
     });
 
+    document.querySelectorAll("[data-v126-device-edit]").forEach(button => {
+      button.addEventListener("click", () => {
+        const device = devices.find(item =>
+          String(item.id) === String(button.dataset.v126DeviceEdit)
+        );
+        if (device) openV126AddDevice(device);
+      });
+    });
+
+    document.querySelectorAll("[data-v126-device-delete]").forEach(button => {
+      button.addEventListener("click", async () => {
+        const id = button.dataset.v126DeviceDelete;
+        const device = devices.find(item => String(item.id) === String(id));
+        if (!confirm(`Delete \"${device?.name || id}\"?`)) return;
+        try {
+          await nb126Fetch(`/api/devices/${encodeURIComponent(id)}`, {method: "DELETE"});
+          await openV126Devices();
+        } catch (error) {
+          alert("Device delete failed: " + error.message);
+        }
+      });
+    });
+
     return true;
 
   }catch(error){
@@ -1241,10 +1463,12 @@ async function openV126Devices(){
 
 /* ADD DEVICE */
 
-function openV126AddDevice(){
+function openV126AddDevice(device=null){
+  const editing=Boolean(device?.id);
+  const metadata=device?.metadata || {};
   nb126Page(
-    "Add Device",
-    "Register a real device",
+    editing ? "Edit Device" : "Add Device",
+    editing ? "Update a registered device" : "Register a real device",
     `
       <div class="nb126-card">
         <small>DEVICE SETUP</small>
@@ -1255,20 +1479,16 @@ function openV126AddDevice(){
           <input
             id="v126DeviceName"
             placeholder="Living Room Light"
+            value="${esc(device?.name||"")}"
           >
         </label>
 
         <label>
           Type
           <select id="v126DeviceType">
-            <option value="light">Light</option>
-            <option value="fan">Fan</option>
-            <option value="plug">Plug</option>
-            <option value="relay">Relay</option>
-            <option value="switch">Switch</option>
-            <option value="sensor">Sensor</option>
-            <option value="camera">Camera</option>
-            <option value="other">Other</option>
+            ${["light","fan","plug","relay","switch","sensor","camera","other"].map(type=>
+              `<option value="${type}" ${String(device?.device_type||device?.type||"light")===type?"selected":""}>${type[0].toUpperCase()+type.slice(1)}</option>`
+            ).join("")}
           </select>
         </label>
 
@@ -1277,15 +1497,16 @@ function openV126AddDevice(){
           <input
             id="v126DeviceRoom"
             placeholder="Living Room"
+            value="${esc(device?.room||"")}"
           >
         </label>
 
         <label>
           Transport
           <select id="v126DeviceProtocol">
-            <option value="logical">Not configured</option>
-            <option value="http">HTTP / ESP32</option>
-            <option value="mqtt">MQTT</option>
+            ${[["logical","Not configured"],["http","HTTP / ESP32"],["mqtt","MQTT"]].map(([value,label])=>
+              `<option value="${value}" ${String(metadata.protocol||"logical")===value?"selected":""}>${label}</option>`
+            ).join("")}
           </select>
         </label>
 
@@ -1294,6 +1515,7 @@ function openV126AddDevice(){
           <input
             id="v126DeviceAddress"
             placeholder="192.168.1.50"
+            value="${esc(metadata.base_url||device?.ip_address||"")}"
           >
         </label>
 
@@ -1302,6 +1524,7 @@ function openV126AddDevice(){
           <input
             id="v126DeviceTopic"
             placeholder="home/living-room/light/set"
+            value="${esc(metadata.command_topic||"")}"
           >
         </label>
 
@@ -1309,7 +1532,7 @@ function openV126AddDevice(){
           id="v126DeviceCreate"
           type="button"
         >
-          Register Device
+          ${editing ? "Save Device" : "Register Device"}
         </button>
 
         <small>
@@ -1358,9 +1581,11 @@ function openV126AddDevice(){
 
       try{
         await nb126Fetch(
-          "/api/devices",
+          editing
+            ? "/api/devices/"+encodeURIComponent(device.id)
+            : "/api/devices",
           {
-            method:"POST",
+            method:editing ? "PATCH" : "POST",
             headers:{
               "Content-Type":"application/json"
             },
@@ -1368,12 +1593,14 @@ function openV126AddDevice(){
               name,
               device_type:type||"other",
               room:room||"Home",
-              online:false,
+              state:device?.state||"unknown",
+              online:Boolean(device?.online),
               ip_address:
                 address && !address.includes("://")
                   ? address
                   : null,
               metadata:{
+                ...metadata,
                 protocol,
                 base_url:
                   address.includes("://")
@@ -1613,9 +1840,10 @@ async function openV126Prayer(){
   );
 
   try{
-    const [times,status]=await Promise.all([
+    const [times,status,settings]=await Promise.all([
       nb126Fetch("/api/prayer-intelligence/times"),
-      nb126Fetch("/api/prayer-intelligence/status")
+      nb126Fetch("/api/prayer-intelligence/status"),
+      nb126Fetch("/api/prayer-intelligence/settings")
     ]);
 
     const t=times.times||{};
@@ -1639,8 +1867,41 @@ async function openV126Prayer(){
           "Prayer times unavailable",
           "No prayer times returned."
         )}
+      </div>
+      <div class="nb126-card">
+        <small>PRAYER CONFIGURATION</small>
+        <label class="nb126-check"><input id="nb126PrayerRamadan" type="checkbox" ${settings.settings?.ramadan_mode?"checked":""}> Ramadan mode</label>
+        <div class="nb126-card-actions">
+          <button id="nb126PrayerSave" type="button">Save</button>
+          <button id="nb126PrayerTest" type="button">Test Maghrib</button>
+          <button id="nb126PrayerRefresh" type="button">Refresh</button>
+        </div>
+        <small id="nb126PrayerMessage"></small>
       </div>`
     );
+
+    const prayerMessage=document.getElementById("nb126PrayerMessage");
+    document.getElementById("nb126PrayerRefresh")?.addEventListener("click",openV126Prayer);
+    document.getElementById("nb126PrayerSave")?.addEventListener("click",async()=>{
+      try{
+        await nb126Fetch("/api/prayer-intelligence/settings",{
+          method:"PATCH",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({ramadan_mode:document.getElementById("nb126PrayerRamadan").checked})
+        });
+        prayerMessage.textContent="Prayer settings saved.";
+      }catch(error){ prayerMessage.textContent=error.message; }
+    });
+    document.getElementById("nb126PrayerTest")?.addEventListener("click",async()=>{
+      try{
+        await nb126Fetch("/api/prayer-intelligence/test",{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({prayer:"maghrib"})
+        });
+        prayerMessage.textContent="Prayer test sent.";
+      }catch(error){ prayerMessage.textContent=error.message; }
+    });
 
     return true;
 
@@ -1660,6 +1921,8 @@ async function openV126Prayer(){
 
 /* DUA & AZKAR / MEDIA */
 
+let v126MediaPreview=null;
+
 async function openV126Media(){
   nb126Loading(
     "Dua & Azkar",
@@ -1670,24 +1933,35 @@ async function openV126Media(){
     const d=await nb126Fetch("/api/media");
     const items=d.items||[];
 
+    const categories=[...new Set(items.map(item=>item.category).filter(Boolean))];
+
     nb126Page(
       "Dua & Azkar",
       `${items.length} media item${items.length===1?"":"s"}`,
-      `<div class="nb126-grid">
+      `<div class="nb126-media-tools">
+        <input id="nb126MediaSearch" class="nb126-input" type="search" placeholder="Search media">
+        <select id="nb126MediaCategory" class="nb126-input">
+          <option value="">All categories</option>
+          ${categories.map(category=>`<option value="${esc(category)}">${esc(category)}</option>`).join("")}
+        </select>
+        <button id="nb126MediaUpload" type="button">+ Upload</button>
+      </div>
+      <div id="nb126MediaList" class="nb126-grid">
         ${
           items.length
           ? items.map(item=>`
-              <button
-                class="nb126-card"
-                type="button"
-                data-v126-media="${esc(item.id||"")}"
-              >
+              <div class="nb126-card" data-v126-media-row="${esc(item.id||"")}" data-media-search="${esc(`${item.name||""} ${item.category||""}`.toLowerCase())}" data-media-category="${esc(item.category||"")}">
                 <div>
                   <small>${esc(item.category||"MEDIA")}</small>
                   <h3>${esc(item.name||"Audio")}</h3>
-                  <p>Tap to play</p>
+                  <p>${esc(item.original_filename||"")}</p>
                 </div>
-              </button>
+                <div class="nb126-card-actions">
+                  <button type="button" data-v126-media-play="${esc(item.id||"")}">Play</button>
+                  <button type="button" data-v126-media-edit="${esc(item.id||"")}">Edit</button>
+                  <button type="button" data-v126-media-delete="${esc(item.id||"")}">Delete</button>
+                </div>
+              </div>
             `).join("")
           : nb126Empty(
               "No Islamic media",
@@ -1697,36 +1971,58 @@ async function openV126Media(){
       </div>`
     );
 
-    document.querySelectorAll(
-      "[data-v126-media]"
-    ).forEach(button=>{
+    document.getElementById("nb126MediaUpload")
+      ?.addEventListener("click",()=>openV126MediaEditor());
+
+    const filter=()=>{
+      const query=document.getElementById("nb126MediaSearch")?.value.trim().toLowerCase()||"";
+      const category=document.getElementById("nb126MediaCategory")?.value||"";
+      document.querySelectorAll("[data-v126-media-row]").forEach(row=>{
+        row.hidden=Boolean(
+          (query && !row.dataset.mediaSearch.includes(query)) ||
+          (category && row.dataset.mediaCategory!==category)
+        );
+      });
+    };
+    document.getElementById("nb126MediaSearch")?.addEventListener("input",filter);
+    document.getElementById("nb126MediaCategory")?.addEventListener("change",filter);
+
+    document.querySelectorAll("[data-v126-media-play]").forEach(button=>{
       button.addEventListener("click",async()=>{
-        const mediaId = button.dataset.v126Media;
+        const mediaId = button.dataset.v126MediaPlay;
         if(!mediaId) return;
 
         try{
+          v126MediaPreview?.pause?.();
           const audio = new Audio(
             `/api/media/${encodeURIComponent(mediaId)}/file?ts=${Date.now()}`
           );
+          v126MediaPreview=audio;
           audio.volume = 1;
-
-          const results=await Promise.allSettled([
-            audio.play(),
-            nb126Fetch(
-              `/api/media/${encodeURIComponent(mediaId)}/play`,
-              {method:"POST", cache:"no-store"}
-            )
-          ]);
-
-          if(results.every(result=>result.status==="rejected")){
-            throw new Error(
-              results.map(result=>result.reason?.message)
-                .filter(Boolean).join(" • ") || "Audio playback failed."
-            );
-          }
-
+          await audio.play();
         }catch(error){
           alert("Playback failed: "+error.message);
+        }
+      });
+    });
+
+    document.querySelectorAll("[data-v126-media-edit]").forEach(button=>{
+      button.addEventListener("click",()=>{
+        const item=items.find(entry=>String(entry.id)===String(button.dataset.v126MediaEdit));
+        if(item) openV126MediaEditor(item);
+      });
+    });
+
+    document.querySelectorAll("[data-v126-media-delete]").forEach(button=>{
+      button.addEventListener("click",async()=>{
+        const id=button.dataset.v126MediaDelete;
+        const item=items.find(entry=>String(entry.id)===String(id));
+        if(!confirm(`Delete \"${item?.name||"this audio"}\"?`)) return;
+        try{
+          await nb126Fetch(`/api/media/${encodeURIComponent(id)}`,{method:"DELETE"});
+          await openV126Media();
+        }catch(error){
+          alert("Delete failed: "+error.message);
         }
       });
     });
@@ -1746,6 +2042,74 @@ async function openV126Media(){
   }
 }
 
+function openV126MediaEditor(item=null){
+  const editing=Boolean(item?.id);
+  nb126Page(
+    editing ? "Edit Media" : "Upload Media",
+    "NoorBrain Islamic audio library",
+    `<form id="nb126MediaForm" class="nb126-form-card">
+      ${editing ? "" : `<div class="nb126-field"><label>Audio file</label><input id="nb126MediaFile" type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac" required></div>`}
+      <div class="nb126-field"><label>Display name</label><input id="nb126MediaName" required maxlength="150" value="${esc(item?.name||"")}"></div>
+      <div class="nb126-field"><label>Category</label><select id="nb126MediaEditCategory">
+        ${["islamic","dua","azkar","prayer","alerts","personal","custom"].map(category=>
+          `<option value="${category}" ${String(item?.category||"islamic").toLowerCase()===category?"selected":""}>${category}</option>`
+        ).join("")}
+      </select></div>
+      <div class="nb126-field"><label>Islamic association</label><select id="nb126MediaAssociation">
+        ${[["","None"],["dua","Dua"],["azkar","Azkar"],["prayer","Prayer"]].map(([value,label])=>
+          `<option value="${value}" ${String(item?.metadata?.islamic_type||"")===value?"selected":""}>${label}</option>`
+        ).join("")}
+      </select></div>
+      <small id="nb126MediaMessage"></small>
+      <button type="submit" class="nb126-button nb126-button-primary nb126-full">${editing?"Save Media":"Upload Audio"}</button>
+    </form>`,
+    {showBack:true,backTarget:getNativeBackTarget("islamic")}
+  );
+
+  const file=document.getElementById("nb126MediaFile");
+  file?.addEventListener("change",()=>{
+    const name=document.getElementById("nb126MediaName");
+    if(file.files?.[0] && !name.value.trim()){
+      name.value=file.files[0].name.replace(/\.[^.]+$/,"");
+    }
+  });
+
+  document.getElementById("nb126MediaForm")?.addEventListener("submit",async event=>{
+    event.preventDefault();
+    const message=document.getElementById("nb126MediaMessage");
+    try{
+      if(editing){
+        await nb126Fetch(`/api/media/${encodeURIComponent(item.id)}`,{
+          method:"PATCH",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({
+            name:document.getElementById("nb126MediaName").value.trim(),
+            category:document.getElementById("nb126MediaEditCategory").value,
+            metadata:{...(item.metadata||{}),islamic_type:document.getElementById("nb126MediaAssociation").value||null}
+          })
+        });
+      }else{
+        const form=new FormData();
+        form.append("file",file.files[0]);
+        form.append("name",document.getElementById("nb126MediaName").value.trim());
+        form.append("category",document.getElementById("nb126MediaEditCategory").value);
+        const uploaded=await nb126Fetch("/api/media/upload",{method:"POST",body:form});
+        const association=document.getElementById("nb126MediaAssociation").value;
+        if(association && uploaded?.item?.id){
+          await nb126Fetch(`/api/media/${encodeURIComponent(uploaded.item.id)}`,{
+            method:"PATCH",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({metadata:{islamic_type:association}})
+          });
+        }
+      }
+      await openV126Media();
+    }catch(error){
+      message.textContent=error.message;
+    }
+  });
+}
+
 
 /* ISLAMIC REMINDER RULES */
 
@@ -1756,25 +2120,18 @@ async function openV126IslamicRules(){
   );
 
   try{
-    const d=await nb126Fetch(
-      "/reminder-rules"
-    );
-
+    const d=await nb126Fetch("/api/islamic-intelligence-v12/overview");
     const rules=d.rules||[];
 
     nb126Page(
       "Smart Islamic Rules",
-      `${rules.length} reminder rule${rules.length===1?"":"s"}`,
-      `<div class="nb126-grid">
+      `${rules.length} smart rule${rules.length===1?"":"s"}`,
+      `<button id="nb126IslamicRuleAdd" class="nb126-button nb126-button-primary nb126-full" type="button">+ Add Smart Islamic Rule</button>
+      <div class="nb126-grid">
         ${
           rules.length
           ? rules.map(rule=>`
-              <button
-                class="nb126-card"
-                type="button"
-                data-v126-rule-toggle="${esc(rule.id||"")}"
-                data-v126-rule-enabled="${rule.enabled===false ? "false" : "true"}"
-              >
+              <div class="nb126-card" data-v126-islamic-rule-row="${esc(rule.id||"")}">
                 <div>
                   <small>
                     ${rule.enabled===false?"DISABLED":"ACTIVE"}
@@ -1783,11 +2140,17 @@ async function openV126IslamicRules(){
                   <h3>${esc(rule.name||"Islamic Rule")}</h3>
 
                   <p>
-                    ${esc(rule.trigger||"")}
+                    ${esc(rule.event||"")}
                     ${rule.zone ? " • "+esc(rule.zone) : ""}
                   </p>
                 </div>
-              </button>
+                <div class="nb126-card-actions">
+                  <button type="button" data-v126-islamic-rule-action="toggle">${rule.enabled===false?"Enable":"Disable"}</button>
+                  <button type="button" data-v126-islamic-rule-action="test">Test</button>
+                  <button type="button" data-v126-islamic-rule-action="edit">Edit</button>
+                  <button type="button" data-v126-islamic-rule-action="delete">Delete</button>
+                </div>
+              </div>
             `).join("")
           : nb126Empty(
               "No Islamic reminder rules",
@@ -1797,23 +2160,37 @@ async function openV126IslamicRules(){
       </div>`
     );
 
-    document.querySelectorAll(
-      "[data-v126-rule-toggle]"
-    ).forEach(button=>{
-      button.addEventListener("click",async()=>{
-        try{
-          const enabled = button.dataset.v126RuleEnabled !== "true";
+    document.getElementById("nb126IslamicRuleAdd")
+      ?.addEventListener("click",()=>openV126IslamicRuleEditor());
 
-          await nb126Fetch(
-            "/reminder-rules/"+
-            encodeURIComponent(button.dataset.v126RuleToggle)+
-            "/toggle",
-            {
+    document.querySelectorAll("[data-v126-islamic-rule-action]").forEach(button=>{
+      button.addEventListener("click",async()=>{
+        const row=button.closest("[data-v126-islamic-rule-row]");
+        const rule=rules.find(item=>String(item.id)===String(row?.dataset.v126IslamicRuleRow));
+        if(!rule) return;
+        try{
+          const action=button.dataset.v126IslamicRuleAction;
+          if(action==="edit") return openV126IslamicRuleEditor(rule);
+          if(action==="delete"){
+            if(!confirm(`Delete \"${rule.name}\"?`)) return;
+            await nb126Fetch(`/api/islamic-intelligence-v12/rules/${encodeURIComponent(rule.id)}`,{method:"DELETE"});
+          }
+          if(action==="toggle"){
+            const enabled=rule.enabled===false;
+            await nb126Fetch(`/api/islamic-intelligence-v12/rules/${encodeURIComponent(rule.id)}`,{
               method:"PATCH",
               headers:{"Content-Type":"application/json"},
               body:JSON.stringify({enabled})
-            }
-          );
+            });
+          }
+          if(action==="test"){
+            await nb126Fetch("/api/islamic-intelligence-v12/evaluate",{
+              method:"POST",
+              headers:{"Content-Type":"application/json"},
+              body:JSON.stringify({event:rule.event,zone:rule.zone||""})
+            });
+            alert("Islamic rule test completed.");
+          }
 
           await openV126IslamicRules();
 
@@ -1836,6 +2213,50 @@ async function openV126IslamicRules(){
     );
     return false;
   }
+}
+
+function openV126IslamicRuleEditor(rule=null){
+  const editing=Boolean(rule?.id);
+  nb126Page(
+    editing ? "Edit Islamic Rule" : "Add Islamic Rule",
+    "Activity-aware Islamic guidance",
+    `<form id="nb126IslamicRuleForm" class="nb126-form-card">
+      <div class="nb126-field"><label>Name</label><input id="nb126IslamicRuleName" required value="${esc(rule?.name||"")}"></div>
+      <div class="nb126-field"><label>Event</label><select id="nb126IslamicRuleEvent">
+        ${["person_entered","person_exited","time_morning","time_evening"].map(event=>`<option value="${event}" ${rule?.event===event?"selected":""}>${event.replaceAll("_"," ")}</option>`).join("")}
+      </select></div>
+      <div class="nb126-field"><label>Zone</label><input id="nb126IslamicRuleZone" value="${esc(rule?.zone||"")}" placeholder="Optional"></div>
+      <div class="nb126-field"><label>Message</label><textarea id="nb126IslamicRuleMessage" required>${esc(rule?.message||"")}</textarea></div>
+      <label class="nb126-check"><input id="nb126IslamicRuleEnabled" type="checkbox" ${rule?.enabled===false?"":"checked"}> Enabled</label>
+      <small id="nb126IslamicRuleMessageStatus"></small>
+      <button class="nb126-button nb126-button-primary nb126-full" type="submit">${editing?"Save Rule":"Create Rule"}</button>
+    </form>`,
+    {showBack:true,backTarget:getNativeBackTarget("islamic")}
+  );
+
+  document.getElementById("nb126IslamicRuleForm")?.addEventListener("submit",async event=>{
+    event.preventDefault();
+    const status=document.getElementById("nb126IslamicRuleMessageStatus");
+    try{
+      await nb126Fetch(
+        editing
+          ? `/api/islamic-intelligence-v12/rules/${encodeURIComponent(rule.id)}`
+          : "/api/islamic-intelligence-v12/rules",
+        {
+          method:editing ? "PATCH" : "POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({
+            name:document.getElementById("nb126IslamicRuleName").value.trim(),
+            event:document.getElementById("nb126IslamicRuleEvent").value,
+            zone:document.getElementById("nb126IslamicRuleZone").value.trim(),
+            message:document.getElementById("nb126IslamicRuleMessage").value.trim(),
+            enabled:document.getElementById("nb126IslamicRuleEnabled").checked
+          })
+        }
+      );
+      await openV126IslamicRules();
+    }catch(error){ status.textContent=error.message; }
+  });
 }
 
 
@@ -1887,10 +2308,11 @@ async function openV126Notifications(){
       ${
         items.length
         ? items.map(n=>`
-            <div class="nb126-card">
+            <div class="nb126-card" data-v126-notification-row="${esc(n.id||"")}">
               <small>NOTIFICATION</small>
               <h3>${esc(n.title||n.name||"NoorBrain")}</h3>
               <p>${esc(n.message||n.body||"")}</p>
+              ${n.id ? `<div class="nb126-card-actions"><button type="button" data-v126-notification-delete="${esc(n.id)}">Delete</button></div>` : ""}
             </div>
           `).join("")
         : nb126Empty(
@@ -1898,8 +2320,29 @@ async function openV126Notifications(){
             "Nothing needs your attention."
           )
       }
+    </div>
+    <div class="nb126-card-actions">
+      <button id="nb126NotificationsRead" type="button">Mark all read</button>
+      <button id="nb126NotificationsRefresh" type="button">Refresh</button>
     </div>`
   );
+
+  document.getElementById("nb126NotificationsRefresh")?.addEventListener("click",openV126Notifications);
+  document.getElementById("nb126NotificationsRead")?.addEventListener("click",async()=>{
+    try{
+      await nb126Fetch("/api/mobile-notifications/actions/mark-all-read",{method:"POST"});
+      await openV126Notifications();
+    }catch(error){ alert("Notification update failed: "+error.message); }
+  });
+  document.querySelectorAll("[data-v126-notification-delete]").forEach(button=>{
+    button.addEventListener("click",async()=>{
+      if(!confirm("Delete this notification?")) return;
+      try{
+        await nb126Fetch(`/api/mobile-notifications/${encodeURIComponent(button.dataset.v126NotificationDelete)}`,{method:"DELETE"});
+        await openV126Notifications();
+      }catch(error){ alert("Notification delete failed: "+error.message); }
+    });
+  });
 
   console.log(
     "V126_NOTIFICATIONS_SOURCE",
@@ -1907,6 +2350,143 @@ async function openV126Notifications(){
   );
 
   return true;
+}
+
+
+/* FAMILY */
+
+async function openV126Family(){
+  nb126Loading("Family","Members, presence and privacy");
+  try{
+    const data=await nb126Fetch("/api/family-intelligence-v11/overview");
+    const members=data.members||[];
+    nb126Page(
+      "Family",
+      `${members.length} member${members.length===1?"":"s"}`,
+      `<div class="nb126-card-actions"><button id="nb126FamilyAdd" type="button">+ Add Member</button><button id="nb126FamilyRefresh" type="button">Refresh</button></div>
+      <div class="nb126-grid">${members.length ? members.map(member=>{
+        const presence=data.presence?.[member.id];
+        return `<div class="nb126-card" data-v126-family-row="${esc(member.id||"")}">
+          <small>${presence?.present?"PRESENT":"AWAY"}</small><h3>${esc(member.name||"Member")}</h3>
+          <p>${esc(member.role||"family")}${presence?.room?" · "+esc(presence.room):""}</p>
+          <div class="nb126-card-actions"><button data-v126-family-edit="${esc(member.id||"")}" type="button">Edit</button><button data-v126-family-delete="${esc(member.id||"")}" type="button">Delete</button></div>
+        </div>`;
+      }).join("") : nb126Empty("No family members","Add a member when you are ready.")}</div>
+      <label class="nb126-check"><input id="nb126FamilyRecognition" type="checkbox" ${data.privacy?.recognition_enabled?"checked":""}> Face recognition enabled</label>`
+    );
+    document.getElementById("nb126FamilyAdd")?.addEventListener("click",()=>openV126FamilyEditor());
+    document.getElementById("nb126FamilyRefresh")?.addEventListener("click",openV126Family);
+    document.getElementById("nb126FamilyRecognition")?.addEventListener("change",async event=>{
+      try{
+        await nb126Fetch("/api/family-intelligence-v11/privacy",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({recognition_enabled:event.target.checked})});
+      }catch(error){ alert("Privacy update failed: "+error.message); await openV126Family(); }
+    });
+    document.querySelectorAll("[data-v126-family-edit]").forEach(button=>button.addEventListener("click",()=>{
+      const member=members.find(item=>String(item.id)===String(button.dataset.v126FamilyEdit));
+      if(member) openV126FamilyEditor(member);
+    }));
+    document.querySelectorAll("[data-v126-family-delete]").forEach(button=>button.addEventListener("click",async()=>{
+      const member=members.find(item=>String(item.id)===String(button.dataset.v126FamilyDelete));
+      if(!confirm(`Delete \"${member?.name||"member"}\"?`)) return;
+      try{ await nb126Fetch(`/api/family-intelligence-v11/members/${encodeURIComponent(button.dataset.v126FamilyDelete)}`,{method:"DELETE"}); await openV126Family(); }
+      catch(error){ alert("Member delete failed: "+error.message); }
+    }));
+    return true;
+  }catch(error){ nb126Page("Family","Members, presence and privacy",nb126Empty("Family unavailable",error.message)); return false; }
+}
+
+function openV126FamilyEditor(member=null){
+  const editing=Boolean(member?.id);
+  nb126Page(editing?"Edit Member":"Add Member","Family profile",`<form id="nb126FamilyForm" class="nb126-form-card">
+    <div class="nb126-field"><label>Name</label><input id="nb126FamilyName" required value="${esc(member?.name||"")}"></div>
+    <div class="nb126-field"><label>Role</label><input id="nb126FamilyRole" required value="${esc(member?.role||"family")}"></div>
+    <small id="nb126FamilyMessage"></small><button class="nb126-button nb126-button-primary nb126-full" type="submit">${editing?"Save Member":"Add Member"}</button>
+  </form>`,{showBack:true,backTarget:"more"});
+  document.getElementById("nb126FamilyForm")?.addEventListener("submit",async event=>{
+    event.preventDefault();
+    try{
+      await nb126Fetch(editing?`/api/family-intelligence-v11/members/${encodeURIComponent(member.id)}`:"/api/family-intelligence-v11/members",{
+        method:editing?"PATCH":"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({name:document.getElementById("nb126FamilyName").value.trim(),role:document.getElementById("nb126FamilyRole").value.trim()})
+      });
+      await openV126Family();
+    }catch(error){ document.getElementById("nb126FamilyMessage").textContent=error.message; }
+  });
+}
+
+
+/* PLUGINS */
+
+async function openV126Plugins(){
+  nb126Loading("Plugins","Installed NoorBrain extensions");
+  try{
+    const data=await nb126Fetch("/api/plugin-platform-v13/overview");
+    const plugins=data.plugins||[];
+    nb126Page("Plugins",`${plugins.length} installed`,`<div class="nb126-card-actions"><button id="nb126PluginAdd" type="button">+ Install Manifest</button><button id="nb126PluginRefresh" type="button">Refresh</button></div>
+      <div class="nb126-grid">${plugins.length ? plugins.map(plugin=>`<div class="nb126-card" data-v126-plugin-row="${esc(plugin.id||"")}">
+        <small>${plugin.enabled?"ENABLED":"DISABLED"}</small><h3>${esc(plugin.name||plugin.id)}</h3><p>${esc(plugin.id)} · v${esc(plugin.version||"")}</p>
+        <div class="nb126-card-actions"><button data-v126-plugin-toggle="${esc(plugin.id||"")}" type="button">${plugin.enabled?"Disable":"Enable"}</button><button data-v126-plugin-delete="${esc(plugin.id||"")}" type="button">Delete</button></div>
+      </div>`).join("") : nb126Empty("No plugins installed","Install only manifests you trust.")}</div>`);
+    document.getElementById("nb126PluginAdd")?.addEventListener("click",openV126PluginEditor);
+    document.getElementById("nb126PluginRefresh")?.addEventListener("click",openV126Plugins);
+    document.querySelectorAll("[data-v126-plugin-toggle]").forEach(button=>button.addEventListener("click",async()=>{
+      const plugin=plugins.find(item=>String(item.id)===String(button.dataset.v126PluginToggle));
+      try{ await nb126Fetch(`/api/plugin-platform-v13/plugins/${encodeURIComponent(plugin.id)}/enable`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({enabled:!plugin.enabled})}); await openV126Plugins(); }
+      catch(error){ alert("Plugin update failed: "+error.message); }
+    }));
+    document.querySelectorAll("[data-v126-plugin-delete]").forEach(button=>button.addEventListener("click",async()=>{
+      const plugin=plugins.find(item=>String(item.id)===String(button.dataset.v126PluginDelete));
+      if(!confirm(`Delete plugin \"${plugin?.name||plugin?.id}\"?`)) return;
+      try{ await nb126Fetch(`/api/plugin-platform-v13/plugins/${encodeURIComponent(plugin.id)}`,{method:"DELETE"}); await openV126Plugins(); }
+      catch(error){ alert("Plugin delete failed: "+error.message); }
+    }));
+    return true;
+  }catch(error){ nb126Page("Plugins","Installed NoorBrain extensions",nb126Empty("Plugins unavailable",error.message)); return false; }
+}
+
+function openV126PluginEditor(){
+  nb126Page("Install Plugin","Manifest-safe plugin registration",`<form id="nb126PluginForm" class="nb126-form-card">
+    <div class="nb126-field"><label>Plugin ID</label><input id="nb126PluginId" required pattern="[A-Za-z0-9._-]+"></div>
+    <div class="nb126-field"><label>Name</label><input id="nb126PluginName" required></div>
+    <div class="nb126-field"><label>Version</label><input id="nb126PluginVersion" required value="1.0.0"></div>
+    <div class="nb126-field"><label>Permissions (comma separated)</label><input id="nb126PluginPermissions"></div>
+    <small id="nb126PluginMessage"></small><button class="nb126-button nb126-button-primary nb126-full" type="submit">Install</button>
+  </form>`,{showBack:true,backTarget:"more"});
+  document.getElementById("nb126PluginForm")?.addEventListener("submit",async event=>{
+    event.preventDefault();
+    try{
+      await nb126Fetch("/api/plugin-platform-v13/plugins",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+        id:document.getElementById("nb126PluginId").value.trim(),name:document.getElementById("nb126PluginName").value.trim(),version:document.getElementById("nb126PluginVersion").value.trim(),
+        permissions:document.getElementById("nb126PluginPermissions").value.split(",").map(value=>value.trim()).filter(Boolean)
+      })});
+      await openV126Plugins();
+    }catch(error){ document.getElementById("nb126PluginMessage").textContent=error.message; }
+  });
+}
+
+
+/* HABIT LEARNING */
+
+async function openV126Habits(){
+  nb126Loading("Habit Learning","Patterns and proactive suggestions");
+  try{
+    const [health,patterns,suggestions]=await Promise.all([
+      nb126Fetch("/api/habit-learning/health"),nb126Fetch("/api/habit-learning/patterns?limit=50"),nb126Fetch("/api/habit-learning/suggestions?limit=50")
+    ]);
+    nb126Page("Habit Learning",`${health.observation_count||0} observations`,`<div class="nb126-card-actions">
+      <button data-v126-habit-action="import" type="button">Import Activity</button><button data-v126-habit-action="rebuild" type="button">Rebuild</button><button data-v126-habit-action="generate" type="button">Generate</button><button data-v126-habit-action="refresh" type="button">Refresh</button>
+      </div><div class="nb126-card"><small>PATTERNS</small>${patterns.patterns?.length?patterns.patterns.map(item=>`<p><b>${esc(item.name||item.kind||"Pattern")}</b><br>${esc(item.description||item.summary||"")}</p>`).join(""):"<p>No patterns.</p>"}</div>
+      <div class="nb126-card"><small>SUGGESTIONS</small>${suggestions.suggestions?.length?suggestions.suggestions.map(item=>`<p><b>${esc(item.title||item.kind||"Suggestion")}</b><br>${esc(item.message||item.description||"")}</p>`).join(""):"<p>No suggestions.</p>"}</div>`);
+    document.querySelectorAll("[data-v126-habit-action]").forEach(button=>button.addEventListener("click",async()=>{
+      const action=button.dataset.v126HabitAction;
+      if(action==="refresh") return openV126Habits();
+      const routes={import:"/api/habit-learning/import-activity",rebuild:"/api/habit-learning/patterns/rebuild",generate:"/api/habit-learning/suggestions/generate"};
+      button.disabled=true;
+      try{ await nb126Fetch(routes[action],{method:"POST"}); await openV126Habits(); }
+      catch(error){ button.disabled=false; alert("Habit Learning action failed: "+error.message); }
+    }));
+    return true;
+  }catch(error){ nb126Page("Habit Learning","Patterns and proactive suggestions",nb126Empty("Habit Learning unavailable",error.message)); return false; }
 }
 
 
@@ -3134,14 +3714,14 @@ function runAction(action){
     return true;
   }
 
-  if(
-    action==="islamic-rules" ||
-    action==="reminders"
-  ){
+  if(action==="reminders"){
     if(window.NoorMobileRulesV12?.open){
       window.NoorMobileRulesV12.open();
       return true;
     }
+  }
+
+  if(action==="islamic-rules"){
     setNativeBackTarget(V126_PARENT_MAP["islamic-rules"] || getNativeBackTarget());
     setActiveTab(V126_PARENT_MAP["islamic-rules"] || getNativeBackTarget());
     openV126IslamicRules();
@@ -3152,6 +3732,27 @@ function runAction(action){
     setNativeBackTarget(V126_PARENT_MAP.notifications || getNativeBackTarget());
     setActiveTab(V126_PARENT_MAP.notifications || getNativeBackTarget());
     openV126Notifications();
+    return true;
+  }
+
+  if(action==="family"){
+    setNativeBackTarget(V126_PARENT_MAP.family);
+    setActiveTab(V126_PARENT_MAP.family);
+    openV126Family();
+    return true;
+  }
+
+  if(action==="plugins"){
+    setNativeBackTarget(V126_PARENT_MAP.plugins);
+    setActiveTab(V126_PARENT_MAP.plugins);
+    openV126Plugins();
+    return true;
+  }
+
+  if(action==="habits"){
+    setNativeBackTarget(V126_PARENT_MAP.habits);
+    setActiveTab(V126_PARENT_MAP.habits);
+    openV126Habits();
     return true;
   }
 
