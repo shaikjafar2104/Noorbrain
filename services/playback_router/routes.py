@@ -64,6 +64,11 @@ def start_listen(node_id: str) -> dict[str, Any]:
     return _run(lambda: playback_router.start_listen(node_id))
 
 
+@router.post("/record/{node_id}")
+def record_once(node_id: str, seconds: int = Query(default=4, ge=1, le=15)) -> dict[str, Any]:
+    return _run(lambda: playback_router.record_once(node_id, seconds))
+
+
 @router.post("/listen/{session_id}/chunk")
 def listen_chunk(session_id: str, seconds: int = Query(default=1, ge=1, le=3)) -> dict[str, Any]:
     return _run(lambda: playback_router.listen_chunk(session_id, seconds))

@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from services.media_library.media_manager import media_library
+from services.playback_router.tts_audio import TTSAudioError, synthesize_tts_audio
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -116,7 +117,8 @@ class PlaybackRouter:
 
     @staticmethod
     def _public(node: dict[str, Any]) -> dict[str, Any]:
-        return {**node, "token": "", "trusted": bool(node.get("token"))}
+        public = {key: value for key, value in node.items() if key != "token"}
+        return {**public, "trusted": bool(node.get("token"))}
 
     def list_nodes(self, probe: bool = False) -> list[dict[str, Any]]:
         nodes = [self._public(item) for item in self._read()["nodes"]]
@@ -187,6 +189,8 @@ class PlaybackRouter:
                 detail = json.loads(error.read().decode("utf-8")).get("detail")
             except Exception:
                 detail = None
+            if error.code in {401, 403}:
+                raise NodeTrustError("Target node rejected the configured trust token") from error
             raise NodeUnavailableError(detail or f"Target speaker returned HTTP {error.code}") from error
         except (OSError, urllib.error.URLError, TimeoutError) as error:
             raise NodeUnavailableError("Target speaker unavailable") from error
@@ -208,11 +212,41 @@ class PlaybackRouter:
             "name": item.get("name") or item.get("original_filename"),
         }
 
+    @staticmethod
+    def _encoded_audio_payload(
+        audio: bytes,
+        fmt: str,
+        volume: int | None,
+        **metadata: Any,
+    ) -> dict[str, Any]:
+        return {
+            "audio_base64": base64.b64encode(audio).decode("ascii"),
+            "format": fmt,
+            "volume": volume,
+            **metadata,
+        }
+
+    def _tts_payload(self, text: str, volume: int | None) -> dict[str, Any]:
+        try:
+            audio, fmt, metadata = synthesize_tts_audio(text)
+        except TTSAudioError as error:
+            raise NodeUnavailableError(str(error)) from error
+        return self._encoded_audio_payload(
+            audio,
+            fmt,
+            volume,
+            source_type="tts",
+            tts_engine=metadata.get("engine"),
+            characters=len(text),
+        )
+
     def play(self, payload: dict[str, Any]) -> dict[str, Any]:
         node_id = str(payload.get("target_node") or "").strip()
         if not node_id:
             raise ValueError("A target Raspberry Pi speaker is required")
         node = self.get_node(node_id)
+        if not str(node.get("token") or ""):
+            raise NodeTrustError("Target node requires a trust token")
         if not node.get("enabled") or not node.get("capabilities", {}).get("playback"):
             raise NodeUnavailableError("Target speaker playback is unavailable")
         kind = str(payload.get("type") or "tts").strip().lower()
@@ -224,18 +258,31 @@ class PlaybackRouter:
             text = str(payload.get("content") or "").strip()
             if not text:
                 raise ValueError("Text message is required")
-            acknowledgement = self._request(node, "/tts", method="POST", payload={"text": text, "volume": volume}, timeout=120)
-        elif kind in {"media", "dua", "azkar", "reminder_audio"}:
+            node_payload = self._tts_payload(text, volume)
+            acknowledgement = self._request(node, "/play", method="POST", payload=node_payload, timeout=180)
+        elif kind in {"media", "reminder_audio"}:
             media_id = str(payload.get("media_id") or "").strip()
             if not media_id:
                 raise ValueError("A Media Library item is required")
             acknowledgement = self._request(node, "/play", method="POST", payload=self._media_payload(media_id, volume), timeout=180)
+        elif kind in {"dua", "azkar"}:
+            media_id = str(payload.get("media_id") or "").strip()
+            text = str(payload.get("content") or "").strip()
+            if media_id:
+                node_payload = self._media_payload(media_id, volume)
+            elif text:
+                node_payload = self._tts_payload(text, volume)
+                node_payload["source_type"] = kind
+            else:
+                raise ValueError("Associated media or text is required")
+            acknowledgement = self._request(node, "/play", method="POST", payload=node_payload, timeout=180)
         elif kind in {"audio", "intercom"}:
             audio = str(payload.get("audio_base64") or "")
             if not audio:
                 raise ValueError("Recorded audio is required")
             base64.b64decode(audio, validate=True)
-            acknowledgement = self._request(node, "/play", method="POST", payload={"audio_base64": audio, "format": str(payload.get("format") or "m4a"), "volume": volume}, timeout=180)
+            path = "/talk" if kind == "intercom" else "/play"
+            acknowledgement = self._request(node, path, method="POST", payload={"audio_base64": audio, "format": str(payload.get("format") or "m4a"), "volume": volume}, timeout=180)
         else:
             raise ValueError("Unsupported playback type")
 
@@ -267,6 +314,18 @@ class PlaybackRouter:
         with self._lock:
             self._listen_sessions[session_id] = {"node_id": node_id, "node_session": node_session, "created_at": time.time(), "last_seen": time.time()}
         return {"status": "listening", "session_id": session_id, "node_id": node_id, "room": node.get("room"), "remote_listening_active": True}
+
+    def record_once(self, node_id: str, seconds: int = 4) -> dict[str, Any]:
+        node = self.get_node(node_id)
+        if not node.get("capabilities", {}).get("microphone"):
+            raise NodeUnavailableError("Target room microphone is unavailable")
+        return self._request(
+            node,
+            "/record",
+            method="POST",
+            payload={"seconds": max(1, min(int(seconds), 15))},
+            timeout=max(10, int(seconds) + 8),
+        )
 
     def listen_chunk(self, session_id: str, seconds: int = 1) -> dict[str, Any]:
         with self._lock:

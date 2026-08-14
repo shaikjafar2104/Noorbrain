@@ -37,12 +37,15 @@ def test_tts_success_requires_node_ack_and_never_uses_laptop(tmp_path: Path, mon
         calls.append((target["node_id"], path, kwargs))
         return {"status": "played", "engine": "node-tts"}
 
+    monkeypatch.setattr(playback_module, "synthesize_tts_audio", lambda text: (b"RIFF" + b"\0" * 48, "wav", {"engine": "test"}))
     monkeypatch.setattr(router, "_request", accepted)
     result = router.play({"target_node": node["node_id"], "type": "tts", "content": "Take your keys", "volume": 70})
     assert result["status"] == "played"
     assert result["laptop_playback"] is False
-    assert calls[0][1] == "/tts"
+    assert calls[0][1] == "/play"
     assert calls[0][2]["payload"]["volume"] == 70
+    assert calls[0][2]["payload"]["source_type"] == "tts"
+    assert "text" not in calls[0][2]["payload"]
 
 
 def test_offline_node_is_truthful_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -52,6 +55,7 @@ def test_offline_node_is_truthful_failure(tmp_path: Path, monkeypatch: pytest.Mo
         raise NodeUnavailableError("Target speaker unavailable")
 
     monkeypatch.setattr(router, "_request", offline)
+    monkeypatch.setattr(playback_module, "synthesize_tts_audio", lambda text: (b"RIFF" + b"\0" * 48, "wav", {"engine": "test"}))
     with pytest.raises(NodeUnavailableError, match="unavailable"):
         router.play({"target_node": node["node_id"], "type": "tts", "content": "Test"})
 
@@ -80,7 +84,7 @@ def test_listen_session_is_explicit_and_closes(tmp_path: Path, monkeypatch: pyte
 def test_node_store_never_returns_secret(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     router, node = configured_router(tmp_path, monkeypatch)
     assert node["trusted"] is True
-    assert node["token"] == ""
+    assert "token" not in node
     persisted = json.loads((tmp_path / "nodes.json").read_text())
     assert persisted["nodes"][0]["token"] == "trusted-test-token"
 
@@ -88,6 +92,7 @@ def test_node_store_never_returns_secret(tmp_path: Path, monkeypatch: pytest.Mon
 def test_no_server_audio_fallback_in_authoritative_paths() -> None:
     sources = [
         Path("services/playback_router/router.py").read_text(),
+        Path("services/playback_router/tts_audio.py").read_text(),
         Path("services/smart_automation/action_executor.py").read_text(),
         Path("services/reminder_rules/reminder_rules.py").read_text(),
         Path("services/islamic_reminders/service.py").read_text(),

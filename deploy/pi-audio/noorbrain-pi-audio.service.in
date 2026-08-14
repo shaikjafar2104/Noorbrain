@@ -1,0 +1,19 @@
+[Unit]
+Description=NoorBrain Raspberry Pi Audio Node
+Wants=network-online.target
+After=network-online.target sound.target
+
+[Service]
+Type=simple
+User=@NOORBRAIN_USER@
+WorkingDirectory=@NOORBRAIN_HOME@/Projects/NoorCameraNode
+EnvironmentFile=/etc/noorbrain/pi-audio-node.env
+ExecStart=@NOORBRAIN_HOME@/Projects/NoorCameraNode/venv/bin/python @NOORBRAIN_HOME@/Projects/NoorCameraNode/noorbrain_pi_audio_node.py
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
