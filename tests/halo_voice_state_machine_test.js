@@ -10,7 +10,7 @@ const source = fs.readFileSync(
   "utf8"
 );
 
-function harness({native = true, sendHalo, getUserMedia, fetchImpl} = {}) {
+function harness({native = true, sendHalo, getUserMedia, fetchImpl, nativePlugins} = {}) {
   const messages = [];
   const statuses = [];
   const timers = new Map();
@@ -99,6 +99,7 @@ function harness({native = true, sendHalo, getUserMedia, fetchImpl} = {}) {
     clearInterval() {},
     addEventListener(type, callback) { listeners[type] = callback; },
     parent: {postMessage(message) { messages.push(message); }},
+    Capacitor: nativePlugins ? {Plugins: nativePlugins} : undefined,
     NoorBrainMobile126: {
       sendHalo: sendHalo || (async () => true),
     },
@@ -211,6 +212,57 @@ async function run() {
   await nativeFailure.message({type: "noorbrain-native-error", message: "Recording failed."});
   assert.equal(nativeFailure.api.mode(), "idle");
   assert.match(nativeFailure.statuses.at(-1), /recording failed/i);
+
+  let directStarts = 0;
+  let directStops = 0;
+  let directConversations = 0;
+  const direct = harness({
+    nativePlugins: {
+      CapacitorAudioRecorder: {
+        requestPermissions: async () => ({recordAudio: "granted"}),
+        startRecording: async () => { directStarts += 1; },
+        stopRecording: async () => {
+          directStops += 1;
+          return {
+            blob: new Blob([new Uint8Array(1600)], {type: "audio/mp4"}),
+          };
+        },
+      },
+    },
+    sendHalo: async () => { directConversations += 1; },
+    fetchImpl: async () => ({
+      ok: true,
+      json: async () => ({
+        text: "Turn on the kitchen light",
+        command: "Turn on the kitchen light",
+      }),
+    }),
+  });
+  await direct.api.toggle();
+  assert.equal(direct.api.mode(), "listening");
+  assert.equal(directStarts, 1);
+  assert.equal(direct.messages.length, 0, "direct plugin mode does not use parent relay");
+  await direct.api.toggle();
+  assert.equal(directStops, 1);
+  assert.equal(directConversations, 1);
+  assert.equal(direct.api.mode(), "idle");
+  assert.equal(
+    direct.api.diagnostics().map(item => item.event).join(","),
+    [
+      "MIC_REQUEST",
+      "NATIVE_START_SENT",
+      "NATIVE_START_ACK",
+      "RECORDING_STARTED",
+      "STOP_REQUEST",
+      "NATIVE_AUDIO_RECEIVED",
+      "TRANSCRIBE_START",
+      "TRANSCRIBE_RESULT",
+      "CHAT_START",
+      "CHAT_RESULT",
+      "TTS_SENT",
+      "VOICE_IDLE",
+    ].join(",")
+  );
 
   console.log("HALO voice state machine: PASS");
 }

@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "3.1.0";
+  const VERSION = "3.2.0";
   const VOICE_API = "/api/halo-voice";
   const NATIVE_START_TIMEOUT_MS = 15000;
   const RECORDING_TIMEOUT_MS = 12000;
@@ -19,7 +19,25 @@
     nativeTranscriptHandled: false,
     lastTranscript: "",
     lastTranscriptAt: 0,
+    diagnostics: [],
   };
+
+  function trace(event, detail = {}) {
+    const entry = {event, at: new Date().toISOString(), ...detail};
+    state.diagnostics.push(entry);
+    state.diagnostics = state.diagnostics.slice(-100);
+    console.info("HALO_VOICE_EVENT", entry);
+    if (
+      typeof window.dispatchEvent === "function"
+      && typeof window.CustomEvent === "function"
+    ) {
+      window.dispatchEvent(new window.CustomEvent(
+        "noorbrain:halo-voice-event",
+        {detail: entry}
+      ));
+    }
+    return entry;
+  }
 
   function isNativeApp() {
     return new URLSearchParams(location.search)
@@ -130,10 +148,12 @@
     state.stream = null;
     state.activeButton = null;
     setMode("idle", message, mode);
+    trace("VOICE_IDLE", {message: String(message || "")});
   }
 
   function fail(error, fallback = "Voice processing failed.") {
     const message = String(error?.message || error || fallback);
+    trace("VOICE_ERROR", {message});
     state.stream?.getTracks?.().forEach(track => track.stop());
     reset(message, "error");
     return false;
@@ -155,6 +175,7 @@
   }
 
   async function transcribe(blob) {
+    trace("TRANSCRIBE_START", {bytes: Number(blob?.size || 0)});
     const form = new FormData();
     const type = blob.type || "audio/webm";
 
@@ -191,6 +212,9 @@
       );
     }
 
+    trace("TRANSCRIBE_RESULT", {
+      text: String(payload.text || payload.command || "").slice(0, 200)
+    });
     return payload;
   }
 
@@ -208,12 +232,18 @@
       input.value = clean;
     }
 
+    trace("CHAT_START", {text: clean.slice(0, 200)});
+
     if (
       window.NoorBrainMobile126
       && typeof window.NoorBrainMobile126
         .sendHalo === "function"
     ) {
-      await window.NoorBrainMobile126.sendHalo(clean);
+      const result = await window.NoorBrainMobile126.sendHalo(clean);
+      trace("CHAT_RESULT", {
+        reply: String(result?.reply || result?.message || "").slice(0, 200)
+      });
+      trace("TTS_SENT", {transport: "v126"});
       return;
     }
 
@@ -222,8 +252,12 @@
       && typeof window.NoorBrainHaloOneClick
         .sendCommand === "function"
     ) {
-      await window.NoorBrainHaloOneClick
+      const result = await window.NoorBrainHaloOneClick
         .sendCommand(clean);
+      trace("CHAT_RESULT", {
+        reply: String(result?.reply || result?.message || "").slice(0, 200)
+      });
+      trace("TTS_SENT", {transport: "oneclick"});
       return;
     }
 
@@ -283,6 +317,9 @@
         halo.reply || halo.message || "Done.",
         "done"
       );
+      trace("CHAT_RESULT", {
+        reply: String(halo.reply || halo.message || "").slice(0, 200)
+      });
       return;
     }
 
@@ -290,6 +327,9 @@
       payload.reply || "Done.",
       "done"
     );
+    trace("CHAT_RESULT", {
+      reply: String(payload.reply || "Done.").slice(0, 200)
+    });
   }
 
   async function startRecording(button) {
@@ -449,31 +489,101 @@
     return false;
   }
 
+  function nativePlugins() {
+    return window.Capacitor?.Plugins || {};
+  }
+
   function postNativeToggle() {
     window.parent.postMessage(
-      { type: "noorbrain-native-record-toggle" },
+      {type: "noorbrain-native-record-toggle"},
       "*"
     );
   }
 
-  function startNative(button) {
+  function base64Blob(value, mimeType = "audio/mp4") {
+    const clean = String(value || "")
+      .replace(/^data:[^,]+,/, "")
+      .replace(/\s+/g, "");
+    const binary = window.atob(clean);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+    return new Blob([bytes], {type: mimeType});
+  }
+
+  async function nativeRecordingBlob(result) {
+    if (result?.blob instanceof Blob) return result.blob;
+
+    const mimeType = result?.mimeType || result?.mime_type || "audio/mp4";
+    const encoded = result?.recordDataBase64 || result?.base64 || result?.data;
+    if (encoded && typeof encoded === "string") {
+      return base64Blob(encoded, mimeType);
+    }
+
+    const filePath = result?.filePath || result?.uri || result?.path;
+    if (!filePath) {
+      throw new Error("Android recorder returned no audio file.");
+    }
+
+    const filesystem = nativePlugins().Filesystem;
+    if (filesystem?.readFile) {
+      const file = await filesystem.readFile({path: filePath});
+      if (file?.data) return base64Blob(file.data, mimeType);
+    }
+
+    const converted = window.Capacitor?.convertFileSrc?.(filePath) || filePath;
+    const response = await fetch(converted, {cache: "no-store"});
+    if (!response.ok) {
+      throw new Error(`Cannot read Android recording (HTTP ${response.status}).`);
+    }
+    return response.blob();
+  }
+
+  async function startNative(button) {
     if (state.mode !== "idle") return false;
 
     state.operation += 1;
+    const operation = state.operation;
     state.activeButton = button || null;
     state.nativeTranscriptHandled = false;
     setMode("starting", "Starting microphone…", "thinking");
-    postNativeToggle();
+    trace("MIC_REQUEST", {native: true});
 
     scheduleTimer(() => {
       fail("The Android microphone did not start. Tap to try again.");
     }, NATIVE_START_TIMEOUT_MS);
+
+    const recorder = nativePlugins().CapacitorAudioRecorder;
+    if (!recorder?.startRecording || !recorder?.stopRecording) {
+      trace("NATIVE_START_SENT", {transport: "parent-relay"});
+      postNativeToggle();
+      return true;
+    }
+
+    trace("NATIVE_START_SENT", {transport: "capacitor-direct"});
+    const permission = await recorder.requestPermissions?.();
+    const permissionState =
+      permission?.recordAudio || permission?.microphone || "granted";
+    if (permissionState !== "granted") {
+      throw new Error("Microphone permission was denied in Android settings.");
+    }
+    trace("NATIVE_START_ACK", {permission: permissionState});
+
+    await recorder.startRecording({sampleRate: 16000, bitRate: 64000});
+    if (operation !== state.operation) return false;
+
+    clearTimer();
+    setMode("listening", "Listening… tap again when finished.", "listening");
+    trace("RECORDING_STARTED", {native: true});
+    scheduleTimer(() => stopNative("automatic timeout"), RECORDING_TIMEOUT_MS);
     return true;
   }
 
-  function stopNative(reason = "second tap") {
+  async function stopNative(reason = "second tap") {
     if (state.mode !== "listening") return false;
 
+    const operation = state.operation;
     clearTimer();
     setMode(
       "stopping",
@@ -482,12 +592,44 @@
         : "Processing voice…",
       "thinking"
     );
-    postNativeToggle();
+    trace("STOP_REQUEST", {reason});
 
     scheduleTimer(() => {
       fail("Android voice processing timed out. Tap to try again.");
     }, PROCESSING_TIMEOUT_MS);
-    return true;
+
+    const recorder = nativePlugins().CapacitorAudioRecorder;
+    if (!recorder?.stopRecording) {
+      postNativeToggle();
+      return true;
+    }
+
+    try {
+      const result = await recorder.stopRecording();
+      if (operation !== state.operation) return false;
+      setMode("processing", "Transcribing on NoorBrain…", "thinking");
+
+      const blob = await nativeRecordingBlob(result);
+      trace("NATIVE_AUDIO_RECEIVED", {
+        bytes: blob.size,
+        mimeType: blob.type || result?.mimeType || "unknown"
+      });
+      if (blob.size < 500) {
+        throw new Error("Recording was empty or too short. Please try again.");
+      }
+
+      const transcript = await transcribe(blob);
+      const text = String(transcript.command || transcript.text || "").trim();
+      if (!text) throw new Error("No clear speech detected. Please try again.");
+
+      setMode("conversation", `Heard: ${text}`, "heard");
+      await sendToHalo(text);
+      if (operation === state.operation) reset();
+      return true;
+    } catch (error) {
+      if (operation === state.operation) fail(error, "Android voice processing failed.");
+      return false;
+    }
   }
 
   async function handleNativeMessage(event) {
@@ -496,11 +638,13 @@
 
     if (data.type === "noorbrain-native-listening") {
       if (state.mode !== "starting") return false;
+      trace("NATIVE_START_ACK", {transport: "parent-relay"});
       setMode(
         "listening",
         "Listening… tap again when finished.",
         "listening"
       );
+      trace("RECORDING_STARTED", {native: true, transport: "parent-relay"});
       scheduleTimer(() => stopNative("automatic timeout"), RECORDING_TIMEOUT_MS);
       return true;
     }
@@ -509,6 +653,7 @@
       if (!["listening", "stopping"].includes(state.mode)) return false;
       clearTimer();
       setMode("processing", "Transcribing on NoorBrain…", "thinking");
+      trace("TRANSCRIBE_START", {transport: "parent-relay"});
       scheduleTimer(() => {
         fail("Android transcription timed out. Tap to try again.");
       }, PROCESSING_TIMEOUT_MS);
@@ -540,6 +685,8 @@
       return true;
     }
 
+    trace("TRANSCRIBE_RESULT", {text: text.slice(0, 200), transport: "parent-relay"});
+
     const operation = state.operation;
     setMode("conversation", `Heard: ${text}`, "heard");
 
@@ -554,9 +701,11 @@
 
   function toggle(button) {
     if (isNativeApp()) {
-      if (state.mode === "listening") return Promise.resolve(stopNative());
+      if (state.mode === "listening") return stopNative();
       if (state.mode !== "idle") return Promise.resolve(false);
-      return Promise.resolve(startNative(button));
+      return startNative(button).catch(error =>
+        fail(error, "Android microphone failed.")
+      );
     }
 
     if (state.mode === "listening") {
@@ -697,6 +846,7 @@
       mode: () => state.mode,
       handleNativeMessage,
       patch: patchAllMicrophones,
+      diagnostics: () => [...state.diagnostics],
     };
 
     console.info(

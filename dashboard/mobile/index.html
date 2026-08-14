@@ -37,8 +37,8 @@
   
   <link rel="stylesheet" href="/dashboard-static/css/custom-zone-manager-v12.css?v=20260812-d4">
   <link rel="stylesheet" href="/dashboard-static/css/islamic-rule-creator-v12.css?v=20260812-d53">
-  <link rel="stylesheet" href="/dashboard-static/css/noorbrain-mobile-shell-v126.css?v=20260813-product-finish">
-  <link rel="stylesheet" href="/dashboard-static/css/halo-mic-final-fix.css?v=20260813-product-finish">
+  <link rel="stylesheet" href="/dashboard-static/css/noorbrain-mobile-shell-v126.css?v=20260813-crud-finish">
+  <link rel="stylesheet" href="/dashboard-static/css/halo-mic-final-fix.css?v=20260813-crud-finish">
 </head>
 <body>
   <div class="nbv2-app" id="nbv2App">
@@ -156,9 +156,9 @@
   <script src="/dashboard-static/js/sprint9a1-universal-voice.js?v=20260801-1"></script>
   <script src="/dashboard-static/js/sprint9-voice-platform.js?v=20260801-1"></script>
   <script src="/dashboard-static/js/sprint10-whole-home.js?v=20260801-1"></script>
-  <script src="/dashboard-static/js/sprint11-family-vision.js?v=20260802-1"></script>
-  <script src="/dashboard-static/js/sprint12-islamic.js?v=20260802-1"></script>
-  <script src="/dashboard-static/js/sprint13-plugins.js?v=20260802-1"></script>
+  <script src="/dashboard-static/js/sprint11-family-vision.js?v=20260813-crud-finish"></script>
+  <script src="/dashboard-static/js/sprint12-islamic.js?v=20260813-crud-finish"></script>
+  <script src="/dashboard-static/js/sprint13-plugins.js?v=20260813-crud-finish"></script>
   <script src="/dashboard-static/js/sprint14-release.js?v=20260802-1"></script>
   <script src="/dashboard-static/js/production-ui-cleanup.js?v=20260802-1"></script>
   <script src="/dashboard-static/js/dual-audio-v15.js?v=20260802-1"></script>
@@ -167,81 +167,6 @@
   <script src="/dashboard-static/js/smart-presence-v16.js?v=20260802-1"></script>
   <script src="/dashboard-static/js/pi-wake-v16.js?v=20260802-1"></script>
   <script src="/dashboard-static/js/islamic-audio-control.js?v=20260803-2"></script>
-
-<script id="noorbrain-native-mic-router-final">
-(() => {
-  "use strict";
-
-  const nativeApp =
-    new URLSearchParams(location.search).get("native_app") === "1";
-
-  if (!nativeApp) return;
-
-  let installedNoor = null;
-  let installedHalo = null;
-
-  function sendNativeMic(event) {
-    event?.preventDefault();
-    event?.stopPropagation();
-    event?.stopImmediatePropagation();
-
-    const mic = window.NoorBrainHaloMicFinalFix;
-    if (mic && typeof mic.toggle === "function") {
-      Promise.resolve(mic.toggle(event?.currentTarget))
-        .catch(error => console.error("NATIVE_MIC_TOGGLE_FAILED", error));
-      return;
-    }
-
-    window.parent.postMessage(
-      { type: "noorbrain-native-record-toggle" },
-      "*"
-    );
-  }
-
-  function bindButton(button, type) {
-    if (!button) return;
-
-    if (type === "noor") {
-      if (installedNoor === button) return;
-      installedNoor = button;
-    } else {
-      if (installedHalo === button) return;
-      installedHalo = button;
-    }
-
-    button.onclick = null;
-    button.addEventListener(
-      "click",
-      sendNativeMic,
-      true
-    );
-  }
-
-  function install() {
-    bindButton(
-      document.getElementById("nbv2HaloMic"),
-      "noor"
-    );
-
-    bindButton(
-      document.getElementById("nbs4Mic"),
-      "halo"
-    );
-  }
-
-  install();
-
-  new MutationObserver(() => install()).observe(
-    document.documentElement,
-    {
-      childList: true,
-      subtree: true
-    }
-  );
-
-  console.log("NOOR_NATIVE_MIC_ROUTER_FINAL_READY");
-})();
-</script>
 
   <script src="/dashboard-static/js/mobile-rules-v12.js?v=20260813-full-product"></script>
 
@@ -252,15 +177,15 @@
 
   <script src="/dashboard-static/js/product-dashboard-v12.js?v=20260813-product-finish"></script>
   <script src="/dashboard-static/js/mobile-product-router-v12.js?v=20260811-1216"></script>
-  <script src="/dashboard-static/js/automation-center-v12.js?v=20260813-full-product"></script>
+  <script src="/dashboard-static/js/automation-center-v12.js?v=20260813-crud-finish"></script>
   <script src="/dashboard-static/js/automation-center-router-v12.js?v=12.3.0"></script>
   
   
   <script src="/dashboard-static/js/custom-zone-manager-v12.js?v=20260812-d4"></script>
   <script src="/dashboard-static/js/islamic-rule-creator-v12.js?v=20260812-d53"></script>
   <script src="/dashboard-static/js/islamic-rule-creator-nav-v12.js?v=20260812-d53"></script>
-  <script src="/dashboard-static/js/noorbrain-mobile-shell-v126.js?v=20260813-product-finish"></script>
+  <script src="/dashboard-static/js/noorbrain-mobile-shell-v126.js?v=20260813-crud-finish"></script>
   <script src="/dashboard-static/js/noorbrain-mobile-mount-v126.js?v=20260813-1"></script>
-  <script src="/dashboard-static/js/halo-mic-final-fix.js?v=20260813-product-finish"></script>
+  <script src="/dashboard-static/js/halo-mic-final-fix.js?v=20260813-crud-finish"></script>
 </body>
 </html>
