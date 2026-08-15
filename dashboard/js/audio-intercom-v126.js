@@ -166,11 +166,21 @@
   }
 
   function playChunk(encoded, format = "wav") {
+    if (state.manualLocked) return;  // auto-intercom has taken over
+
     const binary = atob(encoded);
     const bytes = new Uint8Array(binary.length);
     for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
     return new Audio(URL.createObjectURL(new Blob([bytes], {type: `audio/${format}`}))).play();
   }
+
+  function markManualMode() {
+    state.manualLocked = !!(window.NoorBrainAutoIntercomV126 && window.NoorBrainAutoIntercomV126.isEnabled && window.NoorBrainAutoIntercomV126.isEnabled());
+  }
+
+  window.NoorBrainAudioIntercomV126 = window.NoorBrainAudioIntercomV126 || {};
+  window.NoorBrainAudioIntercomV126.stopListen = stopListen;
+  window.addEventListener("noorbrain:auto-intercom-state-changed", () => markManualMode());
 
   async function listenLoop() {
     while (state.listenActive && state.listenSession) {
@@ -263,6 +273,22 @@
   }
 
   function bind() {
+    // When auto-intercom is active, manual Listen/Talk buttons are disabled.
+    const autoMod = window.NoorBrainAutoIntercomV126;
+    if (autoMod && autoMod.isEnabled && autoMod.isEnabled()) {
+      const lb = document.getElementById("nbListenStart");
+      const ls = document.getElementById("nbListenStop");
+      const tb = document.getElementById("nbTalkStart");
+      const ts = document.getElementById("nbTalkStop");
+      if (lb) lb.disabled = true;
+      if (ls) ls.disabled = true;
+      if (tb) tb.disabled = true;
+      if (ts) ts.disabled = true;
+      const st = document.getElementById("nbListenState");
+      if (st) st.textContent = "AUTO · Listening to Room (auto intercom active)";
+      const tt = document.getElementById("nbTalkState");
+      if (tt) tt.textContent = "AUTO · Talk handled automatically";
+    }
     document.getElementById("nbNodeAdd").onclick = () => openNode();
     document.querySelectorAll("[data-node-edit]").forEach(button => button.onclick = () => openNode(state.nodes.find(node => node.node_id === button.dataset.nodeEdit)));
     document.querySelectorAll("[data-node-delete]").forEach(button => button.onclick = async () => { if (confirm("Delete this room node configuration?")) { await request(`/nodes/${encodeURIComponent(button.dataset.nodeDelete)}`, {method: "DELETE"}); await open(); } });
@@ -305,6 +331,8 @@
       stopListen().catch(() => {});
     }
   }, true);
+
+  markManualMode();
 
   window.NoorBrainAudioIntercom = Object.freeze({open, version: "1.0.0"});
   document.getElementById("nbAudioIntercomNav")?.addEventListener("click", event => {

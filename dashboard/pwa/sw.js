@@ -10,6 +10,7 @@ const CORE = [
   "/dashboard-static/js/automation-center-v12.js?v=20260813-audio-intercom",
   "/dashboard-static/js/noorbrain-mobile-shell-v126.js?v=20260813-audio-intercom",
   "/dashboard-static/js/audio-intercom-v126.js?v=20260813-1",
+  "/dashboard-static/js/auto-intercom-v126.js?v=1.0.0",
   "/dashboard-static/js/noorbrain-mobile-mount-v126.js?v=20260813-1",
   "/dashboard-static/js/halo-mic-final-fix.js?v=20260813-audio-intercom"
 ];

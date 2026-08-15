@@ -494,10 +494,19 @@ function more(){
       })}
 
       ${tile({
-        icon:"◉",
-        title:"Rooms & Speakers",
-        text:"Play Message and intercom",
-        action:"audio-intercom"
+        icon: "◉",
+        title: "Rooms & Speakers",
+        text: "Play Message and intercom",
+        action: "audio-intercom",
+        badge: ""
+      })}
+
+      ${tile({
+        icon: "🔊",
+        title: "Auto Intercom",
+        text: "Hands-free room audio",
+        action: "auto-intercom-settings",
+        badge: ""
       })}
 
       ${tile({
@@ -543,9 +552,141 @@ const renderers={
   automation,
   halo,
   islamic,
+  "auto-intercom-settings": openAutoIntercomSettings,
   more
 };
 
+
+function openAutoIntercomSettings() {
+  const content = document.getElementById("nb126Content");
+  if (!content) return false;
+
+  content.innerHTML = `
+    <section class="nb126-page">
+      ${nb126PageHeader({
+        title: "Auto Intercom",
+        subtitle: "Hands-free room audio",
+        showBack: true,
+        backTarget: getNativeBackTarget("home"),
+      })}
+      <div class="nb126-page-body">
+        <div class="nb126-card">
+          <small>HOW IT WORKS</small>
+          <h3>Automatic Hands-Free Intercom</h3>
+          <p>
+            When enabled, NoorBrain automatically maintains the room-audio connection.
+            Speak near the Raspberry Pi and audio is heard on your phone.
+            Speak into your phone and the system automatically switches direction —
+            your voice plays from the Pi speaker. No Start Listening, Stop Listening,
+            or Talk buttons are needed.
+          </p>
+          <small>Default trusted target: existing-pi-audio</small>
+        </div>
+
+        <div class="nb126-card">
+          <small>AUTO INTERCOM</small>
+          <h3>Enable Auto Intercom</h3>
+          <form id="nbAutoIntercomForm" class="nb126-form-card">
+            <label class="nb126-check">
+              <input type="checkbox" id="nbAutoIntercomEnable">
+              Auto Intercom
+            </label>
+            <small id="nbAutoIntercomFormStatus"></small>
+            <div class="nb126-card-actions">
+              <button type="submit" class="nb126-button nb126-button-primary nb126-full">Save</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="nb126-card" id="nbAutoMuteCard" hidden>
+          <small>PRIVACY</small>
+          <h3>Privacy Mute</h3>
+          <p>Pause room audio immediately. Auto intercom stays enabled but no audio plays on your phone.</p>
+          <button type="button" id="nbAutoMuteBtn" class="nb126-button nb126-button-primary nb126-full">Mute</button>
+        </div>
+
+        <div class="nb126-card">
+          <small>LIVE STATUS</small>
+          <h3 id="nbAutoIntercomStatus">Off</h3>
+          <small id="nbAutoIntercomDetail">Auto intercom is disabled.</small>
+        </div>
+      </div>
+    </section>
+  `;
+
+  bindAutoIntercomUI();
+  document.body.dataset.nb126Page = "auto-intercom";
+  return true;
+}
+
+function bindAutoIntercomUI() {
+  const form = document.getElementById("nbAutoIntercomForm");
+  const status = document.getElementById("nbAutoIntercomFormStatus");
+  const enableCheck = document.getElementById("nbAutoIntercomEnable");
+  const muteCard = document.getElementById("nbAutoMuteCard");
+  const muteBtn = document.getElementById("nbAutoMuteBtn");
+  const statusHeading = document.getElementById("nbAutoIntercomStatus");
+  const statusDetail = document.getElementById("nbAutoIntercomDetail");
+
+  if (window.NoorBrainAutoIntercomV126) {
+    const auto = window.NoorBrainAutoIntercomV126;
+    enableCheck.checked = !!(auto.isEnabled && auto.isEnabled());
+    muteBtn.textContent = (auto.isMuted && auto.isMuted()) ? "Muted · Tap to Unmute" : "Mute";
+    muteCard.hidden = !(auto.isEnabled && auto.isEnabled());
+    if (statusHeading) statusHeading.textContent = (auto.isEnabled && auto.isEnabled()) ? "Listening to Room" : "Off";
+    if (statusDetail) statusDetail.textContent = (auto.isEnabled && auto.isEnabled())
+      ? "Auto intercom is active. Speak near the Pi or into your phone — no buttons needed."
+      : "Auto intercom is disabled.";
+  }
+
+  function refreshUI() {
+    if (window.NoorBrainAutoIntercomV126) {
+      const auto = window.NoorBrainAutoIntercomV126;
+      enableCheck.checked = !!(auto.isEnabled && auto.isEnabled());
+      muteBtn.textContent = (auto.isMuted && auto.isMuted()) ? "Muted · Tap to Unmute" : "Mute";
+      muteCard.hidden = !(auto.isEnabled && auto.isEnabled());
+      if (statusHeading) statusHeading.textContent = (auto.isEnabled && auto.isEnabled()) ? "Listening to Room" : "Off";
+      if (statusDetail) statusDetail.textContent = (auto.isEnabled && auto.isEnabled())
+        ? "Auto intercom is active."
+        : "Auto intercom is disabled.";
+    }
+  }
+
+  window.addEventListener("noorbrain:auto-intercom-state-changed", refreshUI);
+
+  if (form) {
+    form.onsubmit = async (event) => {
+      event.preventDefault();
+      const enabled = enableCheck.checked;
+      try {
+        if (enabled) {
+          if (window.NoorBrainAutoIntercomV126) {
+            window.NoorBrainAutoIntercomV126.start();
+          }
+          status.textContent = "Auto intercom enabled. Starting…";
+        } else {
+          if (window.NoorBrainAutoIntercomV126) {
+            window.NoorBrainAutoIntercomV126.stop();
+          }
+          status.textContent = "Auto intercom disabled.";
+        }
+        refreshUI();
+      } catch (error) {
+        status.textContent = "Error: " + error.message;
+      }
+    };
+  }
+
+  if (muteBtn) {
+    muteBtn.onclick = () => {
+      if (window.NoorBrainAutoIntercomV126) {
+        const currentlyMuted = !!(window.NoorBrainAutoIntercomV126.isMuted && window.NoorBrainAutoIntercomV126.isMuted());
+        window.NoorBrainAutoIntercomV126.setMuted(!currentlyMuted);
+        refreshUI();
+      }
+    };
+  }
+}
 
 function logV126(tag, payload={}) {
   const entry = {
@@ -3801,6 +3942,10 @@ function runAction(action){
 
   if(action==="audio-intercom"){
     return window.NoorBrainAudioIntercom?.open?.() || false;
+  }
+
+  if(action==="auto-intercom-settings"){
+    return openAutoIntercomSettings();
   }
 
   const bridge = window.NoorBrainV126ModuleBridge || V126_MODULE_BRIDGE;
