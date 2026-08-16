@@ -1004,6 +1004,14 @@ app.include_router(offline_agent_router)
 from services.activity_engine.routes import router as activity_router
 app.include_router(activity_router)
 
+# NOORBRAIN HUMAN ACTIVITY INTELLIGENCE V1.0.0
+from services.human_activity_intelligence.routes import router as human_activity_intelligence_router
+app.include_router(human_activity_intelligence_router)
+
+# NOORBRAIN ISLAMIC LEARNING V1.0.0
+from services.islamic_learning.routes import router as islamic_learning_router
+app.include_router(islamic_learning_router)
+
 # NOORBRAIN ACTIVITY DASHBOARD ASSET
 from services.activity_engine.assets import router as activity_asset_router
 app.include_router(activity_asset_router)
