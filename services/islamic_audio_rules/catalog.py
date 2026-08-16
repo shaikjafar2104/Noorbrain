@@ -13,6 +13,7 @@ MEDIA_ROOT = ROOT / "media" / "audio"
 DATABASE = ROOT / "data" / "media_library.json"
 DUAS = MEDIA_ROOT / "islamic" / "duas"
 AZKAR = MEDIA_ROOT / "islamic" / "azkar"
+ADHAN = MEDIA_ROOT / "islamic" / "adhan"
 
 
 def _load_json(path: Path, fallback: Any) -> Any:
@@ -55,6 +56,9 @@ def sync_catalog() -> dict[str, Any]:
     if AZKAR.is_dir():
         for path in sorted(AZKAR.glob("*.mp3")):
             discovered.append((path, "azkar", "Azkar – 99 Names of Allah"))
+    if ADHAN.is_dir():
+        for path in sorted(ADHAN.glob("*.mp3")):
+            discovered.append((path, "adhan", "Adhan"))
 
     by_path = {
         str(item.get("relative_path")): item
@@ -103,6 +107,6 @@ def catalog_items() -> list[dict[str, Any]]:
     items = document.get("items", []) if isinstance(document, dict) else []
     selected = [
         item for item in items
-        if isinstance(item, dict) and item.get("category") in {"duas", "azkar"}
+        if isinstance(item, dict) and item.get("category") in {"duas", "azkar", "adhan"}
     ]
     return sorted(selected, key=lambda item: (item.get("category") != "duas", item.get("name", "")))

@@ -1179,20 +1179,21 @@ def test_adhan_duplicate_suppression(reminder_engine, monkeypatch, tmp_path):
         "message": "It is time for Maghrib prayer.",
     }]
 
-    # Configure adhan with a target node and media_id
+    # Configure adhan with a target node (no explicit media_id — use auto-discovery)
     original = prayer_store.read()
     original["settings"]["adhan_enabled"] = True
     original["settings"]["adhan_target_node"] = "test-pi"
-    original["settings"]["adhan_media_id"] = "test-adhan-media"
+    original["settings"]["adhan_media_id"] = None
     prayer_store.write(original)
 
     monkeypatch.setattr(
         prayer_intelligence_service, "due_events",
         lambda now=None: {"status": "ok", "due_count": 1, "events": fixed_event}
     )
+    # Mock auto-discovery to return a valid media_id
     monkeypatch.setattr(
         prayer_intelligence_service, "_find_adhan_media_id",
-        lambda: "test-adhan-media"
+        lambda: "verified-adhan-1"
     )
     try:
         # First check — should fire
@@ -1233,7 +1234,7 @@ def test_adhan_playback_success(reminder_engine, monkeypatch):
     original = prayer_store.read()
     original["settings"]["adhan_enabled"] = True
     original["settings"]["adhan_target_node"] = "test-pi"
-    original["settings"]["adhan_media_id"] = "verified-adhan-1"
+    original["settings"]["adhan_media_id"] = None
     prayer_store.write(original)
 
     monkeypatch.setattr(
@@ -1267,7 +1268,7 @@ def test_adhan_playback_failure_no_laptop_fallback(reminder_engine, monkeypatch)
     original = prayer_store.read()
     original["settings"]["adhan_enabled"] = True
     original["settings"]["adhan_target_node"] = "test-pi"
-    original["settings"]["adhan_media_id"] = "verified-adhan-1"
+    original["settings"]["adhan_media_id"] = None
     prayer_store.write(original)
 
     fixed_event = [{
@@ -1344,8 +1345,341 @@ def test_adhan_no_media_no_fabricated_audio(reminder_engine, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# 29. Islamic Learning: framework tests (NOT fabricated content counts)
+# 28b. Adhan safety tests (false dua match, failed-playback dedup)
 # ---------------------------------------------------------------------------
+
+
+def test_dua_when_hearing_athan_not_accepted_as_adhan(reminder_engine, monkeypatch):
+    """Dua When Hearing the Athan (category=duas) must NOT be accepted as Adhan.
+
+    _find_adhan_media_id must only return media with category == "adhan".
+    Duas/Azkar that merely mention 'athan' in their name are NOT Adhan media.
+    """
+    from services.prayer_intelligence.service import prayer_intelligence_service
+    from services.islamic_audio_rules.catalog import catalog_items
+
+    # Verify the real catalog contents
+    items = catalog_items()
+    dua_when_hearing = [
+        i for i in items
+        if "athan" in (i.get("name") or "").lower() and i.get("category") == "duas"
+    ]
+    # Ensure at least one such dua exists in the catalog (the false positive case)
+    assert len(dua_when_hearing) >= 1, "Expected Dua When Hearing the Athan in catalog"
+
+    # _find_adhan_media_id must NOT return any duas/azkar item
+    media_id = prayer_intelligence_service._find_adhan_media_id()
+    if media_id is not None:
+        # If it returns something, it MUST be category == "adhan"
+        matched = [
+            i for i in items
+            if str(i.get("id")) == str(media_id)
+        ]
+        assert len(matched) >= 1
+        assert matched[0]["category"] == "adhan", (
+            f"Auto-discovered media_id {media_id} is "
+            f"category={matched[0]['category']}, not 'adhan'"
+        )
+        # The dua must NOT be the one returned
+        dua_ids = {str(i["id"]) for i in dua_when_hearing}
+        assert media_id not in dua_ids, (
+            f"False positive: Dua When Hearing the Athan "
+            f"(id={media_id}) was returned as Adhan"
+        )
+    # If no real adhan media exists in catalog, media_id is None
+    # (currently we have beautiful_adhan_cc0.mp3 as category="adhan")
+
+
+def test_explicit_dowa_media_id_not_valid_adhan(reminder_engine, monkeypatch):
+    """An explicitly configured Dua/Azkar media_id must NOT be treated as Adhan.
+
+    If a Dua media_id is placed in adhan_media_id, it must fail validation
+    and produce ADHAN_MEDIA_REQUIRED.
+    """
+    from services.prayer_intelligence.service import prayer_intelligence_service
+    from services.prayer_intelligence.store import prayer_store
+    from services.islamic_audio_rules.catalog import catalog_items
+
+    # Find a real duas or azkar media_id
+    items = catalog_items()
+    dua_item = next(
+        (i for i in items if i.get("category") in {"duas", "azkar"}), None
+    )
+    if dua_item is None:
+        # If no duas/azkar exist, skip gracefully
+        return
+
+    daa_media_id = str(dua_item["id"])
+
+    # Configure explicit adhan_media_id as a dua
+    original = prayer_store.read()
+    original["settings"]["adhan_enabled"] = True
+    original["settings"]["adhan_target_node"] = "test-pi"
+    original["settings"]["adhan_media_id"] = daa_media_id
+    prayer_store.write(original)
+
+    try:
+        adhan = prayer_intelligence_service.adhan_settings()
+        # Explicit dua media_id must be rejected
+        assert adhan["adhan_media_id"] is None, (
+            f"Dua media_id '{daa_media_id}' (category={dua_item['category']}) "
+            f"was accepted as Adhan — validation bug"
+        )
+        assert adhan["verified_adhan_media_available"] is False
+        assert adhan["media_state"] == prayer_intelligence_service.ADHAN_MEDIA_REQUIRED
+    finally:
+        original["settings"].pop("adhan_media_id", None)
+        original["settings"].pop("adhan_target_node", None)
+        prayer_store.write(original)
+
+
+def test_category_adhan_media_discovered(reminder_engine, monkeypatch):
+    """Real catalog category=adhan media must be discovered and accepted."""
+    from services.prayer_intelligence.service import prayer_intelligence_service
+    from services.islamic_audio_rules.catalog import catalog_items
+
+    items = catalog_items()
+    adhan_items = [i for i in items if i.get("category") == "adhan"]
+    assert len(adhan_items) >= 1, "Expected at least one category=adhan media in catalog"
+
+    # _find_adhan_media_id must return the real adhan media ID
+    media_id = prayer_intelligence_service._find_adhan_media_id()
+    assert media_id is not None, "Adhan media should be discovered from catalog"
+
+    # The returned media_id must correspond to a category=adhan item
+    matched = [i for i in items if str(i["id"]) == str(media_id)]
+    assert len(matched) == 1
+    assert matched[0]["category"] == "adhan"
+
+    # adhan_settings must reflect verified media
+    adhan = prayer_intelligence_service.adhan_settings()
+    assert adhan["adhan_media_id"] == media_id
+    assert adhan["verified_adhan_media_available"] is True
+    assert adhan["media_state"] == "verified"
+
+
+def test_explicit_valid_adhan_media_id_accepted(reminder_engine, monkeypatch):
+    """An explicitly configured valid Adhan media_id must be accepted."""
+    from services.prayer_intelligence.service import prayer_intelligence_service
+    from services.prayer_intelligence.store import prayer_store
+    from services.islamic_audio_rules.catalog import catalog_items
+
+    items = catalog_items()
+    adhan_items = [i for i in items if i.get("category") == "adhan"]
+    assert len(adhan_items) >= 1
+
+    valid_adhan_id = str(adhan_items[0]["id"])
+
+    original = prayer_store.read()
+    original["settings"]["adhan_enabled"] = True
+    original["settings"]["adhan_target_node"] = "test-pi"
+    original["settings"]["adhan_media_id"] = valid_adhan_id
+    prayer_store.write(original)
+
+    try:
+        adhan = prayer_intelligence_service.adhan_settings()
+        assert adhan["adhan_media_id"] == valid_adhan_id
+        assert adhan["verified_adhan_media_available"] is True
+        assert adhan["media_state"] == "verified"
+    finally:
+        original["settings"].pop("adhan_media_id", None)
+        original["settings"].pop("adhan_target_node", None)
+        prayer_store.write(original)
+
+
+def test_no_adhan_media_truthful_state(reminder_engine, monkeypatch):
+    """When no valid Adhan media is available (mocked None), state is ADHAN_MEDIA_REQUIRED."""
+    from services.prayer_intelligence.service import prayer_intelligence_service
+    from services.prayer_intelligence.store import prayer_store
+
+    original = prayer_store.read()
+    original["settings"]["adhan_enabled"] = True
+    original["settings"]["adhan_target_node"] = "test-pi"
+    original["settings"]["adhan_media_id"] = None
+    prayer_store.write(original)
+
+    # Mock both auto-discovery and validation to return None
+    monkeypatch.setattr(
+        prayer_intelligence_service, "_find_adhan_media_id", lambda: None
+    )
+    monkeypatch.setattr(
+        prayer_intelligence_service, "_validate_adhan_media_id", lambda mid: None
+    )
+
+    try:
+        adhan = prayer_intelligence_service.adhan_settings()
+        assert adhan["adhan_media_id"] is None
+        assert adhan["verified_adhan_media_available"] is False
+        assert adhan["media_state"] == prayer_intelligence_service.ADHAN_MEDIA_REQUIRED
+
+        # And check_adhan_due with no media returns truthful state
+        fixed_event = [{
+            "kind": "adhan",
+            "prayer": "asr",
+            "time": "2026-08-15T16:30:00",
+            "message": "It is time for Asr prayer.",
+        }]
+        monkeypatch.setattr(
+            prayer_intelligence_service, "due_events",
+            lambda now=None: {"status": "ok", "due_count": 1, "events": fixed_event}
+        )
+        result = prayer_intelligence_service.check_adhan_due()
+        assert result["media_state"] == prayer_intelligence_service.ADHAN_MEDIA_REQUIRED
+        assert result["status"] == "required"
+    finally:
+        original["settings"].pop("adhan_media_id", None)
+        original["settings"].pop("adhan_target_node", None)
+        prayer_store.write(original)
+
+
+def test_adhan_check_route_single_call(reminder_engine, monkeypatch):
+    """The /adhan/check route must invoke check_adhan_due EXACTLY ONCE."""
+    from services.prayer_intelligence.service import prayer_intelligence_service
+    from fastapi.testclient import TestClient
+    from main import app
+
+    call_count = [0]
+    def counting_check(now=None):
+        call_count[0] += 1
+        return {
+            "status": "suppressed",
+            "events": [],
+            "media_state": "verified",
+        }
+    monkeypatch.setattr(
+        prayer_intelligence_service, "check_adhan_due", counting_check
+    )
+
+    client = TestClient(app)
+    response = client.post("/api/prayer-intelligence/adhan/check")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "suppressed"
+    assert call_count[0] == 1, (
+        f"check_adhan_due was called {call_count[0]} times, expected exactly 1"
+    )
+
+
+def test_failed_playback_not_deduped_allows_retry(reminder_engine, monkeypatch):
+    """Failed adhan playback must NOT mark the occurrence as fired.
+
+    A failed occurrence (status=failed) must NOT suppress retries.
+    Only successful playback (status=fired) suppresses future attempts.
+    """
+    from services.prayer_intelligence.service import prayer_intelligence_service
+    from services.prayer_intelligence.store import prayer_store
+    from services.playback_router.router import NodeUnavailableError
+
+    original = prayer_store.read()
+    original["settings"]["adhan_enabled"] = True
+    original["settings"]["adhan_target_node"] = "test-pi"
+    original["settings"]["adhan_media_id"] = None
+    prayer_store.write(original)
+
+    fixed_event = [{
+        "kind": "adhan",
+        "prayer": "maghrib",
+        "time": "2026-08-15T19:00:00",
+        "message": "It is time for Maghrib prayer.",
+    }]
+
+    monkeypatch.setattr(
+        prayer_intelligence_service, "due_events",
+        lambda now=None: {"status": "ok", "due_count": 1, "events": fixed_event}
+    )
+    monkeypatch.setattr(
+        prayer_intelligence_service, "_find_adhan_media_id",
+        lambda: "verified-adhan-1"
+    )
+
+    # Patch playback to fail
+    import services.playback_router.router as playback_module
+    original_play = playback_module.playback_router.play
+    call_count = [0]
+    def failing_play(payload):
+        call_count[0] += 1
+        raise NodeUnavailableError("Pi offline for retry test")
+    playback_module.playback_router.play = failing_play
+
+    try:
+        # First check — playback fails
+        result1 = prayer_intelligence_service.check_adhan_due()
+        assert result1["status"] == "failed"
+        assert call_count[0] == 1
+
+        # Verify the stored event has status="failed", NOT "fired"
+        events = [
+            ev for ev in prayer_store.list_events(5000)
+            if ev.get("kind") == "adhan" and ev.get("prayer") == "maghrib"
+        ]
+        assert len(events) >= 1
+        assert events[-1]["status"] == "failed", (
+            "Failed playback must be recorded as status='failed', not 'fired'"
+        )
+
+        # Second check — should RETRY (not suppressed because last attempt failed)
+        result2 = prayer_intelligence_service.check_adhan_due()
+        assert result2["status"] == "failed"
+        assert call_count[0] == 2, (
+            "Failed playback must not be deduped — retry should occur"
+        )
+    finally:
+        playback_module.playback_router.play = original_play
+        original["settings"]["adhan_target_node"] = "existing-pi-audio"
+        original["settings"].pop("adhan_media_id", None)
+        prayer_store.write(original)
+
+
+def test_successful_playback_marks_fired_and_suppresses(reminder_engine, monkeypatch):
+    """Successful adhan playback marks status=fired and suppresses retries."""
+    from services.prayer_intelligence.service import prayer_intelligence_service
+    from services.prayer_intelligence.store import prayer_store
+
+    calls = _patch_playback(monkeypatch)
+
+    fixed_event = [{
+        "kind": "adhan",
+        "prayer": "isha",
+        "time": "2026-08-15T21:00:00",
+        "message": "It is time for Isha prayer.",
+    }]
+
+    original = prayer_store.read()
+    original["settings"]["adhan_enabled"] = True
+    original["settings"]["adhan_target_node"] = "test-pi"
+    original["settings"]["adhan_media_id"] = None
+    prayer_store.write(original)
+
+    monkeypatch.setattr(
+        prayer_intelligence_service, "due_events",
+        lambda now=None: {"status": "ok", "due_count": 1, "events": fixed_event}
+    )
+    monkeypatch.setattr(
+        prayer_intelligence_service, "_find_adhan_media_id",
+        lambda: "verified-adhan-1"
+    )
+
+    try:
+        # First check — should play successfully
+        result1 = prayer_intelligence_service.check_adhan_due()
+        assert result1["status"] == "played"
+        assert len(calls) == 1
+
+        # Verify stored event has status="fired"
+        events = [
+            ev for ev in prayer_store.list_events(5000)
+            if ev.get("kind") == "adhan" and ev.get("prayer") == "isha"
+        ]
+        assert len(events) >= 1
+        assert events[-1]["status"] == "fired"
+
+        # Second check — same prayer+time must be suppressed
+        result2 = prayer_intelligence_service.check_adhan_due()
+        assert result2["status"] == "suppressed"
+        assert len(calls) == 1  # No additional playback
+    finally:
+        original["settings"]["adhan_target_node"] = "existing-pi-audio"
+        prayer_store.write(original)
 
 
 def test_islamic_learning_health(islamic_store):

@@ -140,19 +140,9 @@ async def adhan_settings() -> dict[str, Any]:
     ADHAN_MEDIA_REQUIRED — never silently substitutes TTS or fabricated
     audio as Adhan.
     """
-    settings = await asyncio.to_thread(prayer_intelligence_service.settings)
-    adhan = await asyncio.to_thread(prayer_intelligence_service.adhan_settings)
-    media_id = adhan.get("adhan_media_id") or await asyncio.to_thread(
-        prayer_intelligence_service._find_adhan_media_id
-    )
     return {
         "status": "ok",
-        "adhan_enabled": adhan["adhan_enabled"],
-        "adhan_target_node": adhan["adhan_target_node"],
-        "adhan_lead_minutes": adhan["adhan_lead_minutes"],
-        "adhan_media_id": adhan["adhan_media_id"],
-        "verified_adhan_media_available": bool(media_id),
-        "media_state": "verified" if media_id else "ADHAN_MEDIA_REQUIRED",
+        **prayer_intelligence_service.adhan_settings(),
     }
 
 
@@ -166,15 +156,10 @@ async def update_adhan_settings(
                 "adhan_lead_minutes", "adhan_media_id"):
         if key in payload:
             changes[key] = payload[key]
-    updated = await asyncio.to_thread(prayer_store.update_settings, changes)
-    adhan = await asyncio.to_thread(prayer_intelligence_service.adhan_settings)
-    media_id = adhan.get("adhan_media_id") or await asyncio.to_thread(
-        prayer_intelligence_service._find_adhan_media_id
-    )
+    await asyncio.to_thread(prayer_store.update_settings, changes)
     return {
         "status": "updated",
-        "adhan": adhan,
-        "media_state": "verified" if media_id else "ADHAN_MEDIA_REQUIRED",
+        **prayer_intelligence_service.adhan_settings(),
     }
 
 
@@ -187,7 +172,6 @@ async def check_adhan(
     All playback is routed through the authoritative Playback Router.
     No laptop audio fallback. No real network in tests (playback is patched).
     """
-    await asyncio.to_thread(prayer_intelligence_service.check_adhan_due)
     return await asyncio.to_thread(
         prayer_intelligence_service.check_adhan_due,
         payload.get("now") if payload else None,

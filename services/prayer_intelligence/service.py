@@ -175,6 +175,10 @@ class PrayerIntelligenceService:
     def _find_adhan_media_id(self) -> str | None:
         """Search the verified media catalog for an Adhan audio item.
 
+        Only media explicitly classified as Adhan (category == "adhan")
+        is accepted. Duas and Azkar that merely mention "adhan" in their
+        name are NOT Adhan media.
+
         Returns the media_id of a verified Adhan media item, or None if
         no verified Adhan media exists.
         """
@@ -182,25 +186,64 @@ class PrayerIntelligenceService:
             from services.islamic_audio_rules.catalog import catalog_items
             items = catalog_items()
             for item in items:
-                name = str(item.get("name") or "").lower()
-                if "adhan" in name or "athan" in name:
-                    if item.get("category") in {"duas", "azkar", "adhan"}:
-                        return str(item.get("id"))
+                if item.get("category") == "adhan":
+                    return str(item.get("id"))
             return None
         except Exception:
             return None
 
     def adhan_settings(self) -> dict[str, Any]:
-        """Return Adhan-specific configuration from prayer store settings."""
+        """Return Adhan-specific configuration from prayer store settings.
+
+        Truthfully reports media availability:
+        - If adhan_media_id is explicitly configured, it is only considered
+          valid if the referenced catalog item has category == "adhan".
+        - Otherwise, auto-discovery via _find_adhan_media_id() is used.
+        - If no valid Adhan media is found, media_state is ADHAN_MEDIA_REQUIRED
+          and verified_adhan_media_available is false.
+        """
         raw = self.settings()
+        explicit_media_id = str(raw.get("adhan_media_id") or "").strip() or None
+
+        # Validate explicit media_id against safe contract
+        media_id = explicit_media_id
+        if media_id:
+            media_id = self._validate_adhan_media_id(media_id)
+        else:
+            media_id = self._find_adhan_media_id()
+
         return {
             "adhan_enabled": bool(raw.get("adhan_enabled", True)),
             "adhan_target_node": str(
                 raw.get("adhan_target_node") or raw.get("playback_node") or ""
             ).strip() or None,
             "adhan_lead_minutes": int(raw.get("adhan_lead_minutes", 0)),
-            "adhan_media_id": str(raw.get("adhan_media_id") or "").strip() or None,
+            "adhan_media_id": media_id,
+            "verified_adhan_media_available": media_id is not None,
+            "media_state": (
+                "verified" if media_id else self.ADHAN_MEDIA_REQUIRED
+            ),
         }
+
+    def _validate_adhan_media_id(self, media_id: str) -> str | None:
+        """Validate that an explicitly configured media_id is actual Adhan media.
+
+        A Dua/Azkar media ID must NOT become valid Adhan simply because
+        it was manually placed in adhan_media_id.
+        """
+        try:
+            from services.islamic_audio_rules.catalog import catalog_items
+            items = catalog_items()
+            for item in items:
+                if str(item.get("id")) == str(media_id):
+                    if item.get("category") == "adhan":
+                        return str(item.get("id"))
+                    # Explicitly configured media that is not Adhan
+                    return None
+            # Configured media_id not found in catalog
+            return None
+        except Exception:
+            return None
 
     def check_adhan_due(
         self, now: datetime | None = None
@@ -220,9 +263,7 @@ class PrayerIntelligenceService:
             return {
                 "status": "disabled",
                 "events": [],
-                "media_state": self.ADHAN_MEDIA_REQUIRED
-                if not adhan_cfg.get("adhan_media_id")
-                else "verified",
+                "media_state": adhan_cfg["media_state"],
             }
 
         due = self.due_events(now)
@@ -234,15 +275,11 @@ class PrayerIntelligenceService:
             return {
                 "status": "suppressed",
                 "events": [],
-                "media_state": self.ADHAN_MEDIA_REQUIRED,
+                "media_state": adhan_cfg["media_state"],
             }
 
-        # Determine the media_id: explicit config or auto-discovered verified media
-        media_id = (
-            adhan_cfg.get("adhan_media_id")
-            or self._find_adhan_media_id()
-        )
-
+        # media_id is already validated in adhan_settings()
+        media_id = adhan_cfg["adhan_media_id"]
         if not media_id:
             # No verified Adhan media available — return truthful state
             return {
@@ -256,18 +293,19 @@ class PrayerIntelligenceService:
             return {
                 "status": "required",
                 "events": adhan_events,
-                "media_state": self.ADHAN_MEDIA_REQUIRED,
+                "media_state": adhan_cfg["media_state"],
             }
 
-        # Deduplication: skip adhan events whose prayer+time we already fired
-        already_fired = {
+        # Deduplication: only suppress events that were SUCCESSFULLY fired.
+        # Failed playback attempts must NOT prevent retries.
+        already_successfully_fired = {
             (ev.get("prayer"), ev.get("time"))
             for ev in prayer_store.list_events(5000)
-            if ev.get("kind") == "adhan"
+            if ev.get("kind") == "adhan" and ev.get("status") == "fired"
         }
         pending_events = [
             ev for ev in adhan_events
-            if (ev.get("prayer"), ev.get("time")) not in already_fired
+            if (ev.get("prayer"), ev.get("time")) not in already_successfully_fired
         ]
 
         if not pending_events:
@@ -294,7 +332,9 @@ class PrayerIntelligenceService:
             }
             played = False
 
-        # Record the adhan attempt and mark fired for deduplication
+        # Record the adhan attempt.
+        # Only SUCCESSFULLY played events get status="fired" for deduplication.
+        # Failed playback gets status="failed" and is eligible for retry.
         for ev in pending_events:
             prayer_store.add_event({
                 "kind": "adhan",
@@ -304,7 +344,7 @@ class PrayerIntelligenceService:
                 "target_node": target_node,
                 "media_id": media_id,
                 "delivery": playback_result,
-                "status": "fired",
+                "status": "fired" if played else "failed",
             })
 
         return {
