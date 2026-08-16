@@ -130,3 +130,65 @@ async def events(
         "count": len(items),
         "events": items,
     }
+
+
+@router.get("/adhan/settings")
+async def adhan_settings() -> dict[str, Any]:
+    """Return current Adhan configuration (enabled, target_node, media).
+
+    Truthful: if no verified Adhan media is configured/found, reports
+    ADHAN_MEDIA_REQUIRED — never silently substitutes TTS or fabricated
+    audio as Adhan.
+    """
+    settings = await asyncio.to_thread(prayer_intelligence_service.settings)
+    adhan = await asyncio.to_thread(prayer_intelligence_service.adhan_settings)
+    media_id = adhan.get("adhan_media_id") or await asyncio.to_thread(
+        prayer_intelligence_service._find_adhan_media_id
+    )
+    return {
+        "status": "ok",
+        "adhan_enabled": adhan["adhan_enabled"],
+        "adhan_target_node": adhan["adhan_target_node"],
+        "adhan_lead_minutes": adhan["adhan_lead_minutes"],
+        "adhan_media_id": adhan["adhan_media_id"],
+        "verified_adhan_media_available": bool(media_id),
+        "media_state": "verified" if media_id else "ADHAN_MEDIA_REQUIRED",
+    }
+
+
+@router.patch("/adhan/settings")
+async def update_adhan_settings(
+    payload: dict[str, Any] = Body(...),
+) -> dict[str, Any]:
+    """Update Adhan configuration: enabled, target_node, lead_minutes, media_id."""
+    changes = {}
+    for key in ("adhan_enabled", "adhan_target_node",
+                "adhan_lead_minutes", "adhan_media_id"):
+        if key in payload:
+            changes[key] = payload[key]
+    updated = await asyncio.to_thread(prayer_store.update_settings, changes)
+    adhan = await asyncio.to_thread(prayer_intelligence_service.adhan_settings)
+    media_id = adhan.get("adhan_media_id") or await asyncio.to_thread(
+        prayer_intelligence_service._find_adhan_media_id
+    )
+    return {
+        "status": "updated",
+        "adhan": adhan,
+        "media_state": "verified" if media_id else "ADHAN_MEDIA_REQUIRED",
+    }
+
+
+@router.post("/adhan/check")
+async def check_adhan(
+    payload: dict[str, Any] | None = Body(default=None),
+) -> dict[str, Any]:
+    """Poll for due prayers and attempt Adhan playback via Playback Router.
+
+    All playback is routed through the authoritative Playback Router.
+    No laptop audio fallback. No real network in tests (playback is patched).
+    """
+    await asyncio.to_thread(prayer_intelligence_service.check_adhan_due)
+    return await asyncio.to_thread(
+        prayer_intelligence_service.check_adhan_due,
+        payload.get("now") if payload else None,
+    )

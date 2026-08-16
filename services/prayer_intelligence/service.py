@@ -162,5 +162,168 @@ class PrayerIntelligenceService:
         })
         return result
 
+    # --------------------------------------------------
+    # Adhan integration
+    #
+    # Uses Prayer Intelligence as the authoritative prayer-time source.
+    # Uses Playback Router as the authoritative audio output.
+    # Laptop fallback MUST remain False.
+    # --------------------------------------------------
+
+    ADHAN_MEDIA_REQUIRED = "ADHAN_MEDIA_REQUIRED"
+
+    def _find_adhan_media_id(self) -> str | None:
+        """Search the verified media catalog for an Adhan audio item.
+
+        Returns the media_id of a verified Adhan media item, or None if
+        no verified Adhan media exists.
+        """
+        try:
+            from services.islamic_audio_rules.catalog import catalog_items
+            items = catalog_items()
+            for item in items:
+                name = str(item.get("name") or "").lower()
+                if "adhan" in name or "athan" in name:
+                    if item.get("category") in {"duas", "azkar", "adhan"}:
+                        return str(item.get("id"))
+            return None
+        except Exception:
+            return None
+
+    def adhan_settings(self) -> dict[str, Any]:
+        """Return Adhan-specific configuration from prayer store settings."""
+        raw = self.settings()
+        return {
+            "adhan_enabled": bool(raw.get("adhan_enabled", True)),
+            "adhan_target_node": str(
+                raw.get("adhan_target_node") or raw.get("playback_node") or ""
+            ).strip() or None,
+            "adhan_lead_minutes": int(raw.get("adhan_lead_minutes", 0)),
+            "adhan_media_id": str(raw.get("adhan_media_id") or "").strip() or None,
+        }
+
+    def check_adhan_due(
+        self, now: datetime | None = None
+    ) -> dict[str, Any]:
+        """Check for prayer times that are due and attempt Adhan playback.
+
+        Returns a dict with:
+        - status: "played", "suppressed", "disabled", or "required"
+        - events: list of prayer events that were due
+        - result: playback result (if played)
+        - media_state: "verified" or ADHAN_MEDIA_REQUIRED
+        """
+        raw = self.settings()
+        adhan_cfg = self.adhan_settings()
+
+        if not adhan_cfg["adhan_enabled"]:
+            return {
+                "status": "disabled",
+                "events": [],
+                "media_state": self.ADHAN_MEDIA_REQUIRED
+                if not adhan_cfg.get("adhan_media_id")
+                else "verified",
+            }
+
+        due = self.due_events(now)
+        adhan_events = [
+            ev for ev in due.get("events", []) if ev.get("kind") == "adhan"
+        ]
+
+        if not adhan_events:
+            return {
+                "status": "suppressed",
+                "events": [],
+                "media_state": self.ADHAN_MEDIA_REQUIRED,
+            }
+
+        # Determine the media_id: explicit config or auto-discovered verified media
+        media_id = (
+            adhan_cfg.get("adhan_media_id")
+            or self._find_adhan_media_id()
+        )
+
+        if not media_id:
+            # No verified Adhan media available — return truthful state
+            return {
+                "status": "required",
+                "events": adhan_events,
+                "media_state": self.ADHAN_MEDIA_REQUIRED,
+            }
+
+        target_node = adhan_cfg["adhan_target_node"]
+        if not target_node:
+            return {
+                "status": "required",
+                "events": adhan_events,
+                "media_state": self.ADHAN_MEDIA_REQUIRED,
+            }
+
+        # Deduplication: skip adhan events whose prayer+time we already fired
+        already_fired = {
+            (ev.get("prayer"), ev.get("time"))
+            for ev in prayer_store.list_events(5000)
+            if ev.get("kind") == "adhan"
+        }
+        pending_events = [
+            ev for ev in adhan_events
+            if (ev.get("prayer"), ev.get("time")) not in already_fired
+        ]
+
+        if not pending_events:
+            return {
+                "status": "suppressed",
+                "events": [],
+                "media_state": "verified",
+            }
+
+        # Playback via authoritative Playback Router — no laptop fallback
+        try:
+            from services.playback_router import playback_router
+            playback_result = playback_router.play({
+                "target_node": target_node,
+                "type": "media",
+                "media_id": media_id,
+            })
+            played = playback_result.get("status") in {"played", "accepted", "playing"}
+        except Exception as exc:
+            playback_result = {
+                "status": "failed",
+                "error": str(exc),
+                "laptop_fallback": False,
+            }
+            played = False
+
+        # Record the adhan attempt and mark fired for deduplication
+        for ev in pending_events:
+            prayer_store.add_event({
+                "kind": "adhan",
+                "prayer": ev.get("prayer"),
+                "time": ev.get("time"),
+                "message": ev.get("message"),
+                "target_node": target_node,
+                "media_id": media_id,
+                "delivery": playback_result,
+                "status": "fired",
+            })
+
+        return {
+            "status": "played" if played else "failed",
+            "events": pending_events,
+            "result": playback_result,
+            "media_state": "verified" if media_id else self.ADHAN_MEDIA_REQUIRED,
+        }
+
+    def mark_adhan_fired(self, prayer: str) -> None:
+        """Record that an adhan has been fired for this prayer occurrence.
+
+        Used for deduplication across polling restarts.
+        """
+        prayer_store.add_event({
+            "kind": "adhan",
+            "prayer": prayer,
+            "status": "fired",
+        })
+
 
 prayer_intelligence_service = PrayerIntelligenceService()

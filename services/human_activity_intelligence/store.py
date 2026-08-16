@@ -368,6 +368,15 @@ class ActivityStore:
             conn = self._ensure_connection()
             return int(conn.execute("SELECT COUNT(*) FROM activity_events").fetchone()[0])
 
+    def count_events(self, event_type: str) -> int:
+        """Count events of a specific event_type (for dashboard summaries)."""
+        with self._lock:
+            conn = self._ensure_connection()
+            return int(conn.execute(
+                "SELECT COUNT(*) FROM activity_events WHERE event_type = ?",
+                (str(event_type),),
+            ).fetchone()[0])
+
     # ------------------------------------------------------------------
     # activity sessions
     # ------------------------------------------------------------------

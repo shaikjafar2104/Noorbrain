@@ -1061,6 +1061,289 @@ def test_activity_event_flows_to_reminder_rules(hai_engine, reminder_engine, pla
 
 
 # ---------------------------------------------------------------------------
+# 28. Prayer / Adhan integration with Playback Router
+# ---------------------------------------------------------------------------
+
+
+def _patch_playback(monkeypatch):
+    """Patch the authoritative playback_router singleton used by production code."""
+    import services.playback_router.router as playback_module
+    calls = []
+    def fake_play(payload):
+        calls.append(payload)
+        return {"status": "played"}
+    monkeypatch.setattr(playback_module.playback_router, "play", fake_play)
+    return calls
+
+
+def test_prayer_event_mapping(reminder_engine):
+    """Prayer Intelligence produces adhan events with kind=adhan + prayer name."""
+    from services.prayer_intelligence.service import prayer_intelligence_service
+    from datetime import datetime, timezone, timedelta
+    from zoneinfo import ZoneInfo
+
+    # Use a timezone-aware now that aligns with config settings
+    settings = prayer_intelligence_service.settings()
+    zone = ZoneInfo(str(settings["timezone"]))
+    now = datetime.now(zone)
+
+    # due_events should produce structured prayer events
+    result = prayer_intelligence_service.due_events(now)
+    assert result["status"] == "ok"
+    assert isinstance(result["events"], list)
+    # Each event has kind, prayer, time, message fields
+    for ev in result["events"]:
+        assert "kind" in ev
+        assert "prayer" in ev
+        assert "time" in ev
+
+
+def test_adhan_configured_target_node(reminder_engine):
+    """Adhan config includes target_node from prayer settings."""
+    from services.prayer_intelligence.service import prayer_intelligence_service
+    adhan = prayer_intelligence_service.adhan_settings()
+    assert "adhan_enabled" in adhan
+    assert "adhan_target_node" in adhan
+    assert "adhan_lead_minutes" in adhan
+    assert "adhan_media_id" in adhan
+
+
+def test_adhan_disabled_returns_disabled(reminder_engine):
+    """When adhan_enabled=False, check_adhan_due returns status=disabled."""
+    from services.prayer_intelligence.service import prayer_intelligence_service
+    from services.prayer_intelligence.store import prayer_store
+    import time
+
+    # Temporarily disable adhan
+    original = prayer_store.read()
+    original["settings"]["adhan_enabled"] = False
+    prayer_store.write(original)
+    try:
+        result = prayer_intelligence_service.check_adhan_due()
+        assert result["status"] == "disabled"
+        assert result["events"] == []
+    finally:
+        # Restore
+        original["settings"]["adhan_enabled"] = True
+        prayer_store.write(original)
+
+
+def test_adhan_missing_media_truthful_state(reminder_engine, monkeypatch):
+    """Without verified Adhan media, check returns ADHAN_MEDIA_REQUIRED."""
+    from services.prayer_intelligence.service import prayer_intelligence_service
+    from services.prayer_intelligence.store import prayer_store
+
+    # Ensure no explicit media_id and _find_adhan_media_id returns None
+    original_data = prayer_store.read()
+    original_data["settings"]["adhan_media_id"] = None
+    original_data["settings"]["adhan_target_node"] = "test-pi"
+    prayer_store.write(original_data)
+    monkeypatch.setattr(
+        prayer_intelligence_service, "_find_adhan_media_id", lambda: None
+    )
+    # Patch due_events to return a fixed adhan event
+    fixed_event = [{
+        "kind": "adhan",
+        "prayer": "asr",
+        "time": "2026-08-15T16:30:00",
+        "message": "It is time for Asr prayer.",
+    }]
+    monkeypatch.setattr(
+        prayer_intelligence_service, "due_events",
+        lambda now=None: {"status": "ok", "due_count": 1, "events": fixed_event}
+    )
+    try:
+        result = prayer_intelligence_service.check_adhan_due()
+        assert result["media_state"] == prayer_intelligence_service.ADHAN_MEDIA_REQUIRED
+        assert result["status"] == "required"
+    finally:
+        # Restore original settings
+        original_data["settings"].pop("adhan_media_id", None)
+        original_data["settings"].pop("adhan_target_node", None)
+        prayer_store.write(original_data)
+
+
+def test_adhan_duplicate_suppression(reminder_engine, monkeypatch, tmp_path):
+    """A single prayer occurrence must not repeatedly trigger adhan."""
+    from services.prayer_intelligence.service import prayer_intelligence_service
+    from services.prayer_intelligence.store import prayer_store
+    from datetime import datetime, timezone
+
+    calls = _patch_playback(monkeypatch)
+
+    # Patch due_events to return a fixed adhan event
+    fixed_event = [{
+        "kind": "adhan",
+        "prayer": "maghrib",
+        "time": "2026-08-15T19:00:00",
+        "message": "It is time for Maghrib prayer.",
+    }]
+
+    # Configure adhan with a target node and media_id
+    original = prayer_store.read()
+    original["settings"]["adhan_enabled"] = True
+    original["settings"]["adhan_target_node"] = "test-pi"
+    original["settings"]["adhan_media_id"] = "test-adhan-media"
+    prayer_store.write(original)
+
+    monkeypatch.setattr(
+        prayer_intelligence_service, "due_events",
+        lambda now=None: {"status": "ok", "due_count": 1, "events": fixed_event}
+    )
+    monkeypatch.setattr(
+        prayer_intelligence_service, "_find_adhan_media_id",
+        lambda: "test-adhan-media"
+    )
+    try:
+        # First check — should fire
+        result1 = prayer_intelligence_service.check_adhan_due()
+        assert result1["status"] == "played"
+        assert len(calls) == 1
+
+        # Second check — same occurrence must be suppressed by dedup
+        result2 = prayer_intelligence_service.check_adhan_due()
+        assert result2["status"] == "suppressed"
+        assert len(calls) == 1  # No additional playback call
+
+        # Three more checks — still suppressed
+        prayer_intelligence_service.check_adhan_due()
+        prayer_intelligence_service.check_adhan_due()
+        assert len(calls) == 1  # Still only one playback call total
+    finally:
+        original["settings"]["adhan_enabled"] = True
+        original["settings"].pop("adhan_target_node", None)
+        original["settings"].pop("adhan_media_id", None)
+        prayer_store.write(original)
+
+
+def test_adhan_playback_success(reminder_engine, monkeypatch):
+    """Successful adhan playback returns status=played, no laptop fallback."""
+    from services.prayer_intelligence.service import prayer_intelligence_service
+    from services.prayer_intelligence.store import prayer_store
+
+    calls = _patch_playback(monkeypatch)
+
+    fixed_event = [{
+        "kind": "adhan",
+        "prayer": "fajr",
+        "time": "2026-08-15T04:30:00",
+        "message": "It is time for Fajr prayer.",
+    }]
+
+    original = prayer_store.read()
+    original["settings"]["adhan_enabled"] = True
+    original["settings"]["adhan_target_node"] = "test-pi"
+    original["settings"]["adhan_media_id"] = "verified-adhan-1"
+    prayer_store.write(original)
+
+    monkeypatch.setattr(
+        prayer_intelligence_service, "due_events",
+        lambda now=None: {"status": "ok", "due_count": 1, "events": fixed_event}
+    )
+    monkeypatch.setattr(
+        prayer_intelligence_service, "_find_adhan_media_id",
+        lambda: "verified-adhan-1"
+    )
+    try:
+        result = prayer_intelligence_service.check_adhan_due()
+        assert result["status"] == "played"
+        assert result["media_state"] == "verified"
+        assert len(calls) == 1
+        assert calls[0]["target_node"] == "test-pi"
+        assert calls[0]["type"] == "media"
+        assert calls[0]["media_id"] == "verified-adhan-1"
+    finally:
+        original["settings"]["adhan_target_node"] = "existing-pi-audio"
+        original["settings"]["adhan_media_id"] = None
+        prayer_store.write(original)
+
+
+def test_adhan_playback_failure_no_laptop_fallback(reminder_engine, monkeypatch):
+    """Adhan playback failure is truthful — no laptop fallback."""
+    from services.prayer_intelligence.service import prayer_intelligence_service
+    from services.prayer_intelligence.store import prayer_store
+    from services.playback_router.router import NodeUnavailableError
+
+    original = prayer_store.read()
+    original["settings"]["adhan_enabled"] = True
+    original["settings"]["adhan_target_node"] = "test-pi"
+    original["settings"]["adhan_media_id"] = "verified-adhan-1"
+    prayer_store.write(original)
+
+    fixed_event = [{
+        "kind": "adhan",
+        "prayer": "dhuhr",
+        "time": "2026-08-15T13:00:00",
+        "message": "It is time for Dhuhr prayer.",
+    }]
+
+    # Patch playback to fail
+    import services.playback_router.router as playback_module
+    original_play = playback_module.playback_router.play
+    def failing_play(payload):
+        raise NodeUnavailableError("Test Pi offline")
+    playback_module.playback_router.play = failing_play
+
+    monkeypatch.setattr(
+        prayer_intelligence_service, "due_events",
+        lambda now=None: {"status": "ok", "due_count": 1, "events": fixed_event}
+    )
+    monkeypatch.setattr(
+        prayer_intelligence_service, "_find_adhan_media_id",
+        lambda: "verified-adhan-1"
+    )
+    try:
+        result = prayer_intelligence_service.check_adhan_due()
+        assert result["status"] == "failed"
+        assert result["result"]["status"] == "failed"
+        assert result["result"].get("laptop_fallback") is False
+        assert "Test Pi offline" in result["result"].get("error", "")
+    finally:
+        playback_module.playback_router.play = original_play
+        original["settings"]["adhan_target_node"] = "existing-pi-audio"
+        original["settings"]["adhan_media_id"] = None
+        prayer_store.write(original)
+
+
+def test_adhan_no_media_no_fabricated_audio(reminder_engine, monkeypatch):
+    """No verified Adhan media → truthful ADHAN_MEDIA_REQUIRED, never TTS substitution."""
+    from services.prayer_intelligence.service import prayer_intelligence_service
+    from services.prayer_intelligence.store import prayer_store
+
+    original = prayer_store.read()
+    original["settings"]["adhan_enabled"] = True
+    original["settings"]["adhan_target_node"] = "test-pi"
+    original["settings"]["adhan_media_id"] = None
+    prayer_store.write(original)
+
+    fixed_event = [{
+        "kind": "adhan",
+        "prayer": "asr",
+        "time": "2026-08-15T16:30:00",
+        "message": "It is time for Asr prayer.",
+    }]
+
+    monkeypatch.setattr(
+        prayer_intelligence_service, "due_events",
+        lambda now=None: {"status": "ok", "due_count": 1, "events": fixed_event}
+    )
+    monkeypatch.setattr(
+        prayer_intelligence_service, "_find_adhan_media_id",
+        lambda: None  # No adhan media in catalog
+    )
+    try:
+        result = prayer_intelligence_service.check_adhan_due()
+        assert result["media_state"] == prayer_intelligence_service.ADHAN_MEDIA_REQUIRED
+        assert result["status"] == "required"
+        assert result["events"] == fixed_event
+        # No playback should have occurred
+        assert "result" not in result
+    finally:
+        original["settings"]["adhan_target_node"] = "existing-pi-audio"
+        prayer_store.write(original)
+
+
+# ---------------------------------------------------------------------------
 # 29. Islamic Learning: framework tests (NOT fabricated content counts)
 # ---------------------------------------------------------------------------
 
