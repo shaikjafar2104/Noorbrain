@@ -1988,10 +1988,11 @@ async function openV126Prayer(){
   );
 
   try{
-    const [times,status,settings]=await Promise.all([
+    const [times,status,settings,adhan]=await Promise.all([
       nb126Fetch("/api/prayer-intelligence/times"),
       nb126Fetch("/api/prayer-intelligence/status"),
-      nb126Fetch("/api/prayer-intelligence/settings")
+      nb126Fetch("/api/prayer-intelligence/settings"),
+      nb126Fetch("/api/prayer-intelligence/adhan/settings")
     ]);
 
     const t=times.times||{};
@@ -2005,10 +2006,13 @@ async function openV126Prayer(){
         </div>
       `).join("");
 
+    const adhanEnabled = adhan.adhan_enabled !== undefined ? adhan.adhan_enabled : (settings.settings?.adhan_enabled !== false);
+    const adhanText = `Adhan: ${adhanEnabled ? "ON" : "OFF"} · Speaker: ${esc(adhan.adhan_target_node||"—")} · Media: ${esc(adhan.media_state||"—")}`;
+
     nb126Page(
       "Prayer",
       status.next_prayer
-        ? `Next: ${status.next_prayer} • ${status.next_time||""}`
+        ? `Next: ${esc(status.next_prayer)} • ${status.next_time||""}`
         : "Today's prayer times",
       `<div class="nb126-grid">
         ${rows || nb126Empty(
@@ -2021,15 +2025,28 @@ async function openV126Prayer(){
         <label class="nb126-check"><input id="nb126PrayerRamadan" type="checkbox" ${settings.settings?.ramadan_mode?"checked":""}> Ramadan mode</label>
         <div class="nb126-card-actions">
           <button id="nb126PrayerSave" type="button">Save</button>
-          <button id="nb126PrayerTest" type="button">Test Maghrib</button>
           <button id="nb126PrayerRefresh" type="button">Refresh</button>
         </div>
         <small id="nb126PrayerMessage"></small>
+      </div>
+      <div class="nb126-card">
+        <small>ADHAN</small>
+        <p>${adhanText}</p>
+        <p><small>Scheduler: ${adhan.scheduler_running ? "Running" : "Stopped"} · ${esc(String(adhan.last_scheduler_result||"—"))}</small></p>
+        <label class="nb126-check"><input id="nb126AdhanEnabled" type="checkbox" ${adhanEnabled?"checked":""}> Automatic Adhan</label>
+        <div class="nb126-card-actions">
+          <button id="nb126AdhanSave" type="button">Save Adhan</button>
+          <button id="nb126AdhanTest" type="button">Test Adhan</button>
+          <button id="nb126AdhanRefresh" type="button">Refresh</button>
+        </div>
+        <small id="nb126AdhanMessage"></small>
       </div>`
     );
 
     const prayerMessage=document.getElementById("nb126PrayerMessage");
+    const adhanMessage=document.getElementById("nb126AdhanMessage");
     document.getElementById("nb126PrayerRefresh")?.addEventListener("click",openV126Prayer);
+    document.getElementById("nb126AdhanRefresh")?.addEventListener("click",openV126Prayer);
     document.getElementById("nb126PrayerSave")?.addEventListener("click",async()=>{
       try{
         await nb126Fetch("/api/prayer-intelligence/settings",{
@@ -2040,15 +2057,25 @@ async function openV126Prayer(){
         prayerMessage.textContent="Prayer settings saved.";
       }catch(error){ prayerMessage.textContent=error.message; }
     });
-    document.getElementById("nb126PrayerTest")?.addEventListener("click",async()=>{
+    document.getElementById("nb126AdhanSave")?.addEventListener("click",async()=>{
       try{
-        await nb126Fetch("/api/prayer-intelligence/test",{
+        await nb126Fetch("/api/prayer-intelligence/adhan/settings",{
+          method:"PATCH",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({adhan_enabled:document.getElementById("nb126AdhanEnabled").checked})
+        });
+        adhanMessage.textContent="Adhan settings saved.";
+      }catch(error){ adhanMessage.textContent=error.message; }
+    });
+    document.getElementById("nb126AdhanTest")?.addEventListener("click",async()=>{
+      try{
+        const r=await nb126Fetch("/api/prayer-intelligence/adhan/test",{
           method:"POST",
           headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({prayer:"maghrib"})
+          body:JSON.stringify({})
         });
-        prayerMessage.textContent="Prayer test sent.";
-      }catch(error){ prayerMessage.textContent=error.message; }
+        adhanMessage.textContent=`Adhan test: ${esc(r.status||"unknown")}`;
+      }catch(error){ adhanMessage.textContent=error.message; }
     });
 
     return true;

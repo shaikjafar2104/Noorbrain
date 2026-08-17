@@ -592,6 +592,66 @@ class HumanActivityIntelligence:
 
 
 # ------------------------------------------------------------------
+# Pose provider abstraction
+# ------------------------------------------------------------------
+POSE_CAPABILITY_AVAILABLE = "AVAILABLE"
+POSE_CAPABILITY_NOT_CONFIGURED = "NOT_CONFIGURED"
+
+
+class PoseProvider:
+    """Optional pose estimation provider.
+
+    Detects a compatible local pose model at startup. If available,
+    provides low-FPS sitting/standing classification. If not, returns
+    unknown_posture. Never auto-downloads large models.
+    """
+
+    def __init__(self) -> None:
+        self.model = None
+        self._capability = POSE_CAPABILITY_NOT_CONFIGURED
+
+    def available(self) -> bool:
+        """Check if a usable pose model is available locally."""
+        try:
+            from .pose_backend import resolve_pose_model
+            model = resolve_pose_model()
+            if model is not None:
+                self.model = model
+                self._capability = POSE_CAPABILITY_AVAILABLE
+                return True
+        except Exception:
+            pass
+        self._capability = POSE_CAPABILITY_NOT_CONFIGURED
+        return False
+
+    def estimate(self, frame) -> str | None:
+        """Estimate posture from frame. Returns 'sitting' or 'standing' or None.
+
+        Returns None when no pose model is available (unknown_posture).
+        """
+        if self.model is None or self._capability != POSE_CAPABILITY_AVAILABLE:
+            return None
+        try:
+            return self.model.estimate_posture(frame)
+        except Exception:
+            return None
+
+    @property
+    def capability(self) -> str:
+        return self._capability
+
+
+def resolve_pose_provider() -> PoseProvider:
+    """Create and probe a PoseProvider.
+
+    Returns a provider that may or may not have a model.
+    """
+    provider = PoseProvider()
+    provider.available()
+    return provider
+
+
+# ------------------------------------------------------------------
 # Module-level singleton (used by routes)
 # ------------------------------------------------------------------
 

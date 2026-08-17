@@ -367,3 +367,79 @@ class PrayerIntelligenceService:
 
 
 prayer_intelligence_service = PrayerIntelligenceService()
+
+# --------------------------------------------------
+# Automatic Adhan scheduler
+#
+# Runs check_adhan_due() every SCHEDULER_INTERVAL_SECONDS
+# in a background daemon thread. Starts with application
+# startup and stops cleanly with shutdown.
+# --------------------------------------------------
+import threading as _threading
+from datetime import timezone as _timezone
+
+SCHEDULER_INTERVAL_SECONDS = 30
+
+_scheduler_lock = _threading.Lock()
+_scheduler_thread: _threading.Thread | None = None
+_scheduler_stop = _threading.Event()
+_scheduler_state: dict[str, Any] = {
+    "running": False,
+    "interval_seconds": SCHEDULER_INTERVAL_SECONDS,
+    "last_check": None,
+    "last_result": None,
+    "last_error": None,
+}
+
+
+def _scheduler_loop() -> None:
+    """Background thread loop for automatic Adhan scheduling."""
+    while not _scheduler_stop.is_set():
+        try:
+            result = prayer_intelligence_service.check_adhan_due()
+            _scheduler_state["last_check"] = (
+                datetime.now(_timezone.utc).isoformat()
+            )
+            _scheduler_state["last_result"] = result.get("status")
+            _scheduler_state["last_error"] = None
+        except Exception as exc:
+            _scheduler_state["last_error"] = str(exc)
+            _scheduler_state["last_check"] = (
+                datetime.now(_timezone.utc).isoformat()
+            )
+        _scheduler_stop.wait(SCHEDULER_INTERVAL_SECONDS)
+
+
+def start_adhan_scheduler(interval_seconds: float = SCHEDULER_INTERVAL_SECONDS) -> dict[str, Any]:
+    """Start the automatic Adhan scheduler background thread."""
+    global _scheduler_thread
+    with _scheduler_lock:
+        if _scheduler_thread is not None and _scheduler_thread.is_alive():
+            return {"status": "already_running"}
+        _scheduler_stop.clear()
+        _scheduler_state["running"] = True
+        _scheduler_state["interval_seconds"] = int(interval_seconds)
+        _scheduler_thread = _threading.Thread(
+            target=_scheduler_loop,
+            daemon=True,
+            name="AdhanScheduler",
+        )
+        _scheduler_thread.start()
+        return {"status": "started", "interval_seconds": int(interval_seconds)}
+
+
+def stop_adhan_scheduler(timeout: float = 5.0) -> dict[str, Any]:
+    """Stop the automatic Adhan scheduler background thread."""
+    global _scheduler_thread
+    with _scheduler_lock:
+        _scheduler_stop.set()
+        if _scheduler_thread is not None:
+            _scheduler_thread.join(timeout=timeout)
+        _scheduler_thread = None
+        _scheduler_state["running"] = False
+        return {"status": "stopped"}
+
+
+def adhan_scheduler_status() -> dict[str, Any]:
+    """Return current scheduler runtime truth."""
+    return dict(_scheduler_state)

@@ -158,6 +158,13 @@ async def startup():
     except Exception:
         logger.exception("Watchdog startup failed")
 
+    try:
+        from services.prayer_intelligence.service import start_adhan_scheduler
+        start_adhan_scheduler()
+        logger.info("Adhan scheduler started (30s interval)")
+    except Exception:
+        logger.exception("Adhan scheduler startup failed")
+
     logger.info("NoorBrain Ready")
 
 
@@ -175,6 +182,13 @@ async def shutdown():
         halo_runtime_manager.stop(reason="application-shutdown")
     except Exception:
         logger.exception("HALO Runtime Manager failed to stop cleanly")
+
+    try:
+        from services.prayer_intelligence.service import stop_adhan_scheduler
+        stop_adhan_scheduler()
+        logger.info("Adhan scheduler stopped")
+    except Exception:
+        logger.exception("Adhan scheduler stop failed")
 
     stop_watchdog()
     vision_engine.stop()
