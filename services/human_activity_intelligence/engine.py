@@ -277,7 +277,7 @@ class HumanActivityIntelligence:
                         timestamp=t,
                         timestamp_iso=now_iso,
                         duration=dwell,
-                        metadata={"sibling_count": sibling_count, "dwell_seconds": round(dwell, 1)},
+                        metadata={"sibling_count": sibling_count, "dwell_seconds": round(dwell, 1), "posture": posture},
                         support_signals=["long_sitting", "sitting"],
                     ))
 
@@ -297,7 +297,7 @@ class HumanActivityIntelligence:
                         timestamp=t,
                         timestamp_iso=now_iso,
                         duration=dwell,
-                        metadata={"sibling_count": sibling_count, "dwell_seconds": round(dwell, 1)},
+                        metadata={"sibling_count": sibling_count, "dwell_seconds": round(dwell, 1), "posture": posture},
                         support_signals=["inactivity", "stationary"],
                     ))
 
@@ -324,6 +324,7 @@ class HumanActivityIntelligence:
                             "phone_evidence": True,
                             "observed_objects": objects,
                             "capability": PHONE_USE_CAPABILITY,
+                            "posture": posture,
                         },
                         support_signals=["possible_phone_use", "sitting", "phone_object_associated"],
                     ))
@@ -352,6 +353,7 @@ class HumanActivityIntelligence:
                             "evening_hour": hour,
                             "capability": TV_CONTEXT_CAPABILITY,
                             "deterministic": False,
+                            "posture": posture,
                         },
                         support_signals=["possible_tv_context", "tv_zone", "evening"],
                     ))
