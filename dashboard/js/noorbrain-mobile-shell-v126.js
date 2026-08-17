@@ -34,7 +34,15 @@ function esc(v){
     .replaceAll("&","&amp;")
     .replaceAll("<","&lt;")
     .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;");
+    .replaceAll('"','"');
+}
+
+function formatCountdown(targetTimeMs){
+  const remaining = Math.max(0, Math.floor((targetTimeMs - Date.now()) / 1000));
+  const h = Math.floor(remaining / 3600);
+  const m = Math.floor((remaining % 3600) / 60);
+  const s = remaining % 60;
+  return h > 0 ? `${h}h ${m}m ${s}s` : `${m}m ${s}s`;
 }
 
 function getNativeBackTarget(defaultTab="home"){
@@ -2007,12 +2015,20 @@ async function openV126Prayer(){
       `).join("");
 
     const adhanEnabled = adhan.adhan_enabled !== undefined ? adhan.adhan_enabled : (settings.settings?.adhan_enabled !== false);
-    const adhanText = `Adhan: ${adhanEnabled ? "ON" : "OFF"} · Speaker: ${esc(adhan.adhan_target_node||"—")} · Media: ${esc(adhan.media_state||"—")}`;
+    const adhanText = `Adhan: ${adhanEnabled ? "ON" : "OFF"} · Speaker: ${esc(adhan.adhan_target_node||"—")} (${speakerOnline || "—"}) · Media: ${esc(adhan.media_state||"—")}`;
+
+    const nextTime = status.next_time ? new Date(status.next_time).getTime() : 0;
+    const countdownText = nextTime
+      ? ` • Countdown: ${formatCountdown(nextTime)}`
+      : "";
+    const speakerOnline = adhan.target_node_online !== undefined
+      ? (adhan.target_node_online ? "Online" : "Offline")
+      : "";
 
     nb126Page(
       "Prayer",
       status.next_prayer
-        ? `Next: ${esc(status.next_prayer)} • ${status.next_time||""}`
+        ? `Next: ${esc(status.next_prayer)} • ${status.next_time||""}${countdownText}`
         : "Today's prayer times",
       `<div class="nb126-grid">
         ${rows || nb126Empty(

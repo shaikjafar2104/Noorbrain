@@ -223,7 +223,22 @@ class PrayerIntelligenceService:
             "media_state": (
                 "verified" if media_id else self.ADHAN_MEDIA_REQUIRED
             ),
+            "target_node_online": self._target_node_online(raw.get("adhan_target_node")),
         }
+
+    @staticmethod
+    def _target_node_online(target_node: str | None) -> bool:
+        """Truthfully check whether the configured Adhan target Pi node responds."""
+        if not target_node:
+            return False
+        try:
+            from services.playback_router import playback_router
+            result = playback_router.health(target_node)
+            if result.get("online") is not None:
+                return bool(result.get("online", False))
+            return bool(result.get("status") == "healthy" or result.get("trusted"))
+        except Exception:
+            return False
 
     def _validate_adhan_media_id(self, media_id: str) -> str | None:
         """Validate that an explicitly configured media_id is actual Adhan media.
