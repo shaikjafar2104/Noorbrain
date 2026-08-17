@@ -1904,15 +1904,34 @@ def test_adhan_test_endpoint_no_fired_event(reminder_engine, monkeypatch):
 
     try:
         client = TestClient(app)
+        # Record time before test call so we only count events created by THIS test
+        import time as _time
+        from datetime import datetime, timezone
+
+        def _parse_created_at(iso_str: str) -> float:
+            """Parse an ISO timestamp string to epoch float, or 0 on failure."""
+            try:
+                dt = datetime.fromisoformat(iso_str)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                return dt.timestamp()
+            except Exception:
+                return 0.0
+
+        test_start = _time.time()
         r = client.post("/api/prayer-intelligence/adhan/test")
         assert r.status_code == 200
         body = r.json()
         assert body["fired_event_created"] is False
         assert body["laptop_fallback"] is False
-        # No adhan "fired" events should have been created
+        # No adhan "fired" events should have been created by THIS test call.
+        # Filter by created_at to avoid counting pre-existing events from
+        # the background scheduler or prior runs.
         events = [
             ev for ev in prayer_store.list_events(5000)
-            if ev.get("kind") == "adhan" and ev.get("status") == "fired"
+            if ev.get("kind") == "adhan"
+            and ev.get("status") == "fired"
+            and _parse_created_at(ev.get("created_at", "")) >= test_start
         ]
         assert len(events) == 0, "Manual test must not create fired dedup events"
     finally:

@@ -2015,14 +2015,16 @@ async function openV126Prayer(){
       `).join("");
 
     const adhanEnabled = adhan.adhan_enabled !== undefined ? adhan.adhan_enabled : (settings.settings?.adhan_enabled !== false);
+
+    const speakerOnline = adhan.target_node_online !== undefined
+      ? (adhan.target_node_online ? "Online" : "Offline")
+      : "";
+
     const adhanText = `Adhan: ${adhanEnabled ? "ON" : "OFF"} · Speaker: ${esc(adhan.adhan_target_node||"—")} (${speakerOnline || "—"}) · Media: ${esc(adhan.media_state||"—")}`;
 
     const nextTime = status.next_time ? new Date(status.next_time).getTime() : 0;
     const countdownText = nextTime
       ? ` • Countdown: ${formatCountdown(nextTime)}`
-      : "";
-    const speakerOnline = adhan.target_node_online !== undefined
-      ? (adhan.target_node_online ? "Online" : "Offline")
       : "";
 
     nb126Page(
