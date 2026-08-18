@@ -229,19 +229,53 @@
       );
     }
 
+    // Require the wake word ("noor", "hey noor", "hello noor")
+    // before sending to HALO. This prevents ambient noise or
+    // non-directed speech from waking the assistant.
+    const WAKE_WORDS = ["noor", "hey noor", "hello noor"];
+    const lower = clean.toLowerCase().trim();
+    const hasWake = WAKE_WORDS.some(
+      w => lower === w || lower.startsWith(w + " ")
+    );
+
+    if (!hasWake) {
+      trace("WAKEWORD_MISS", {
+        text: clean.slice(0, 200),
+        reason: "No wake word detected",
+      });
+      setStatus(
+        "Say \"Noor\" to wake HALO.",
+        "ignored"
+      );
+      return {status: "ignored", reply: ""};
+    }
+
+    // Strip the wake word from the command text before sending to HALO
+    const wakeMatch = WAKE_WORDS.find(
+      w => lower === w || lower.startsWith(w + " ")
+    );
+    if (wakeMatch && clean.toLowerCase() === wakeMatch) {
+      command = "";
+    } else if (wakeMatch) {
+      command = clean.slice(wakeMatch.length).replace(/^[\s,.\-]+/, "");
+    }
+
+    // Update the input field with the original transcription
     const input = inputNode();
     if (input) {
       input.value = clean;
     }
 
-    trace("CHAT_START", {text: clean.slice(0, 200)});
+    // Use the wake-word-stripped command for HALO
+    const haloText = command;
+    trace("CHAT_START", {text: haloText.slice(0, 200)});
 
     if (
       window.NoorBrainMobile126
       && typeof window.NoorBrainMobile126
         .sendHalo === "function"
     ) {
-      const result = await window.NoorBrainMobile126.sendHalo(clean);
+      const result = await window.NoorBrainMobile126.sendHalo(haloText);
       trace("CHAT_RESULT", {
         reply: String(result?.reply || result?.message || "").slice(0, 200)
       });
@@ -255,7 +289,7 @@
         .sendCommand === "function"
     ) {
       const result = await window.NoorBrainHaloOneClick
-        .sendCommand(clean);
+        .sendCommand(haloText);
       trace("CHAT_RESULT", {
         reply: String(result?.reply || result?.message || "").slice(0, 200)
       });
@@ -272,7 +306,7 @@
           "Cache-Control": "no-cache",
         },
         body: JSON.stringify({
-          message: clean,
+          message: haloText,
         }),
         cache: "no-store",
       }
@@ -298,7 +332,7 @@
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            message: clean,
+            message: haloText,
           }),
           cache: "no-store",
         }
