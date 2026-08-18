@@ -261,6 +261,20 @@ function home(){
           text:"Rooms & camera zones",
           action:"zones"
         })}
+
+        ${tile({
+          icon:"🧭",
+          title:"Qibla",
+          text:"Compass to Kaaba",
+          action:"qibla"
+        })}
+
+        ${tile({
+          icon:"📅",
+          title:"Hijri",
+          text:"Islamic calendar",
+          action:"hijri"
+        })}
       </div>
     </section>
   `;
