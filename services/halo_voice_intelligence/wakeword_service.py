@@ -29,7 +29,11 @@ class WakeWordService:
         return self.status()
 
     def detect(self, text: str) -> dict[str, Any]:
+        # Normalize: collapse whitespace, casefold
         normalized = re.sub(r"\s+", " ", text.strip().casefold())
+        # Strip punctuation that STT may insert right after the wake word.
+        # e.g. "noor, what time is it" → "noor what time is it"
+        normalized = re.sub(r"([\w])([\.\,\;\:\-]+)", r"\1 ", normalized)
 
         with self._lock:
             match = next(

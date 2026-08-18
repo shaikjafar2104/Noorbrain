@@ -232,10 +232,13 @@
     // Require the wake word ("noor", "hey noor", "hello noor")
     // before sending to HALO. This prevents ambient noise or
     // non-directed speech from waking the assistant.
+    // Normalize: strip punctuation that STT may insert after the wake word
+    // e.g. "noor, what time is it" → "noor what time is it"
     const WAKE_WORDS = ["noor", "hey noor", "hello noor"];
-    const lower = clean.toLowerCase().trim();
+    const normalized = clean.toLowerCase().trim()
+      .replace(/([\w])([.,;:\-]+)/g, "$1 ");
     const hasWake = WAKE_WORDS.some(
-      w => lower === w || lower.startsWith(w + " ")
+      w => normalized === w || normalized.startsWith(w + " ")
     );
 
     if (!hasWake) {
@@ -252,12 +255,15 @@
 
     // Strip the wake word from the command text before sending to HALO
     const wakeMatch = WAKE_WORDS.find(
-      w => lower === w || lower.startsWith(w + " ")
+      w => normalized === w || normalized.startsWith(w + " ")
     );
-    if (wakeMatch && clean.toLowerCase() === wakeMatch) {
+    if (wakeMatch && normalized === wakeMatch) {
       command = "";
     } else if (wakeMatch) {
-      command = clean.slice(wakeMatch.length).replace(/^[\s,.\-]+/, "");
+      // Use the normalized version to find the slice point, then apply
+      // to the original clean text to preserve original casing/spacing
+      const normalizedRest = normalized.slice(wakeMatch.length).replace(/^[\s,.\-]+/, "");
+      command = normalizedRest;
     }
 
     // Update the input field with the original transcription
