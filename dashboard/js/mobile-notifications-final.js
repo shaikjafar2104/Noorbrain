@@ -3,6 +3,9 @@
 
   const API = "/api/mobile-notifications";
   const $ = id => document.getElementById(id);
+  let statusInFlight = false;
+  let lastStatusLoad = 0;
+  let observerTimer = null;
 
   async function api(path, options = {}) {
     const response = await fetch(API + path, {
@@ -86,7 +89,7 @@
       $("mobileFinalRefresh")
         ?.addEventListener(
           "click",
-          loadStatus,
+          () => loadStatus(true),
         );
 
       $("mobileFinalReactivate")
@@ -154,7 +157,7 @@
       $("notificationFinalDashboardRefresh")
         ?.addEventListener(
           "click",
-          loadStatus,
+          () => loadStatus(true),
         );
     }
 
@@ -207,7 +210,11 @@
     return result;
   }
 
-  async function loadStatus() {
+  async function loadStatus(force = false) {
+    const now = Date.now();
+    if (statusInFlight) return;
+    if (!force && now - lastStatusLoad < 30000) return;
+    statusInFlight = true;
     try {
       const status =
         await api("/system-status");
@@ -251,6 +258,9 @@
           .textContent =
           `Unavailable: ${error.message}`;
       }
+    } finally {
+      statusInFlight = false;
+      lastStatusLoad = Date.now();
     }
   }
 
@@ -314,8 +324,11 @@
 
   const observer =
     new MutationObserver(() => {
-      mount();
-      enhanceNotificationActions();
+      clearTimeout(observerTimer);
+      observerTimer = setTimeout(() => {
+        mount();
+        enhanceNotificationActions();
+      }, 250);
     });
 
   observer.observe(

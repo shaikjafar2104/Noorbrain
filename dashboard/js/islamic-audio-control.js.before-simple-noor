@@ -23,9 +23,21 @@
     })[char]);
   }
 
+  function safeBase64Decode(data) {
+    if (!data) return "";
+
+    try {
+      return atob(data.replace(/-/g, "+").replace(/_/g, "/"));
+    } catch (error) {
+      console.error("Invalid base64", error);
+      return "";
+    }
+  }
+
   function playApp(payload) {
     if (!appAudioEnabled || !payload?.audio_base64) return;
-    const raw = atob(payload.audio_base64);
+    const raw = safeBase64Decode(payload.audio_base64);
+    if (!raw) return;
     const bytes = new Uint8Array(raw.length);
     for (let index = 0; index < raw.length; index += 1) bytes[index] = raw.charCodeAt(index);
     const blob = new Blob([bytes], {type: payload.mime_type || `audio/${payload.format || "mpeg"}`});

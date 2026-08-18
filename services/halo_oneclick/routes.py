@@ -212,7 +212,7 @@ async def command(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
                 "suppress_tts": True,
                 "result": {key: value for key, value in playback.items() if key != "app"},
             }
-        except LookupError as error:
+        except (LookupError, ValueError, RuntimeError) as error:
             return {"status": "not_found", "source": "islamic_audio", "reply": str(error), "suppress_tts": True}
 
     device = _match_device(message, data["devices"])

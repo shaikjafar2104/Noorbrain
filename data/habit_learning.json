@@ -17,6 +17,136 @@
       "person_id": "smoke-person",
       "value": "Entered Hall",
       "zone": "Hall"
+    },
+    {
+      "created_at": "2026-08-11T20:44:39.149497+00:00",
+      "event_type": "unknown_face",
+      "id": "f36f98b2878344b79b8463ef63d7159c",
+      "metadata": {
+        "source": "activity_intelligence",
+        "source_created_at": "2026-07-28T00:28:10.357888+00:00",
+        "source_event_id": "756182ca1e66447c9eb368061dcda726"
+      },
+      "person_id": null,
+      "value": "Unknown face detected.",
+      "zone": "Hall"
+    },
+    {
+      "created_at": "2026-08-11T20:44:39.159812+00:00",
+      "event_type": "unknown_face",
+      "id": "aa68739f669240ffa11c811c07645078",
+      "metadata": {
+        "source": "activity_intelligence",
+        "source_created_at": "2026-07-28T00:28:10.341038+00:00",
+        "source_event_id": "3a732295b5994b959aae24853c0768f4"
+      },
+      "person_id": null,
+      "value": "Unknown face detected.",
+      "zone": "Hall"
+    },
+    {
+      "created_at": "2026-08-11T20:44:39.169532+00:00",
+      "event_type": "face_recognized",
+      "id": "237080da903542afb2f9b1ab7e310d75",
+      "metadata": {
+        "source": "activity_intelligence",
+        "source_created_at": "2026-07-28T00:28:10.302484+00:00",
+        "source_event_id": "a11f4a6b54274030beb5eaca292c407a"
+      },
+      "person_id": "589dcac328514b5bbda5947e90696bc2",
+      "value": "Recognized Smoke Test Person.",
+      "zone": "Hall"
+    },
+    {
+      "created_at": "2026-08-11T20:44:39.178508+00:00",
+      "event_type": "face_recognized",
+      "id": "d2083eca4ef044f8a22e044c1b565f8b",
+      "metadata": {
+        "source": "activity_intelligence",
+        "source_created_at": "2026-07-28T00:28:10.293857+00:00",
+        "source_event_id": "548480c603b6461583f5f421c33e20d4"
+      },
+      "person_id": "589dcac328514b5bbda5947e90696bc2",
+      "value": "Recognized Smoke Test Person.",
+      "zone": "Hall"
+    },
+    {
+      "created_at": "2026-08-11T20:44:39.186803+00:00",
+      "event_type": "zone_transition",
+      "id": "7b00de8bc6a54de99198d6869b34f3e2",
+      "metadata": {
+        "source": "activity_intelligence",
+        "source_created_at": "2026-07-27T23:47:28.351571+00:00",
+        "source_event_id": "976e88eb8e0d436d96e70296eb68a9d9"
+      },
+      "person_id": null,
+      "value": "Track smoke-1 moved from Hall to Kitchen.",
+      "zone": "Kitchen"
+    },
+    {
+      "created_at": "2026-08-11T20:44:39.197294+00:00",
+      "event_type": "zone_transition",
+      "id": "8a392178bcb34c08b559964744759339",
+      "metadata": {
+        "source": "activity_intelligence",
+        "source_created_at": "2026-07-27T23:47:28.330894+00:00",
+        "source_event_id": null
+      },
+      "person_id": null,
+      "value": "Track smoke-1 moved from Hall to Kitchen.",
+      "zone": "Kitchen"
+    },
+    {
+      "created_at": "2026-08-11T20:44:39.206163+00:00",
+      "event_type": "person_entered",
+      "id": "6946d2d7e9a74862a2facb644dfb8786",
+      "metadata": {
+        "source": "activity_intelligence",
+        "source_created_at": "2026-07-27T23:47:28.288676+00:00",
+        "source_event_id": "7e813b334efd48ed9f6dbce781c534db"
+      },
+      "person_id": null,
+      "value": "Track smoke-1 entered.",
+      "zone": "Hall"
+    },
+    {
+      "created_at": "2026-08-11T20:44:39.214878+00:00",
+      "event_type": "motion_detected",
+      "id": "849f2a0f8598431f984b0931370a1cd2",
+      "metadata": {
+        "source": "activity_intelligence",
+        "source_created_at": "2026-07-27T21:10:01.175926+00:00",
+        "source_event_id": "c32ef84ba98c46bab5fcf65acd6fbb05"
+      },
+      "person_id": null,
+      "value": "Motion detected in Hall.",
+      "zone": "Hall"
+    },
+    {
+      "created_at": "2026-08-11T20:44:39.223492+00:00",
+      "event_type": "vision_snapshot",
+      "id": "548a5597bce741269f3a272147949b94",
+      "metadata": {
+        "source": "activity_intelligence",
+        "source_created_at": "2026-07-27T20:56:32.045886+00:00",
+        "source_event_id": "0ba9ceeaff1842e48e7a377c18d088c8"
+      },
+      "person_id": null,
+      "value": "0 person(s) currently detected.",
+      "zone": null
+    },
+    {
+      "created_at": "2026-08-11T20:44:39.233779+00:00",
+      "event_type": "person_detected",
+      "id": "5593443ddac045d3bd089dbc21bf99c3",
+      "metadata": {
+        "source": "activity_intelligence",
+        "source_created_at": "2026-07-27T20:56:31.987165+00:00",
+        "source_event_id": "cd3aeaf5c464482d967bf489d5e26401"
+      },
+      "person_id": null,
+      "value": "Smoke-test person detected.",
+      "zone": "Hall"
     }
   ],
   "patterns": [

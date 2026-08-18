@@ -14,8 +14,20 @@ class AutomationActionExecutor:
         confirmed: bool = False,
     ) -> dict[str, Any]:
         results: list[dict[str, Any]] = []
+        actions = list(rule.get("actions") or [])
 
-        for index, action in enumerate(list(rule.get("actions") or [])):
+        if not actions:
+            return self._record_run(
+                rule=rule,
+                context=context,
+                status="failed",
+                results=[{
+                    "status": "failed",
+                    "error": "Rule has no actions to execute.",
+                }],
+            )
+
+        for index, action in enumerate(actions):
             safety = self._safety_check(action)
 
             if safety["requires_confirmation"] and not confirmed:
@@ -75,21 +87,13 @@ class AutomationActionExecutor:
 
         if kind == "halo":
             if name == "speak":
-                try:
-                    from services.halo_voice_runtime.tts_service import streaming_tts_service
-
-                    item = streaming_tts_service.enqueue(
-                        str(arguments.get("text") or ""),
-                        priority=int(arguments.get("priority", 10)),
-                        metadata={"source": "smart_automation"},
-                    )
-                    streaming_tts_service.start()
-                    return {"status": "queued", "item": item}
-                except Exception:
-                    return {
-                        "status": "simulated",
-                        "message": str(arguments.get("text") or ""),
-                    }
+                from services.playback_router import playback_router
+                return playback_router.play({
+                    "target_node": arguments.get("target_node"),
+                    "type": "tts",
+                    "content": str(arguments.get("text") or ""),
+                    "volume": arguments.get("volume"),
+                })
 
             from services.halo_brain.brain import halo_brain
 
@@ -106,12 +110,34 @@ class AutomationActionExecutor:
             from services.halo_os.registry import skill_registry
             return skill_registry.execute(name, arguments)
 
+        if kind in {"playback", "media"}:
+            from services.playback_router import playback_router
+            return playback_router.play({
+                "target_node": arguments.get("target_node"),
+                "type": arguments.get("type") or ("media" if arguments.get("media_id") else "tts"),
+                "content": arguments.get("text") or arguments.get("content"),
+                "media_id": arguments.get("media_id"),
+                "volume": arguments.get("volume"),
+            })
+
         if kind == "device":
             from services.offline_agent.tool_registry import tool_registry
             from services.offline_agent import tools as _tools  # noqa: F401
 
             tool_name = str(arguments.pop("tool", "set_device_state"))
-            return tool_registry.execute(tool_name, arguments)
+            result = tool_registry.execute(tool_name, arguments)
+            status = str(result.get("status") or "").lower()
+
+            if status not in {"ok", "success", "completed"}:
+                execution = result.get("execution") or {}
+                raise RuntimeError(
+                    execution.get("reason")
+                    or result.get("reason")
+                    or result.get("message")
+                    or f"Device action returned {status or 'no status'}."
+                )
+
+            return result
 
         if kind == "memory":
             from services.halo_brain.memory_engine import halo_memory_engine

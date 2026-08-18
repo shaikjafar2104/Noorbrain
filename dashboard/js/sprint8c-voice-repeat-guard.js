@@ -64,6 +64,19 @@
     if (!synth || typeof synth.speak !== "function") return false;
     if (synth.speak.__noorbrainGuarded) return true;
 
+    try {
+      const descriptor = Object.getOwnPropertyDescriptor(synth, "speak") ||
+        Object.getOwnPropertyDescriptor(Object.getPrototypeOf(synth), "speak");
+      if (descriptor && descriptor.writable === false && !descriptor.set) {
+        return false;
+      }
+      if (descriptor && typeof descriptor.get === "function" && !descriptor.set) {
+        return false;
+      }
+    } catch (_) {
+      return false;
+    }
+
     const nativeSpeak = synth.speak.bind(synth);
     const guardedSpeak = function (utterance) {
       const text = normalize(utterance?.text);
@@ -102,8 +115,20 @@
     };
 
     guardedSpeak.__noorbrainGuarded = true;
-    synth.speak = guardedSpeak;
-    return true;
+    try {
+      const descriptor = Object.getOwnPropertyDescriptor(synth, "speak") ||
+        Object.getOwnPropertyDescriptor(Object.getPrototypeOf(synth), "speak");
+      if (descriptor && descriptor.writable === false && !descriptor.set) {
+        return false;
+      }
+      if (descriptor && typeof descriptor.get === "function" && !descriptor.set) {
+        return false;
+      }
+      synth.speak = guardedSpeak;
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   function isVoiceAction(target) {

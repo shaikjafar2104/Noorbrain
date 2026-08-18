@@ -1,0 +1,191 @@
+(() => {
+"use strict";
+
+if (window.__NOOR_MOBILE_PRODUCT_ROUTER_V12__)
+  return;
+
+window.__NOOR_MOBILE_PRODUCT_ROUTER_V12__ = true;
+
+const map = {
+  devices: "home",
+  vision: "ai",
+  camera: "ai",
+  zones: "ai",
+  presence: "ai",
+  faces: "ai",
+  automation: "automation",
+  habits: "ai",
+  insights: "ai",
+  activity: "ai",
+  prayer: "islamic",
+  reminders: "islamic",
+  family: "family",
+  voice: "voice",
+  rules: "automation",
+  notifications: "settings",
+  media: "islamic",
+  settings: "settings"
+};
+
+function openMobile(module) {
+  if (module === "camera") {
+    const section = document.getElementById("nbv2CameraSection");
+    if (section) {
+      section.scrollIntoView({ behavior: "smooth", block: "start" });
+      return true;
+    }
+    if (window.NoorBrainDashboardCamera?.refresh) {
+      window.NoorBrainDashboardCamera.refresh();
+      return true;
+    }
+    if (window.NoorBrainUnifiedUI?.open) {
+      return !!window.NoorBrainUnifiedUI.open("home");
+    }
+    return true;
+  }
+
+  if (module === "activity") {
+    const pageButton = document.querySelector("[data-page='activity']");
+    if (pageButton) {
+      pageButton.click();
+      return true;
+    }
+    if (document.getElementById("page-activity")) {
+      document.getElementById("page-activity").classList.add("active");
+      return true;
+    }
+    if (window.NoorBrainActivityIntelligence?.openPage) {
+      window.NoorBrainActivityIntelligence.openPage();
+      return true;
+    }
+    if (location && typeof location.href === "string") {
+      location.href = "/studio#activity";
+      return true;
+    }
+    return true;
+  }
+
+  if (module === "settings") {
+    if (window.NoorMobileSettingsV11?.open) {
+      window.NoorMobileSettingsV11.open();
+      return true;
+    }
+  }
+
+  if (module === "rules") {
+    if (window.NoorMobileRulesV12?.open) {
+      window.NoorMobileRulesV12.open();
+      return true;
+    }
+  }
+
+  const section = map[module];
+
+  if (
+    section &&
+    window.NoorMobileCleanNavigationV12?.open
+  ) {
+    window.NoorMobileCleanNavigationV12.open(
+      section
+    );
+    return true;
+  }
+
+  if (
+    module &&
+    window.NoorBrainUnifiedUI?.open
+  ) {
+    window.NoorBrainUnifiedUI.open(module);
+    return true;
+  }
+
+  return false;
+}
+
+/*
+ * IMPORTANT:
+ * Stop mobile feature buttons from navigating
+ * to desktop /studio.
+ */
+document.addEventListener(
+  "click",
+  event => {
+    /*
+     * V12.6 owns all clicks inside its mounted shell.
+     * Legacy Product Router remains available only as
+     * an explicit bridge through NoorMobileProductRouterV12.open().
+     */
+    if (
+      document.body.classList.contains("noorbrain-v126-mounted") &&
+      event.target instanceof Element &&
+      event.target.closest("#noorbrainMobile126")
+    ) {
+      return;
+    }
+    const target =
+      event.target.closest?.(
+        "[data-module], a[href^='/studio']"
+      );
+
+    if (!target) return;
+
+    let module =
+      target.dataset?.module || "";
+
+    if (!module) {
+      const href =
+        target.getAttribute("href") || "";
+
+      const hash =
+        href.includes("#")
+          ? href.split("#")[1]
+          : "";
+
+      const reverse = {
+        devices: "devices",
+        vision: "vision",
+        "vision-zones": "zones",
+        zones: "zones",
+        presence: "presence",
+        "person-presence": "presence",
+        gallery: "faces",
+        "face-identity": "faces",
+        "smart-automation": "automation",
+        "habit-learning": "habits",
+        "ai-insights": "insights",
+        "prayer-intelligence": "prayer",
+        "islamic-reminders": "reminders",
+        "reminder-rules": "rules",
+        family: "family",
+        notifications: "notifications",
+        "media-library": "media",
+        "halo-speak": "voice",
+        halo: "voice",
+        settings: "settings"
+      };
+
+      module = reverse[hash] || "";
+    }
+
+    if (!module) return;
+
+    const handled = openMobile(module);
+    if (!handled) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+  },
+  true
+);
+
+window.NoorMobileProductRouterV12 = {
+  version: "12.1.6",
+  open: openMobile
+};
+
+console.log(
+  "NOOR_MOBILE_PRODUCT_ROUTER_V12_READY"
+);
+
+})();

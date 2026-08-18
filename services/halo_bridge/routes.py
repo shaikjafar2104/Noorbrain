@@ -10,6 +10,8 @@ from pydantic import BaseModel, Field
 
 logger = logging.getLogger("NoorBrain.HALO")
 
+from services.noor_settings.service import noor_settings
+
 router = APIRouter(prefix="/api/halo", tags=["HALO"])
 
 OLLAMA_URL = os.getenv(
@@ -18,7 +20,7 @@ OLLAMA_URL = os.getenv(
 )
 OLLAMA_MODEL = os.getenv(
     "OLLAMA_MODEL",
-    "llama3:latest",
+    "llama3.2:3b",
 )
 
 
@@ -48,20 +50,55 @@ async def halo_chat(
             detail="Message cannot be empty.",
         )
 
+    settings = noor_settings.get_all()
+    assistant_settings = settings.get("assistant", {})
+    ai_settings = settings.get("ai", {})
+
+    model = str(
+        ai_settings.get("local_model")
+        or OLLAMA_MODEL
+    )
+
+    context_size = max(
+        256,
+        min(
+            int(ai_settings.get("context_size", 1024)),
+            8192,
+        ),
+    )
+
+    max_tokens = max(
+        8,
+        min(
+            int(ai_settings.get("max_response_tokens", 40)),
+            512,
+        ),
+    )
+
+    assistant_name = str(
+        assistant_settings.get("name")
+        or "Noor"
+    ).strip()
+
+    response_style = str(
+        assistant_settings.get("response_style")
+        or "short"
+    ).strip()
+
     request_body = {
-        "model": OLLAMA_MODEL,
+        "model": model,
         "prompt": (
-            "You are HALO, the NoorBrain home AI assistant. "
-            "Answer in 1 to 3 short sentences unless the user asks "
-            "for details. Do not repeat the question.\n\n"
+            f"You are {assistant_name}, the NoorBrain home AI assistant. "
+            f"Response style: {response_style}. "
+            "Answer naturally and do not repeat the question.\\n\\n"
             f"User: {message}\n"
             "HALO:"
         ),
         "stream": False,
         "keep_alive": "24h",
         "options": {
-            "num_predict": 80,
-            "num_ctx": 2048,
+            "num_predict": max_tokens,
+            "num_ctx": context_size,
             "temperature": 0.4,
             "top_p": 0.85
         },

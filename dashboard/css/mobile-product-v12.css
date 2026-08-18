@@ -1,0 +1,58 @@
+/*
+ * NoorBrain V12.1-F
+ * Dedicated phone product layout.
+ */
+
+@media (max-width: 900px) {
+
+  body {
+    overflow-x: hidden;
+  }
+
+  .nb-unified-hub {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  /*
+   * Legacy feature hub is still available to
+   * JS but no longer dominates phone Home.
+   */
+  #nbUnifiedProductHub {
+    display: none !important;
+  }
+
+  .nbv2-shell,
+  .nbv2-main,
+  .mobile-main {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .nbv2-main {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  .nbv2-camera-section,
+  .nbv2-device-section,
+  .nbv2-halo-section,
+  .nbv2-status-section,
+  .nb-phone-activity {
+    width: 100% !important;
+    max-width: none !important;
+    box-sizing: border-box;
+  }
+
+  .nbv2-camera-hero img,
+  .nbv2-camera-hero video {
+    width: 100% !important;
+    height: auto !important;
+    max-height: 48vh;
+    object-fit: cover;
+  }
+
+  .nbv2-module-grid {
+    grid-template-columns: 1fr !important;
+  }
+}

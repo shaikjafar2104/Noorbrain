@@ -1,0 +1,707 @@
+(()=>{
+"use strict";
+
+const VERSION="12.6.0";
+
+const TABS={
+  home:{
+    title:"Home",
+    icon:"⌂"
+  },
+  automation:{
+    title:"Automation",
+    icon:"◇"
+  },
+  halo:{
+    title:"HALO",
+    icon:"◉"
+  },
+  islamic:{
+    title:"Islamic",
+    icon:"☾"
+  },
+  more:{
+    title:"More",
+    icon:"☰"
+  }
+};
+
+const $=id=>document.getElementById(id);
+
+function esc(v){
+  return String(v??"")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;");
+}
+
+function tile({
+  icon,
+  title,
+  text,
+  action,
+  badge=""
+}){
+  return `
+    <button
+      class="nb126-tile"
+      type="button"
+      data-nb126-action="${esc(action)}"
+    >
+      <span class="nb126-tile-icon">${icon}</span>
+
+      <span class="nb126-tile-copy">
+        <strong>${esc(title)}</strong>
+        <small>${esc(text)}</small>
+      </span>
+
+      ${badge
+        ? `<span class="nb126-badge">${esc(badge)}</span>`
+        : ""
+      }
+
+      <span class="nb126-chevron">›</span>
+    </button>
+  `;
+}
+
+function home(){
+  return `
+    <section class="nb126-hero">
+      <div>
+        <small>NOORBRAIN HOME</small>
+        <h1>Assalamu Alaikum</h1>
+        <p>
+          Your private smart home and Islamic assistant.
+        </p>
+      </div>
+
+      <button
+        class="nb126-profile"
+        data-nb126-route="more"
+        type="button"
+      >
+        SJ
+      </button>
+    </section>
+
+    <section class="nb126-section">
+      <div class="nb126-section-title">
+        <h2>Quick Access</h2>
+      </div>
+
+      <div class="nb126-grid">
+        ${tile({
+          icon:"◉",
+          title:"HALO",
+          text:"Ask NoorBrain",
+          action:"halo"
+        })}
+
+        ${tile({
+          icon:"⌂",
+          title:"Devices",
+          text:"Control your home",
+          action:"devices"
+        })}
+
+        ${tile({
+          icon:"▣",
+          title:"Camera",
+          text:"Live home view",
+          action:"camera"
+        })}
+
+        ${tile({
+          icon:"◇",
+          title:"Automation",
+          text:"Rules & routines",
+          action:"automation"
+        })}
+      </div>
+    </section>
+
+    <section class="nb126-section">
+      <div class="nb126-section-title">
+        <h2>Islamic</h2>
+      </div>
+
+      <div class="nb126-grid">
+        ${tile({
+          icon:"☾",
+          title:"Prayer",
+          text:"Prayer intelligence",
+          action:"prayer"
+        })}
+
+        ${tile({
+          icon:"♫",
+          title:"Dua & Azkar",
+          text:"Your Islamic audio",
+          action:"media"
+        })}
+
+        ${tile({
+          icon:"✦",
+          title:"Smart Islamic Rules",
+          text:"Activity-aware reminders",
+          action:"islamic-rules"
+        })}
+
+        ${tile({
+          icon:"▦",
+          title:"Zones",
+          text:"Rooms & camera zones",
+          action:"zones"
+        })}
+      </div>
+    </section>
+  `;
+}
+
+function automation(){
+  return `
+    <section class="nb126-page-head">
+      <small>SMART HOME</small>
+      <h1>Automation</h1>
+      <p>
+        Make NoorBrain react automatically to your home.
+      </p>
+    </section>
+
+    <section class="nb126-section">
+      <div class="nb126-grid">
+        ${tile({
+          icon:"✦",
+          title:"Smart Rules",
+          text:"Triggers and actions",
+          action:"automation-center"
+        })}
+
+        ${tile({
+          icon:"▶",
+          title:"Scenes",
+          text:"Run multiple actions",
+          action:"scenes"
+        })}
+
+        ${tile({
+          icon:"↻",
+          title:"Routines",
+          text:"Daily automations",
+          action:"routines"
+        })}
+
+        ${tile({
+          icon:"⌂",
+          title:"Rooms & Zones",
+          text:"Manage your spaces",
+          action:"zones"
+        })}
+
+        ${tile({
+          icon:"▣",
+          title:"Devices",
+          text:"Connected smart devices",
+          action:"devices"
+        })}
+
+        ${tile({
+          icon:"☾",
+          title:"Islamic Rules",
+          text:"Dua, Azkar & reminders",
+          action:"islamic-rules"
+        })}
+      </div>
+    </section>
+  `;
+}
+
+function halo(){
+  return `
+    <section class="nb126-halo">
+
+      <div class="nb126-halo-copy">
+        <small>NOORBRAIN AI</small>
+        <h1>HALO</h1>
+        <p>
+          Voice control for your home and Islamic assistant.
+        </p>
+      </div>
+
+      <button
+        type="button"
+        class="nb126-orb"
+        data-nb126-action="halo-live"
+        aria-label="Talk to HALO"
+      >
+        <span></span>
+        <b>◉</b>
+      </button>
+
+      <strong class="nb126-halo-prompt">
+        Tap to talk
+      </strong>
+
+    </section>
+
+    <section class="nb126-section">
+      <div class="nb126-grid">
+        ${tile({
+          icon:"⌂",
+          title:"Control Home",
+          text:"Lights, devices & scenes",
+          action:"devices"
+        })}
+
+        ${tile({
+          icon:"☾",
+          title:"Islamic Assistant",
+          text:"Prayer, Dua & Azkar",
+          action:"islamic"
+        })}
+
+        ${tile({
+          icon:"◇",
+          title:"Automations",
+          text:"Manage smart actions",
+          action:"automation"
+        })}
+
+        ${tile({
+          icon:"▣",
+          title:"Activity",
+          text:"Home activity intelligence",
+          action:"activity"
+        })}
+      </div>
+    </section>
+  `;
+}
+
+function islamic(){
+  return `
+    <section class="nb126-page-head">
+      <small>ISLAMIC HOME</small>
+      <h1>Islamic</h1>
+      <p>
+        Prayer, Dua, Azkar and intelligent reminders.
+      </p>
+    </section>
+
+    <section class="nb126-section">
+      <div class="nb126-grid">
+        ${tile({
+          icon:"◷",
+          title:"Prayer Times",
+          text:"Prayer intelligence",
+          action:"prayer"
+        })}
+
+        ${tile({
+          icon:"♫",
+          title:"Dua & Azkar",
+          text:"Islamic Media Library",
+          action:"media"
+        })}
+
+        ${tile({
+          icon:"✦",
+          title:"Smart Islamic Rules",
+          text:"Play audio by activity",
+          action:"islamic-rules"
+        })}
+
+        ${tile({
+          icon:"▦",
+          title:"Islamic Calendar",
+          text:"Dates and events",
+          action:"islamic-calendar"
+        })}
+
+        ${tile({
+          icon:"⌂",
+          title:"Room Reminders",
+          text:"Zone-aware guidance",
+          action:"zones"
+        })}
+
+        ${tile({
+          icon:"◉",
+          title:"Ask HALO",
+          text:"Islamic voice assistant",
+          action:"halo"
+        })}
+      </div>
+    </section>
+  `;
+}
+
+function more(){
+  return `
+    <section class="nb126-page-head">
+      <small>NOORBRAIN</small>
+      <h1>More</h1>
+      <p>
+        Home setup, personalization and settings.
+      </p>
+    </section>
+
+    <section class="nb126-list">
+      ${tile({
+        icon:"+",
+        title:"Add Device",
+        text:"Connect a smart home device",
+        action:"add-device"
+      })}
+
+      ${tile({
+        icon:"⌂",
+        title:"Rooms & Zones",
+        text:"Create and rename spaces",
+        action:"zones"
+      })}
+
+      ${tile({
+        icon:"▣",
+        title:"Camera & Vision",
+        text:"Presence and detection",
+        action:"camera"
+      })}
+
+      ${tile({
+        icon:"♫",
+        title:"Media Library",
+        text:"Manage your audio",
+        action:"media"
+      })}
+
+      ${tile({
+        icon:"⚙",
+        title:"Settings",
+        text:"NoorBrain preferences",
+        action:"settings"
+      })}
+    </section>
+  `;
+}
+
+const renderers={
+  home,
+  automation,
+  halo,
+  islamic,
+  more
+};
+
+
+function logV126(tag, payload={}) {
+  const entry = {
+    tag,
+    ts: Date.now(),
+    ...payload
+  };
+  console.log("V126_" + tag, entry);
+  return entry;
+}
+
+const V126_MODULE_BRIDGE={
+  lastTab:"home",
+  module:null,
+
+  open(module){
+    this.lastTab =
+      document.body.dataset.nb126Page || "home";
+
+    this.module=module;
+
+    logV126("BRIDGE",{
+      module,
+      mode:"existing-mobile-router"
+    });
+
+    /*
+     * IMPORTANT:
+     * Never navigate V12.6 to /studio.
+     * The Android app must stay on /mobile.
+     *
+     * Reuse the existing mobile product router.
+     */
+    if(window.NoorMobileProductRouterV12?.open){
+      const handled =
+        window.NoorMobileProductRouterV12.open(module);
+
+      logV126("RESULT",{
+        module,
+        router:"NoorMobileProductRouterV12",
+        handled:!!handled
+      });
+
+      if(handled){
+        return true;
+      }
+    }
+
+    /*
+     * Existing legacy mobile module buttons are
+     * allowed as a compatibility fallback.
+     */
+    const selectors=[
+      `[data-module="${module}"]`,
+      `[data-action="${module}"]`,
+      `[data-route="${module}"]`
+    ];
+
+    for(const selector of selectors){
+      const target=document.querySelector(selector);
+
+      if(
+        target &&
+        !target.closest("#noorbrainMobile126")
+      ){
+        target.click();
+
+        logV126("RESULT",{
+          module,
+          fallback:selector,
+          handled:true
+        });
+
+        return true;
+      }
+    }
+
+    logV126("RESULT",{
+      module,
+      handled:false
+    });
+
+    return false;
+  },
+
+  close(){
+    this.module=null;
+
+    navigate(
+      this.lastTab || "home",
+      false
+    );
+
+    return true;
+  }
+};
+
+function directBridge(action){
+  return V126_MODULE_BRIDGE.open(action);
+}
+
+function shell(){
+  if($("noorbrainMobile126")) return;
+
+  const root=document.createElement("div");
+  root.id="noorbrainMobile126";
+
+  root.innerHTML=`
+    <header class="nb126-topbar">
+      <div class="nb126-brand">
+        <span class="nb126-logo">N</span>
+
+        <div>
+          <strong>NoorBrain</strong>
+          <small id="nb126Connection">Home AI</small>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        class="nb126-top-action"
+        data-nb126-action="notifications"
+        aria-label="Notifications"
+      >
+        ♢
+      </button>
+    </header>
+
+    <main id="nb126Content"></main>
+
+    <nav
+      class="nb126-bottom"
+      aria-label="Main navigation"
+    >
+      ${Object.entries(TABS).map(([id,item])=>`
+        <button
+          type="button"
+          data-nb126-route="${id}"
+          class="${id==="home" ? "active" : ""}"
+        >
+          <span>${item.icon}</span>
+          <small>${item.title}</small>
+        </button>
+      `).join("")}
+    </nav>
+  `;
+
+  document.body.appendChild(root);
+
+  root.addEventListener("click",event=>{
+    const route=event.target.closest(
+      "[data-nb126-route]"
+    );
+
+    if(route){
+      console.log(
+        "V126_CLICK",
+        "route",
+        route.dataset.nb126Route
+      );
+    }
+
+    if(route){
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+
+      navigate(route.dataset.nb126Route);
+      return;
+    }
+
+    const action=event.target.closest(
+      "[data-nb126-action]"
+    );
+
+    if(action){
+      console.log(
+        "V126_CLICK",
+        "action",
+        action.dataset.nb126Action
+      );
+    }
+
+    if(action){
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+
+      runAction(action.dataset.nb126Action);
+    }
+  }, true);
+
+  navigate("home",false);
+}
+
+function navigate(name,push=true){
+  console.log(
+    "V126_NAVIGATE",
+    name,
+    "push=" + push
+  );
+  if(!renderers[name]) name="home";
+
+  const content=$("nb126Content");
+  if(!content) return;
+
+  logV126("NAVIGATE", {route: name, push});
+  content.innerHTML=renderers[name]();
+
+  document.querySelectorAll(
+    "#noorbrainMobile126 [data-nb126-route]"
+  ).forEach(button=>{
+    button.classList.toggle(
+      "active",
+      button.dataset.nb126Route===name
+    );
+  });
+
+  document.body.dataset.nb126Page=name;
+
+  if(push){
+    history.pushState(
+      {nb126:name},
+      "",
+      `#nb-${name}`
+    );
+  }
+
+  content.scrollTop=0;
+  window.scrollTo(0,0);
+  logV126("RESULT", {route: name, visible: !!document.querySelector("#nb126Content")});
+}
+
+function runAction(action){
+  console.log(
+    "V126_ACTION",
+    action
+  );
+  logV126("CLICK", {action});
+
+  const bridge = window.NoorBrainV126ModuleBridge || V126_MODULE_BRIDGE;
+  const result = bridge.open ? bridge.open(action) : directBridge(action);
+  logV126("BRIDGE", {action, bridge: "NoorBrainV126ModuleBridge.open", ok: !!result});
+
+  if (result) {
+    logV126("RESULT", {action, bridge: "NoorBrainV126ModuleBridge.open", ok: true});
+    return true;
+  }
+
+  const fallback = window.NoorMobileProductRouterV12?.open?.(action);
+  logV126("RESULT", {action, bridge: "NoorMobileProductRouterV12.open", ok: !!fallback, fallback});
+
+  if (fallback) {
+    return true;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent(
+      "noorbrain:v126-action",
+      {detail:{action}}
+    )
+  );
+  logV126("RESULT", {action, bridge: "custom-event", ok: true});
+  return true;
+}
+
+window.addEventListener("popstate",event=>{
+  navigate(
+    event.state?.nb126 || "home",
+    false
+  );
+});
+
+window.NoorBrainV126ModuleBridge = V126_MODULE_BRIDGE;
+
+window.NoorBrainMobile126={
+  version:VERSION,
+  navigate,
+  action:runAction,
+  mount:shell,
+  bridge: V126_MODULE_BRIDGE
+};
+
+window.addEventListener(
+  "noorbrain:v126-mount-request",
+  ()=>{
+    shell();
+  }
+);
+
+if(document.readyState==="loading"){
+  document.addEventListener(
+    "DOMContentLoaded",
+    ()=>{
+      /*
+       * Foundation only.
+       * Do NOT mount automatically in A1.
+       */
+      console.log(
+        "NOORBRAIN_MOBILE_V126_FOUNDATION_READY"
+      );
+    }
+  );
+}else{
+  console.log(
+    "NOORBRAIN_MOBILE_V126_FOUNDATION_READY"
+  );
+}
+
+})();

@@ -38,6 +38,7 @@ __pycache__/
 *.bak
 *.db-shm
 *.db-wal
+models/
 dashboard.before-*/
 backups/
 data/person_profiles/unknown_gallery/

@@ -1,0 +1,166 @@
+#nbIslamicRuleCreatorV12{
+  display:none;
+  position:fixed;
+  inset:0;
+  z-index:22000;
+}
+
+#nbIslamicRuleCreatorV12.open{
+  display:block;
+}
+
+.nbirc-backdrop{
+  position:absolute;
+  inset:0;
+  background:rgba(0,0,0,.68);
+  backdrop-filter:blur(5px);
+}
+
+.nbirc-card{
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  width:min(720px,calc(100% - 24px));
+  max-height:90vh;
+  overflow:auto;
+  box-sizing:border-box;
+  padding:20px;
+  border-radius:24px;
+  background:#111827;
+  color:#f8fafc;
+  box-shadow:0 30px 90px rgba(0,0,0,.5);
+}
+
+.nbirc-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:18px;
+}
+
+.nbirc-head strong{
+  display:block;
+  font-size:21px;
+}
+
+.nbirc-head small{
+  display:block;
+  margin-top:4px;
+  color:#94a3b8;
+}
+
+#nbircClose{
+  border:0;
+  background:transparent;
+  color:#fff;
+  font-size:30px;
+  cursor:pointer;
+}
+
+.nbirc-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+}
+
+.nbirc-grid label{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  font-size:13px;
+  color:#cbd5e1;
+}
+
+.nbirc-grid input,
+.nbirc-grid select{
+  box-sizing:border-box;
+  width:100%;
+  min-height:46px;
+  padding:10px 12px;
+  border:1px solid #334155;
+  border-radius:12px;
+  background:#1e293b;
+  color:#fff;
+}
+
+.nbirc-wide{
+  grid-column:1/-1;
+}
+
+.nbirc-enabled{
+  flex-direction:row !important;
+  align-items:center;
+}
+
+.nbirc-enabled input{
+  width:auto;
+  min-height:auto;
+}
+
+.nbirc-primary{
+  min-height:48px;
+  border:0;
+  border-radius:14px;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.nbirc-status{
+  min-height:20px;
+  margin:12px 2px;
+  color:#94a3b8;
+  font-size:13px;
+}
+
+.nbirc-status.error{
+  color:#fca5a5;
+}
+
+.nbirc-title{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-top:15px;
+}
+
+.nbirc-rule{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  padding:14px 2px;
+  border-bottom:1px solid #273449;
+}
+
+.nbirc-rule strong,
+.nbirc-rule span{
+  display:block;
+}
+
+.nbirc-rule span{
+  margin-top:4px;
+  color:#94a3b8;
+  font-size:12px;
+}
+
+.nbirc-empty{
+  padding:24px;
+  text-align:center;
+  color:#94a3b8;
+}
+
+@media(max-width:600px){
+  .nbirc-card{
+    width:calc(100% - 14px);
+    padding:15px;
+    border-radius:20px;
+  }
+
+  .nbirc-grid{
+    grid-template-columns:1fr;
+  }
+
+  .nbirc-wide{
+    grid-column:auto;
+  }
+}

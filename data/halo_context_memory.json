@@ -1,6 +1,20 @@
 {
   "schema_version": 1,
   "sessions": {
+    "android-r5l3v2cf": {
+      "context": {
+        "last_intent": "conversation",
+        "last_user_text": "Hello test lights off."
+      },
+      "updated_at": "2026-08-12T05:14:40.772927+00:00"
+    },
+    "debug-conversation": {
+      "context": {
+        "last_intent": "conversation",
+        "last_user_text": "say hello to me"
+      },
+      "updated_at": "2026-08-11T04:25:39.541910+00:00"
+    },
     "mobile-companion": {
       "context": {
         "last_intent": "conversation",
@@ -18,9 +32,37 @@
     "raspberry-pi-halo": {
       "context": {
         "last_intent": "conversation",
-        "last_user_text": "play the web before eating"
+        "last_user_text": "key voice assistant"
       },
-      "updated_at": "2026-08-03T16:08:41.375805+00:00"
+      "updated_at": "2026-08-13T20:32:07.262321+00:00"
+    },
+    "speed-final-test": {
+      "context": {
+        "last_intent": "conversation",
+        "last_user_text": "tell me something about the moon"
+      },
+      "updated_at": "2026-08-11T04:25:00.307662+00:00"
+    },
+    "speed-test-ai": {
+      "context": {
+        "last_intent": "conversation",
+        "last_user_text": "tell me something about the moon"
+      },
+      "updated_at": "2026-08-11T04:17:42.200816+00:00"
+    },
+    "test-laptop-2": {
+      "context": {
+        "last_intent": "conversation",
+        "last_user_text": "say hello to me"
+      },
+      "updated_at": "2026-08-11T04:08:56.971902+00:00"
+    },
+    "v11-5-inspect": {
+      "context": {
+        "last_intent": "conversation",
+        "last_user_text": "turn off Hall Light"
+      },
+      "updated_at": "2026-08-11T05:10:44.096078+00:00"
     },
     "v3-c2-smoke": {
       "context": {

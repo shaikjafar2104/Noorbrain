@@ -125,16 +125,17 @@
   function handleClick(event) {
     const featureButton = event.target.closest?.("[data-nb-feature]");
     if (featureButton) {
+      const handled = open(featureButton.dataset.nbFeature);
+      if (!handled) return;
       event.preventDefault();
       event.stopImmediatePropagation();
-      open(featureButton.dataset.nbFeature);
       return;
     }
 
     if (event.target.closest?.("#nbUhClose")) {
+      close();
       event.preventDefault();
       event.stopImmediatePropagation();
-      close();
       return;
     }
 
@@ -143,22 +144,27 @@
     const module = moduleButton.dataset.module;
 
     if (module === "vision") {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      document.getElementById("nbv2CameraSection")?.scrollIntoView({behavior: "smooth"});
-      return;
+      const camera = document.getElementById("nbv2CameraSection");
+      if (camera) {
+        camera.scrollIntoView({behavior: "smooth"});
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
     }
 
     if (moduleFeature[module]) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      open(moduleFeature[module]);
+      const handled = open(moduleFeature[module]);
+      if (handled) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
+      location.href = studioTargets[module] || `/studio#${module}`;
       return;
     }
 
     if (studioTargets[module]) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
       location.href = studioTargets[module];
     }
   }
@@ -170,28 +176,19 @@
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({startup_speech: false}),
       }),
-      fetch("/api/dual-audio-v15/config", {
-        method: "PATCH",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({input_mode: "both", output_mode: "both", app_audio: true, pi_audio: true}),
-      }),
-      fetch("/api/audio-camera-rules-v15/config", {
-        method: "PATCH",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-          camera_triggered_audio: true,
-          raspberry_pi_speaker: true,
-          app_speaker: true,
-          adhan_media_audio: true,
-          halo_natural_voice: false,
-        }),
-      }),
     ];
     await Promise.allSettled(requests);
   }
 
   function start() {
     document.body.classList.add("nb-unified-ui-active");
+
+    /* Desktop uses routed product pages. Do not build the mixed Studio hub. */
+    if (!location.pathname.includes("/mobile")) {
+      window.setTimeout(enforceProductAudio, 300);
+      return;
+    }
+
     document.addEventListener("click", handleClick, true);
     collect();
     window.setTimeout(collect, 250);

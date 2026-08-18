@@ -30,7 +30,14 @@
   <link rel="stylesheet" href="/dashboard-static/css/islamic-audio-rules.css?v=20260802-1">
   <link rel="stylesheet" href="/dashboard-static/css/smart-presence-v16.css?v=20260802-1">
   <link rel="stylesheet" href="/dashboard-static/css/pi-wake-v16.css?v=20260802-1">
-  <link rel="stylesheet" href="/dashboard-static/css/islamic-audio-control.css?v=20260803-1">
+  <link rel="stylesheet" href="/dashboard-static/css/mobile-product-v12.css?v=20260811-1216">
+  <link rel="stylesheet" href="/dashboard-static/css/automation-center-v12.css?v=20260813-full-product">
+  
+  
+  <link rel="stylesheet" href="/dashboard-static/css/custom-zone-manager-v12.css?v=20260812-d4">
+  <link rel="stylesheet" href="/dashboard-static/css/islamic-rule-creator-v12.css?v=20260812-d53">
+  <link rel="stylesheet" href="/dashboard-static/css/noorbrain-mobile-shell-v126.css?v=20260813-crud-finish">
+  <link rel="stylesheet" href="/dashboard-static/css/halo-mic-final-fix.css?v=20260813-crud-finish">
 </head>
 <body>
   <div class="nbv2-app" id="nbv2App">
@@ -135,7 +142,7 @@
   </div>
 
   <div id="nbv2Modal" class="nbv2-modal" hidden></div>
-  <script src="/dashboard-static/js/mobile-v2.js?v=20260802-161"></script>
+  <script src="/dashboard-static/js/mobile-v2.js?v=20260811-1132"></script>
   <script src="/dashboard-static/js/sprint3-smart-home.js?v=20260730-1"></script>
   <script src="/dashboard-static/js/sprint4-halo-ai.js?v=20260730-1"></script>
   <script src="/dashboard-static/js/sprint5-islamic-center.js?v=20260730-1"></script>
@@ -148,127 +155,35 @@
   <script src="/dashboard-static/js/sprint9a1-universal-voice.js?v=20260801-1"></script>
   <script src="/dashboard-static/js/sprint9-voice-platform.js?v=20260801-1"></script>
   <script src="/dashboard-static/js/sprint10-whole-home.js?v=20260801-1"></script>
-  <script src="/dashboard-static/js/sprint11-family-vision.js?v=20260802-1"></script>
-  <script src="/dashboard-static/js/sprint12-islamic.js?v=20260802-1"></script>
-  <script src="/dashboard-static/js/sprint13-plugins.js?v=20260802-1"></script>
+  <script src="/dashboard-static/js/sprint11-family-vision.js?v=20260813-crud-finish"></script>
+  <script src="/dashboard-static/js/sprint12-islamic.js?v=20260813-crud-finish"></script>
+  <script src="/dashboard-static/js/sprint13-plugins.js?v=20260813-crud-finish"></script>
   <script src="/dashboard-static/js/sprint14-release.js?v=20260802-1"></script>
   <script src="/dashboard-static/js/production-ui-cleanup.js?v=20260802-1"></script>
-  <script src="/dashboard-static/js/unified-product-ui.js?v=20260802-16"></script>
-  <script src="/dashboard-static/js/dual-audio-v15.js?v=20260802-1"></script>
-  <script src="/dashboard-static/js/unified-audio-camera-rules.js?v=20260802-1"></script>
   <script src="/dashboard-static/js/islamic-audio-rules.js?v=20260802-1"></script>
   <script src="/dashboard-static/js/smart-presence-v16.js?v=20260802-1"></script>
   <script src="/dashboard-static/js/pi-wake-v16.js?v=20260802-1"></script>
-  <script src="/dashboard-static/js/islamic-audio-control.js?v=20260803-2"></script>
 
-<script id="noorbrain-native-mic-permanent-fix">
-(() => {
-  if (window.__NOORBRAIN_NATIVE_MIC_FIX__) return;
-  window.__NOORBRAIN_NATIVE_MIC_FIX__ = true;
+  <script src="/dashboard-static/js/mobile-rules-v12.js?v=20260813-full-product"></script>
 
-  const nativeApp =
-    new URLSearchParams(location.search).get("native_app") === "1" ||
-    window.parent !== window;
+  <script src="/dashboard-static/js/mobile-noor-settings-v11.js?v=20260811-1190"></script>
 
-  if (!nativeApp) return;
+  <script src="/dashboard-static/js/mobile-clean-navigation-v12.js?v=20260811-1211"></script>
+  <script src="/dashboard-static/js/mobile-live-status-v12.js?v=20260811-1212"></script>
 
-  function isMicControl(el) {
-    const target = el?.closest?.("button,[role='button'],a");
-    if (!target) return null;
-
-    const text = [
-      target.textContent,
-      target.title,
-      target.getAttribute("aria-label"),
-      target.id,
-      target.className
-    ].join(" ").toLowerCase();
-
-    return /(push.?to.?talk|microphone|mic\b|voice|speak|listen)/i.test(text)
-      ? target
-      : null;
-  }
-
-  document.addEventListener("click", event => {
-    const control = isMicControl(event.target);
-    if (!control) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-    event.stopImmediatePropagation();
-
-    window.parent.postMessage(
-      { type: "noorbrain-native-record-toggle" },
-      "*"
-    );
-  }, true);
-
-  window.addEventListener("message", event => {
-    const data = event.data || {};
-
-    if (data.type === "noorbrain-native-listening") {
-      showMicStatus("Listening… Tap again to send.");
-    }
-
-    if (data.type === "noorbrain-native-processing") {
-      showMicStatus("Processing voice…");
-    }
-
-    if (data.type === "noorbrain-native-error") {
-      showMicStatus(data.message || "Microphone failed.");
-    }
-
-    if (data.type === "noorbrain-native-transcript") {
-      const text = String(data.text || "").trim();
-      if (!text) {
-        showMicStatus("No speech detected.");
-        return;
-      }
-
-      const input =
-        document.querySelector(
-          "textarea:not([disabled]),input[type='text']:not([disabled]),input:not([type]):not([disabled])"
-        );
-
-      if (input) {
-        input.value = text;
-        input.dispatchEvent(new Event("input", { bubbles: true }));
-        input.dispatchEvent(new Event("change", { bubbles: true }));
-
-        const form = input.closest("form");
-        const send =
-          form?.querySelector("button[type='submit']") ||
-          document.querySelector(
-            "button.send,button[id*='send' i],button[class*='send' i]"
-          );
-
-        if (send) send.click();
-        else if (form) form.requestSubmit();
-      }
-
-      showMicStatus(`Heard: ${text}`);
-    }
-  });
-
-  function showMicStatus(message) {
-    let box = document.getElementById("noorbrain-native-mic-status");
-
-    if (!box) {
-      box = document.createElement("div");
-      box.id = "noorbrain-native-mic-status";
-      box.style.cssText =
-        "position:fixed;left:12px;right:12px;bottom:78px;z-index:2147483647;" +
-        "padding:12px 16px;border-radius:14px;background:#10233f;color:white;" +
-        "font:600 14px system-ui;text-align:center;box-shadow:0 8px 30px #0008";
-      document.body.appendChild(box);
-    }
-
-    box.textContent = message;
-    clearTimeout(window.__noorMicTimer);
-    window.__noorMicTimer = setTimeout(() => box.remove(), 4500);
-  }
-})();
-</script>
-
+  <script src="/dashboard-static/js/product-dashboard-v12.js?v=20260813-product-finish"></script>
+  <script src="/dashboard-static/js/mobile-product-router-v12.js?v=20260811-1216"></script>
+  <script src="/dashboard-static/js/automation-center-v12.js?v=20260813-audio-intercom"></script>
+  <script src="/dashboard-static/js/automation-center-router-v12.js?v=12.3.0"></script>
+  
+  
+  <script src="/dashboard-static/js/custom-zone-manager-v12.js?v=20260812-d4"></script>
+  <script src="/dashboard-static/js/islamic-rule-creator-v12.js?v=20260812-d53"></script>
+  <script src="/dashboard-static/js/islamic-rule-creator-nav-v12.js?v=20260812-d53"></script>
+  <script src="/dashboard-static/js/noorbrain-mobile-shell-v126.js?v=20260817-prayer-speaker-fix"></script>
+  <script src="/dashboard-static/js/audio-intercom-v126.js?v=20260813-1"></script>
+  <script src="/dashboard-static/js/auto-intercom-v126.js?v=1.0.0"></script>
+  <script src="/dashboard-static/js/noorbrain-mobile-mount-v126.js?v=20260813-1"></script>
+  <script src="/dashboard-static/js/halo-mic-final-fix.js?v=20260817-halo-wake-fix"></script>
 </body>
 </html>

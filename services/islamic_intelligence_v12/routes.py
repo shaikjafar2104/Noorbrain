@@ -11,6 +11,7 @@ async def overview():return {"status":"ok",**await asyncio.to_thread(store.overv
 @router.post("/rules")
 async def add(payload:dict=Body(...)):
  if not str(payload.get("name") or "").strip() or not str(payload.get("message") or "").strip():raise HTTPException(422,"Name and message are required.")
+ if not str(payload.get("target_node") or "").strip():raise HTTPException(422,"A target Raspberry Pi speaker is required.")
  return {"status":"created","rule":await asyncio.to_thread(store.add_rule,payload)}
 @router.patch("/rules/{rule_id}")
 async def patch(rule_id:str,payload:dict=Body(...)):
@@ -20,6 +21,10 @@ async def patch(rule_id:str,payload:dict=Body(...)):
 @router.delete("/rules/{rule_id}")
 async def delete(rule_id:str):return {"status":"deleted","removed":await asyncio.to_thread(store.delete_rule,rule_id)}
 @router.post("/evaluate")
-async def evaluate(payload:dict=Body(...)):return {"status":"evaluated",**await asyncio.to_thread(store.evaluate,payload)}
+async def evaluate(payload:dict=Body(...)):
+ result=await asyncio.to_thread(store.evaluate,payload)
+ failures=[item for item in result.get("executions",[]) if item.get("status")!="played"]
+ if failures:raise HTTPException(503,detail={"message":"Islamic rule playback failed.","result":result})
+ return {"status":"evaluated",**result}
 @router.patch("/settings")
 async def settings(payload:dict=Body(...)):return {"status":"updated","settings":await asyncio.to_thread(store.settings,payload)}

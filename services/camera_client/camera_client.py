@@ -148,6 +148,20 @@ class CameraClient:
     # ----------------------------------------------------
     def process_frame(self, jpg):
         try:
+            # CPU FIX:
+            # Camera node may deliver 60-70+ FPS.
+            # NoorBrain dashboard only needs ~12 FPS.
+            # Drop excess frames BEFORE JPEG decoding.
+            now = time.time()
+
+            min_frame_interval = 1.0 / 12.0
+
+            if (
+                self.last_frame_time
+                and now - self.last_frame_time < min_frame_interval
+            ):
+                return
+
             image = np.frombuffer(
                 jpg,
                 dtype=np.uint8,
@@ -264,7 +278,7 @@ class CameraClient:
         self.thread = threading.Thread(
             target=self.receive_stream,
             daemon=True,
-            name="CameraClient",
+            name="CameraClientWorker",
         )
         self.thread.start()
 

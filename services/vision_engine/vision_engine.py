@@ -121,8 +121,8 @@ class VisionEngine:
 
         self.thread = threading.Thread(
             target=self.process_loop,
-            daemon=True,
             name="VisionEngine",
+            daemon=True,
         )
         self.thread.start()
 
@@ -138,7 +138,7 @@ class VisionEngine:
         self.running = False
 
         if self.thread and self.thread.is_alive():
-            self.thread.join(timeout=3)
+            self.thread.join()
 
         self.thread = None
 

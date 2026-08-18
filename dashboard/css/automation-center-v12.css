@@ -1,0 +1,420 @@
+#nbAutomationCenterV12 {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  overflow: auto;
+  background:
+    rgba(4,10,18,.96);
+  backdrop-filter: blur(16px);
+}
+
+#nbAutomationCenterV12[hidden] {
+  display: none !important;
+}
+
+.nbac-shell {
+  width: min(1180px,calc(100% - 32px));
+  margin: 22px auto 80px;
+}
+
+.nbac-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.nbac-header h2 {
+  margin: 3px 0 5px;
+  font-size: clamp(25px,4vw,38px);
+}
+
+.nbac-header p {
+  margin: 0;
+  opacity: .68;
+}
+
+.nbac-eyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .18em;
+  opacity: .55;
+}
+
+.nbac-icon {
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 14px;
+}
+
+.nbac-tabs {
+  display: grid;
+  grid-template-columns:
+    repeat(5,minmax(0,1fr));
+  gap: 9px;
+  margin-bottom: 14px;
+}
+
+.nbac-tabs button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 52px;
+  padding: 9px;
+  border-radius: 14px;
+}
+
+.nbac-tabs button.active {
+  outline: 2px solid currentColor;
+}
+
+.nbac-tabs b {
+  min-width: 21px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.1);
+  font-size: 11px;
+}
+
+.nbac-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  border: 1px solid
+    rgba(255,255,255,.08);
+  border-radius: 16px;
+  background: rgba(255,255,255,.035);
+}
+
+.nbac-toolbar strong {
+  display: block;
+}
+
+#nbacStatus {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  opacity: .55;
+}
+
+.nbac-toolbar-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.nbac-content {
+  min-height: 300px;
+}
+
+.nbac-list {
+  display: grid;
+  gap: 10px;
+}
+
+.nbac-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid
+    rgba(255,255,255,.08);
+  background: rgba(255,255,255,.04);
+}
+
+.nbac-card-main strong,
+.nbac-card-main small {
+  display: block;
+}
+
+.nbac-card-main small {
+  margin-top: 5px;
+  opacity: .58;
+}
+
+.nbac-card-actions {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.nbac-card-actions button,
+.nbac-toolbar button,
+.nbac-empty button {
+  min-height: 40px;
+  border-radius: 11px;
+  padding: 8px 13px;
+}
+
+.nbac-empty {
+  text-align: center;
+  padding: 70px 20px;
+  border-radius: 18px;
+  border: 1px dashed
+    rgba(255,255,255,.12);
+  background: rgba(255,255,255,.025);
+}
+
+.nbac-empty > div {
+  font-size: 40px;
+  margin-bottom: 12px;
+}
+
+.nbac-empty p {
+  opacity: .6;
+}
+
+body.nb-automation-open {
+  overflow: hidden;
+}
+
+@media (max-width: 760px) {
+  .nbac-shell {
+    width: calc(100% - 20px);
+    margin-top: 12px;
+  }
+
+  .nbac-header {
+    padding: 4px 3px;
+  }
+
+  .nbac-header p {
+    font-size: 13px;
+  }
+
+  .nbac-tabs {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 5px;
+    scrollbar-width: none;
+  }
+
+  .nbac-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nbac-tabs button {
+    flex: 0 0 auto;
+    min-width: 125px;
+  }
+
+  .nbac-toolbar {
+    align-items: flex-start;
+  }
+
+  .nbac-toolbar-actions {
+    flex-direction: column;
+  }
+
+  .nbac-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .nbac-card-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .nbac-card-actions button {
+    flex: 1;
+  }
+}
+
+/* ===== V12.3-I PRODUCT FORMS ===== */
+
+#nbAutomationFormV12 {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483001;
+}
+
+#nbAutomationFormV12[hidden] {
+  display: none !important;
+}
+
+.nbaf-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,.62);
+  backdrop-filter: blur(7px);
+}
+
+.nbaf-sheet {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  bottom: 20px;
+  width: min(480px,calc(100% - 40px));
+  overflow: auto;
+  padding: 22px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 22px;
+  background: #0d1822;
+  box-shadow: 0 24px 80px rgba(0,0,0,.45);
+}
+
+.nbaf-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 15px;
+  margin-bottom: 22px;
+}
+
+.nbaf-header small {
+  opacity: .5;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .16em;
+}
+
+.nbaf-header h3 {
+  margin: 4px 0 0;
+  font-size: 25px;
+}
+
+#nbafClose {
+  min-width: 42px;
+  min-height: 42px;
+  border-radius: 13px;
+}
+
+.nbaf-field {
+  display: block;
+  margin-bottom: 17px;
+}
+
+.nbaf-field > span {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.nbaf-field input,
+.nbaf-field select,
+.nbaf-field textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 12px;
+  background: rgba(255,255,255,.055);
+  color: inherit;
+  font: inherit;
+}
+
+.nbaf-field textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.nbaf-field small {
+  display: block;
+  margin-top: 6px;
+  opacity: .55;
+  line-height: 1.4;
+}
+
+.nbaf-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0 18px;
+}
+
+.nbaf-check input {
+  width: 18px;
+  height: 18px;
+}
+
+.nbaf-info {
+  padding: 12px 14px;
+  margin-bottom: 18px;
+  border-radius: 12px;
+  background: rgba(255,255,255,.05);
+  font-size: 12px;
+  line-height: 1.5;
+  opacity: .72;
+}
+
+.nbaf-days {
+  display: grid;
+  grid-template-columns: repeat(4,1fr);
+  gap: 7px;
+}
+
+.nbaf-days label {
+  cursor: pointer;
+}
+
+.nbaf-days input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.nbaf-days span {
+  display: block;
+  padding: 9px 4px;
+  text-align: center;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 10px;
+}
+
+.nbaf-days input:checked + span {
+  outline: 2px solid currentColor;
+}
+
+.nbaf-message {
+  min-height: 20px;
+  margin: 8px 0;
+  font-size: 13px;
+}
+
+.nbaf-actions {
+  position: sticky;
+  bottom: -22px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  padding: 15px 0 3px;
+  background: #0d1822;
+}
+
+.nbaf-actions button {
+  min-height: 44px;
+  padding: 9px 18px;
+  border-radius: 12px;
+}
+
+@media(max-width:760px) {
+  .nbaf-sheet {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    max-height: 88vh;
+    padding: 19px;
+    border-radius: 22px 22px 0 0;
+  }
+
+  .nbaf-days {
+    grid-template-columns:
+      repeat(4,minmax(0,1fr));
+  }
+
+  .nbaf-actions {
+    bottom: -19px;
+  }
+}

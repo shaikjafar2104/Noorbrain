@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import binascii
 import json
 import os
 import tempfile
@@ -10,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/halo-voice", tags=["HALO Voice"])
 
@@ -45,6 +48,19 @@ def load_config() -> dict[str, Any]:
             config.update(saved)
     except Exception:
         pass
+
+    model = str(config.get("model") or "base").strip()
+    model_path = Path(model).expanduser()
+
+    if not model_path.is_absolute():
+        local_model = ROOT / model_path
+        if local_model.exists():
+            config["model"] = str(local_model)
+    elif not model_path.exists():
+        bundled_model = ROOT / "models" / model_path.name
+        if bundled_model.exists():
+            config["model"] = str(bundled_model)
+
     return config
 
 
@@ -100,6 +116,7 @@ def transcribe_file(path: Path) -> dict[str, Any]:
             "speech_pad_ms": 120,
         },
         beam_size=int(config.get("beam_size", 1)),
+        initial_prompt="Noor. Hey Noor. Hello Noor. NoorBrain voice assistant.",
         best_of=1,
         temperature=0,
         condition_on_previous_text=False,
@@ -181,6 +198,110 @@ async def diagnostics() -> dict[str, Any]:
         "model_loaded": _model is not None,
         "cache_path": str(CACHE_DIR),
     }
+
+
+
+class Base64AudioRequest(BaseModel):
+    audio_base64: str
+    format: str = "m4a"
+
+
+@router.post("/transcribe-base64")
+async def transcribe_base64(payload: Base64AudioRequest) -> dict[str, Any]:
+    config = load_config()
+
+    if not config["enabled"]:
+        raise HTTPException(
+            status_code=503,
+            detail="HALO Voice is disabled.",
+        )
+
+    raw = str(payload.audio_base64 or "").strip()
+
+    if not raw:
+        raise HTTPException(
+            status_code=422,
+            detail="No audio data received.",
+        )
+
+    # Accept both plain base64 and data:audio/...;base64,...
+    if raw.startswith("data:") and "," in raw:
+        raw = raw.split(",", 1)[1]
+
+    try:
+        audio_bytes = base64.b64decode(
+            raw,
+            validate=True,
+        )
+    except (binascii.Error, ValueError) as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid base64 audio: {exc}",
+        )
+
+    minimum = int(config.get("minimum_audio_bytes", 900))
+
+    if len(audio_bytes) < minimum:
+        raise HTTPException(
+            status_code=422,
+            detail="Recording too short. Speak for 2–4 seconds.",
+        )
+
+    audio_format = str(payload.format or "m4a").strip().lower()
+    audio_format = "".join(
+        char for char in audio_format
+        if char.isalnum()
+    ) or "m4a"
+
+    suffix_map = {
+        "m4a": ".m4a",
+        "mp4": ".mp4",
+        "aac": ".aac",
+        "wav": ".wav",
+        "webm": ".webm",
+        "ogg": ".ogg",
+        "opus": ".opus",
+        "3gp": ".3gp",
+    }
+
+    suffix = suffix_map.get(audio_format, ".m4a")
+
+    CACHE_DIR.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    with tempfile.NamedTemporaryFile(
+        suffix=suffix,
+        dir=CACHE_DIR,
+        delete=False,
+    ) as handle:
+        temp_path = Path(handle.name)
+        handle.write(audio_bytes)
+
+    try:
+        result = await asyncio.to_thread(
+            transcribe_file,
+            temp_path,
+        )
+
+        if not result["text"]:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "No clear speech detected. "
+                    "Speak closer to the microphone."
+                ),
+            )
+
+        return {
+            "status": "ok",
+            "audio_bytes": len(audio_bytes),
+            **result,
+        }
+
+    finally:
+        temp_path.unlink(missing_ok=True)
 
 
 @router.post("/transcribe")

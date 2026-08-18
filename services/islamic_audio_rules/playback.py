@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-import base64
 import json
-import threading
 import time
-import urllib.request
 import uuid
 from pathlib import Path
 from typing import Any
 
+from services.playback_router import playback_router
 from services.media_library.media_manager import media_library
 
 
@@ -40,46 +38,8 @@ def _append_event(item: dict[str, Any]) -> None:
     EVENTS.write_text(json.dumps(rows[-100:], ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
-def _send_to_pi(file_path: Path, pi_url: str) -> None:
-    try:
-        body = json.dumps({
-            "audio_base64": base64.b64encode(file_path.read_bytes()).decode("ascii"),
-            "format": file_path.suffix.lstrip(".") or "mp3",
-        }).encode("utf-8")
-        request = urllib.request.Request(
-            pi_url.rstrip("/") + "/play",
-            data=body,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with urllib.request.urlopen(request, timeout=180) as response:
-            response.read()
-    except Exception:
-        return
-
-
-def play_media_rule(media_id: str) -> dict[str, Any]:
+def play_media_rule(media_id: str, target_node: str) -> dict[str, Any]:
     item = media_library.get_item(media_id)
-    file_path = media_library.get_file_path(media_id)
-    config = _json(CONFIG, {})
-    dual = _json(DUAL_CONFIG, {})
-    app_enabled = bool(config.get("app_speaker", True))
-    pi_enabled = bool(config.get("raspberry_pi_speaker", True))
-    pi_url = str(dual.get("pi_node_url") or "http://192.168.2.29:8010")
-
-    if app_enabled:
-        _append_event(item)
-    if pi_enabled:
-        threading.Thread(target=_send_to_pi, args=(file_path, pi_url), daemon=True).start()
-
-    return {
-        "status": "routed",
-        "player": (
-            "app+raspberry_pi" if app_enabled and pi_enabled
-            else "app" if app_enabled
-            else "raspberry_pi" if pi_enabled
-            else "disabled"
-        ),
-        "targets": {"app": app_enabled, "raspberry_pi": pi_enabled},
-        "item": item,
-    }
+    result = playback_router.play({"target_node": target_node, "type": "media", "media_id": media_id})
+    _append_event(item)
+    return {**result, "item": item, "player": "raspberry_pi", "targets": {"app": False, "raspberry_pi": True}}

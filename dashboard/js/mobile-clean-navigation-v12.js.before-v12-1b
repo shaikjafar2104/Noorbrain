@@ -1,0 +1,504 @@
+(() => {
+  "use strict";
+
+  if (window.__NOOR_CLEAN_NAV_V12__) return;
+  window.__NOOR_CLEAN_NAV_V12__ = true;
+
+  const $ = id => document.getElementById(id);
+
+  const GROUPS = [
+    {
+      id: "devices",
+      icon: "⌂",
+      title: "Devices",
+      subtitle: "Rooms, devices & scenes",
+      items: [
+        ["devices", "💡", "Devices", "Rooms & controls"],
+        ["groups", "◫", "Groups", "Control devices together"],
+        ["scenes", "✦", "Scenes", "One-tap home states"]
+      ]
+    },
+    {
+      id: "ai",
+      icon: "🧠",
+      title: "AI",
+      subtitle: "Vision & intelligence",
+      items: [
+        ["vision", "👁", "Vision AI", "Camera intelligence"],
+        ["zones", "⌗", "Vision Zones", "Detection areas"],
+        ["presence", "●", "Presence", "People at home"],
+        ["faces", "👤", "Face Identity", "Family identities"],
+        ["habits", "🧠", "Habit Learning", "Routine memory"],
+        ["insights", "📊", "AI Insights", "Daily intelligence"]
+      ]
+    },
+    {
+      id: "automation",
+      icon: "⚡",
+      title: "Automation",
+      subtitle: "Rules & routines",
+      items: [
+        ["automation", "⚡", "Smart Rules", "Conditions & actions"],
+        ["rules", "✓", "Reminder Rules", "Triggers & reminders"],
+        ["routines", "↻", "Routines", "Scheduled actions"],
+        ["automation-history", "◷", "History", "Runs & results"]
+      ]
+    },
+    {
+      id: "islamic",
+      icon: "🕌",
+      title: "Islamic",
+      subtitle: "Prayer, Dua & Azkar",
+      items: [
+        ["prayer", "🕌", "Prayer", "Times & intelligence"],
+        ["reminders", "🔔", "Islamic Reminders", "Duas & Azkar"],
+        ["media", "▶", "Media Library", "Audio & playback"]
+      ]
+    },
+    {
+      id: "settings",
+      icon: "⚙",
+      title: "Settings",
+      subtitle: "Noor & system preferences",
+      items: [
+        ["settings", "✦", "Noor Settings", "AI, wake & runtime"],
+        ["voice", "🔊", "Voice", "HALO speech"],
+        ["notifications", "📱", "Notifications", "Phone alerts"],
+        ["family", "👨‍👩‍👧‍👦", "Family", "Profiles & presence"]
+      ]
+    }
+  ];
+
+  function style() {
+    if ($("nbCleanNavStyleV12")) return;
+
+    const el = document.createElement("style");
+    el.id = "nbCleanNavStyleV12";
+
+    el.textContent = `
+      #nbv2Modules {
+        display: none !important;
+      }
+
+      #nbCleanNavV12 {
+        margin: 18px 0 100px;
+      }
+
+      .nbcn-head {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .nbcn-head small {
+        display: block;
+        opacity: .55;
+        font-size: 10px;
+        letter-spacing: .12em;
+      }
+
+      .nbcn-head h2 {
+        margin: 3px 0 0;
+        font-size: 21px;
+      }
+
+      .nbcn-folders {
+        display: grid;
+        grid-template-columns:
+          repeat(2, minmax(0,1fr));
+        gap: 10px;
+      }
+
+      .nbcn-folder {
+        min-height: 108px;
+        border: 1px solid rgba(255,255,255,.07);
+        border-radius: 17px;
+        padding: 15px;
+        text-align: left;
+        color: #f6f9fd;
+        background:
+          linear-gradient(
+            145deg,
+            rgba(26,57,91,.95),
+            rgba(13,35,60,.95)
+          );
+        box-shadow:
+          0 8px 24px rgba(0,0,0,.12);
+      }
+
+      .nbcn-folder:active {
+        transform: scale(.98);
+      }
+
+      .nbcn-folder-icon {
+        display: block;
+        font-size: 25px;
+        margin-bottom: 14px;
+      }
+
+      .nbcn-folder b,
+      .nbcn-folder small {
+        display: block;
+      }
+
+      .nbcn-folder b {
+        font-size: 15px;
+      }
+
+      .nbcn-folder small {
+        margin-top: 3px;
+        opacity: .57;
+        line-height: 1.3;
+      }
+
+      #nbCleanFolderV12 {
+        position: fixed;
+        inset: 0;
+        z-index: 2147482500;
+        background:
+          linear-gradient(180deg,#0c2037,#071522);
+        color: white;
+        overflow: auto;
+      }
+
+      .nbcn-page {
+        max-width: 760px;
+        min-height: 100vh;
+        margin: auto;
+      }
+
+      .nbcn-page-head {
+        position: sticky;
+        top: 0;
+        z-index: 4;
+        display: grid;
+        grid-template-columns: auto 1fr;
+        align-items: center;
+        gap: 13px;
+        padding: 16px;
+        background: rgba(8,24,41,.96);
+        backdrop-filter: blur(15px);
+        border-bottom:
+          1px solid rgba(255,255,255,.07);
+      }
+
+      .nbcn-back {
+        width: 42px;
+        height: 42px;
+        border: 0;
+        border-radius: 12px;
+        background: #193653;
+        color: white;
+        font-size: 27px;
+      }
+
+      .nbcn-page-head small {
+        display: block;
+        opacity: .5;
+        font-size: 10px;
+        letter-spacing: .12em;
+      }
+
+      .nbcn-page-head h2 {
+        margin: 2px 0 0;
+        font-size: 20px;
+      }
+
+      .nbcn-items {
+        display: grid;
+        gap: 9px;
+        padding: 15px;
+      }
+
+      .nbcn-item {
+        display: grid;
+        grid-template-columns: 45px 1fr 24px;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        border: 1px solid rgba(255,255,255,.07);
+        border-radius: 15px;
+        padding: 13px;
+        background: #102942;
+        color: white;
+        text-align: left;
+      }
+
+      .nbcn-item-icon {
+        display: grid;
+        place-items: center;
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        background: rgba(255,255,255,.06);
+        font-size: 20px;
+      }
+
+      .nbcn-item b,
+      .nbcn-item small {
+        display: block;
+      }
+
+      .nbcn-item b {
+        font-size: 14px;
+      }
+
+      .nbcn-item small {
+        margin-top: 3px;
+        opacity: .55;
+        font-size: 11px;
+      }
+
+      .nbcn-arrow {
+        opacity: .4;
+        font-size: 20px;
+      }
+
+      @media(max-width:360px) {
+        .nbcn-folders {
+          grid-template-columns: 1fr;
+        }
+      }
+    `;
+
+    document.head.appendChild(el);
+  }
+
+  function createFolderPage() {
+    if ($("nbCleanFolderV12")) return;
+
+    const page = document.createElement("section");
+    page.id = "nbCleanFolderV12";
+    page.hidden = true;
+
+    page.innerHTML = `
+      <div class="nbcn-page">
+        <header class="nbcn-page-head">
+          <button
+            id="nbcnBack"
+            class="nbcn-back"
+            type="button">‹</button>
+
+          <div>
+            <small id="nbcnPageLabel">NOORBRAIN</small>
+            <h2 id="nbcnPageTitle">Menu</h2>
+          </div>
+        </header>
+
+        <main
+          id="nbcnItems"
+          class="nbcn-items">
+        </main>
+      </div>
+    `;
+
+    document.body.appendChild(page);
+
+    $("nbcnBack").onclick = closeFolder;
+
+    $("nbcnItems").addEventListener(
+      "click",
+      event => {
+        const item =
+          event.target.closest("[data-clean-module]");
+
+        if (!item) return;
+
+        const module =
+          item.dataset.cleanModule;
+
+        closeFolder();
+
+        setTimeout(() => {
+          const original =
+            document.querySelector(
+              `[data-module="${CSS.escape(module)}"]`
+            );
+
+          if (original) {
+            original.click();
+            return;
+          }
+
+          document.dispatchEvent(
+            new CustomEvent(
+              "noor:v12-module",
+              { detail: { module } }
+            )
+          );
+        }, 30);
+      }
+    );
+  }
+
+  function openFolder(id) {
+    const group =
+      GROUPS.find(x => x.id === id);
+
+    if (!group) return;
+
+    $("nbcnPageLabel").textContent =
+      "NOORBRAIN " + group.title.toUpperCase();
+
+    $("nbcnPageTitle").textContent =
+      group.title;
+
+    $("nbcnItems").innerHTML =
+      group.items.map(
+        ([module, icon, title, subtitle]) => `
+          <button
+            class="nbcn-item"
+            type="button"
+            data-clean-module="${module}">
+            <span class="nbcn-item-icon">
+              ${icon}
+            </span>
+
+            <span>
+              <b>${title}</b>
+              <small>${subtitle}</small>
+            </span>
+
+            <span class="nbcn-arrow">›</span>
+          </button>
+        `
+      ).join("");
+
+    $("nbCleanFolderV12").hidden = false;
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeFolder() {
+    const page = $("nbCleanFolderV12");
+
+    if (page) page.hidden = true;
+
+    document.body.style.overflow = "";
+  }
+
+  function createNavigation() {
+    if ($("nbCleanNavV12")) return;
+
+    const old =
+      document.querySelector("#nbv2Modules");
+
+    if (!old) {
+      console.error(
+        "V12 CLEAN NAV: old module section missing"
+      );
+      return;
+    }
+
+    const section =
+      document.createElement("section");
+
+    section.id = "nbCleanNavV12";
+
+    section.innerHTML = `
+      <div class="nbcn-head">
+        <div>
+          <small>CONTROL CENTER</small>
+          <h2>Explore NoorBrain</h2>
+        </div>
+      </div>
+
+      <div class="nbcn-folders">
+        ${GROUPS.map(group => `
+          <button
+            class="nbcn-folder"
+            type="button"
+            data-clean-folder="${group.id}">
+
+            <span class="nbcn-folder-icon">
+              ${group.icon}
+            </span>
+
+            <b>${group.title}</b>
+            <small>${group.subtitle}</small>
+          </button>
+        `).join("")}
+      </div>
+    `;
+
+    old.insertAdjacentElement(
+      "afterend",
+      section
+    );
+
+    section.addEventListener(
+      "click",
+      event => {
+        const folder =
+          event.target.closest(
+            "[data-clean-folder]"
+          );
+
+        if (!folder) return;
+
+        openFolder(
+          folder.dataset.cleanFolder
+        );
+      }
+    );
+  }
+
+  function routeExtra(module) {
+    if (module === "groups") {
+      location.href = "/studio#smart-home";
+      return;
+    }
+
+    if (module === "scenes") {
+      location.href = "/studio#smart-home";
+      return;
+    }
+
+    if (module === "routines") {
+      if (window.NoorBrainUnifiedUI?.open) {
+        window.NoorBrainUnifiedUI.open("ai");
+      }
+      return;
+    }
+
+    if (module === "automation-history") {
+      location.href = "/studio#smart-automation";
+    }
+  }
+
+  document.addEventListener(
+    "noor:v12-module",
+    event => {
+      routeExtra(event.detail?.module);
+    }
+  );
+
+  function start() {
+    style();
+    createFolderPage();
+    createNavigation();
+
+    window.NoorCleanNavigationV12 =
+      Object.freeze({
+        installed: true,
+        version: "12.1.0",
+        openFolder,
+        closeFolder
+      });
+
+    console.log(
+      "NOOR_CLEAN_NAVIGATION_V12_READY"
+    );
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener(
+      "DOMContentLoaded",
+      start,
+      { once: true }
+    );
+  } else {
+    start();
+  }
+})();

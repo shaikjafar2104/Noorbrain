@@ -33,6 +33,12 @@ class ReminderRulePayload(BaseModel):
     )
     speak: bool = True
     media_id: Optional[str] = None
+    action_type: str = "tts"
+    target_node: Optional[str] = None
+    days: list[str] = Field(default_factory=list)
+    time_start: Optional[str] = None
+    time_end: Optional[str] = None
+    require_target_online: bool = True
     enabled: bool = True
 
 
@@ -172,6 +178,12 @@ def test_reminder_rule(rule_id: str):
             rule_id
         )
 
+        if record.get("playback_status") == "failed":
+            raise HTTPException(
+                status_code=503,
+                detail=record.get("playback_error") or "Target speaker playback failed",
+            )
+
         return {
             "status": "tested",
             "result": record
@@ -257,4 +269,3 @@ def test_camera_activity_event(payload: CameraEventTestPayload):
         "fired_count": len(fired),
         "fired": fired,
     }
-

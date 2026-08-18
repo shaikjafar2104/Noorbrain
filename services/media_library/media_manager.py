@@ -3,8 +3,6 @@ from __future__ import annotations
 import json
 import mimetypes
 import re
-import shutil
-import subprocess
 import threading
 import uuid
 from datetime import datetime, timezone
@@ -50,8 +48,6 @@ class MediaNotFoundError(MediaLibraryError):
 class MediaLibraryManager:
     def __init__(self) -> None:
         self._lock = threading.RLock()
-        self._playback_lock = threading.RLock()
-        self._active_process: subprocess.Popen[Any] | None = None
 
         MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
         DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -341,93 +337,64 @@ class MediaLibraryManager:
 
         return matching_item
 
-    @staticmethod
-    def _find_player(file_path: Path) -> list[str] | None:
-        extension = file_path.suffix.lower()
-
-        players: list[list[str]] = [
-            ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet", str(file_path)],
-            ["cvlc", "--play-and-exit", "--intf", "dummy", str(file_path)],
-            ["mpv", "--no-video", "--really-quiet", str(file_path)],
-            ["paplay", str(file_path)],
-        ]
-
-        if extension == ".wav":
-            players.append(["aplay", "-q", str(file_path)])
-
-        if extension == ".mp3":
-            players.append(["mpg123", "-q", str(file_path)])
-
-        for command in players:
-            if shutil.which(command[0]):
-                return command
-
-        return None
-
-    def play_item(self, media_id: str) -> dict[str, Any]:
-        item = self.get_item(media_id)
-        file_path = self.get_file_path(media_id)
-        command = self._find_player(file_path)
-
-        if command is None:
-            raise MediaLibraryError(
-                "No supported audio player was found. "
-                "Install ffmpeg, VLC, mpv, mpg123, or PulseAudio utilities."
+    def update_item(
+        self,
+        media_id: str,
+        *,
+        name: str | None = None,
+        category: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Update user-managed metadata without replacing the audio file."""
+        with self._lock:
+            data = self._read_database()
+            item = next(
+                (
+                    entry
+                    for entry in data["items"]
+                    if entry.get("id") == media_id
+                ),
+                None,
             )
 
-        with self._playback_lock:
-            if (
-                self._active_process is not None
-                and self._active_process.poll() is None
-            ):
-                self._active_process.terminate()
+            if item is None:
+                raise MediaNotFoundError("Audio file was not found.")
 
-                try:
-                    self._active_process.wait(timeout=2)
-                except subprocess.TimeoutExpired:
-                    self._active_process.kill()
+            if name is not None:
+                clean_name = name.strip()
+                if not clean_name:
+                    raise InvalidMediaError("Display name cannot be blank.")
+                item["name"] = clean_name[:150]
 
-            self._active_process = subprocess.Popen(
-                command,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                start_new_session=True,
-            )
+            if category is not None:
+                normalized_category = self._safe_category(category)
+                old_path = MEDIA_ROOT / str(item["relative_path"])
+                category_path = MEDIA_ROOT / normalized_category
+                category_path.mkdir(parents=True, exist_ok=True)
+                new_path = category_path / str(item["stored_filename"])
 
-        return {
-            "status": "playing",
-            "player": command[0],
-            "item": item,
-        }
+                if old_path.resolve() != new_path.resolve():
+                    if not old_path.exists():
+                        raise MediaNotFoundError("Audio file was not found.")
+                    old_path.replace(new_path)
+
+                item["category"] = normalized_category
+                item["relative_path"] = str(
+                    Path(normalized_category) / str(item["stored_filename"])
+                )
+
+            if metadata is not None:
+                item["metadata"] = dict(metadata)
+
+            item["updated_at"] = self._now()
+            self._write_database(data)
+            return dict(item)
 
     def stop_playback(self) -> dict[str, Any]:
-        with self._playback_lock:
-            if (
-                self._active_process is None
-                or self._active_process.poll() is not None
-            ):
-                self._active_process = None
-                return {"status": "idle"}
-
-            self._active_process.terminate()
-
-            try:
-                self._active_process.wait(timeout=2)
-            except subprocess.TimeoutExpired:
-                self._active_process.kill()
-
-            self._active_process = None
-
-        return {"status": "stopped"}
+        return {"status": "idle", "server_playback": False}
 
     def status(self) -> dict[str, Any]:
         items = self.list_items()
-
-        with self._playback_lock:
-            playing = (
-                self._active_process is not None
-                and self._active_process.poll() is None
-            )
 
         return {
             "status": "running",
@@ -439,7 +406,8 @@ class MediaLibraryManager:
             "categories": self.list_categories(),
             "supported_extensions": sorted(ALLOWED_EXTENSIONS),
             "max_file_size_bytes": MAX_FILE_SIZE,
-            "playing": playing,
+            "playing": False,
+            "server_playback": False,
         }
 
 

@@ -42,80 +42,63 @@ def _safe_call(name: str, producer: Callable[[], dict[str, Any]]) -> dict[str, A
         }
 
 
-def _device_snapshot() -> list[Any]:
+def _device_snapshot() -> list[dict[str, Any]]:
+    from services.unified_device_runtime import unified_device_runtime
+
     return agent_cache.get_or_set(
         "devices:list",
         2.0,
-        lambda: _device_manager().list_devices(),
+        unified_device_runtime.list_devices,
     )
 
 
 def _find_device_by_name(name: str):
-    normalized = name.strip().casefold()
-    devices = _device_snapshot()
+    from services.unified_device_runtime import unified_device_runtime
 
-    exact = next(
-        (item for item in devices if item.name.casefold() == normalized),
-        None,
-    )
-    if exact is not None:
-        return exact
-
-    partial = [
-        item for item in devices
-        if normalized in item.name.casefold()
-        or item.name.casefold() in normalized
-    ]
-    return partial[0] if len(partial) == 1 else None
+    return unified_device_runtime.find_device(name)
 
 
 def list_devices(arguments: dict[str, Any]) -> dict[str, Any]:
     devices = _device_snapshot()
+
     return {
         "status": "ok",
         "count": len(devices),
-        "devices": [item.model_dump(mode="json") for item in devices],
+        "devices": devices,
         "cached_for_seconds": 2,
+        "runtime": "unified_device_runtime_v10_1",
     }
 
 
 def get_device_status(arguments: dict[str, Any]) -> dict[str, Any]:
+    from services.unified_device_runtime import unified_device_runtime
+
     name = str(arguments.get("name") or "").strip()
+
     if not name:
         raise ValueError("Device name is required.")
 
-    device = _find_device_by_name(name)
-    if device is None:
-        return {"status": "not_found", "query": name}
-
-    return {
-        "status": "ok",
-        "device": device.model_dump(mode="json"),
-    }
+    return unified_device_runtime.status(name)
 
 
 def set_device_state(arguments: dict[str, Any]) -> dict[str, Any]:
+    from services.unified_device_runtime import unified_device_runtime
+
     name = str(arguments.get("name") or "").strip()
     state = str(arguments.get("state") or "").strip().lower()
 
     if not name:
         raise ValueError("Device name is required.")
-    if state not in {"on", "off"}:
-        raise ValueError("State must be on or off.")
 
-    device = _find_device_by_name(name)
-    if device is None:
-        return {"status": "not_found", "query": name}
+    result = unified_device_runtime.set_state(
+        name,
+        state,
+    )
 
-    enum_state = DeviceState.ON if state == "on" else DeviceState.OFF
-    updated = _device_manager().set_state(device.id, enum_state)
     agent_cache.clear("devices:")
     agent_cache.clear("home:")
 
-    return {
-        "status": "ok",
-        "device": updated.model_dump(mode="json"),
-    }
+    return result
 
 
 def list_scenes(arguments: dict[str, Any]) -> dict[str, Any]:

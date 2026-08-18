@@ -82,6 +82,100 @@ class IntentEngine:
                 {"name": match.group(1).strip()},
             )
 
+        # V11.6 Noor system settings control
+        setting_commands = (
+            (
+                ("prayer reminders", "prayer reminder"),
+                "islamic",
+                "prayer_reminders",
+            ),
+            (
+                ("adhan", "azan"),
+                "islamic",
+                "adhan_enabled",
+            ),
+            (
+                ("dua reminders", "dua reminder"),
+                "islamic",
+                "dua_reminders",
+            ),
+            (
+                ("azkar reminders", "azkar reminder", "adhkar reminders"),
+                "islamic",
+                "azkar_reminders",
+            ),
+            (
+                ("camera",),
+                "privacy",
+                "camera_enabled",
+            ),
+            (
+                ("microphone", "mic"),
+                "privacy",
+                "microphone_enabled",
+            ),
+            (
+                ("activity learning",),
+                "privacy",
+                "activity_learning",
+            ),
+            (
+                ("face recognition",),
+                "privacy",
+                "face_recognition",
+            ),
+            (
+                ("mobile notifications", "phone notifications"),
+                "notifications",
+                "mobile_enabled",
+            ),
+            (
+                ("dashboard notifications",),
+                "notifications",
+                "dashboard_enabled",
+            ),
+        )
+
+        enable_words = (
+            "enable",
+            "turn on",
+            "switch on",
+            "start",
+        )
+
+        disable_words = (
+            "disable",
+            "turn off",
+            "switch off",
+            "stop",
+        )
+
+        for names, section, key in setting_commands:
+            if not any(name in normalized for name in names):
+                continue
+
+            if any(word in normalized for word in disable_words):
+                return IntentResult(
+                    "settings_action",
+                    0.99,
+                    {
+                        "section": section,
+                        "key": key,
+                        "value": False,
+                    },
+                )
+
+            if any(word in normalized for word in enable_words):
+                return IntentResult(
+                    "settings_action",
+                    0.99,
+                    {
+                        "section": section,
+                        "key": key,
+                        "value": True,
+                    },
+                )
+
         islamic_words = ("dua", "azkar", "adhkar", "allah name", "99 names")
         play_words = ("play", "chalao", "sunao", "suna do", "lagao")
         if any(word in normalized for word in islamic_words) and any(word in normalized for word in play_words):

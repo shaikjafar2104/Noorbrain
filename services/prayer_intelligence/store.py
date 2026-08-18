@@ -30,6 +30,9 @@ class PrayerStore:
                     "isha_angle": 17.0,
                     "asr_factor": 1.0,
                     "adhan_enabled": True,
+                    "adhan_target_node": "existing-pi-audio",
+                    "adhan_lead_minutes": 0,
+                    "adhan_media_id": None,
                     "pre_prayer_minutes": 10,
                     "iqamah_minutes": {
                         "fajr": 20,
@@ -39,7 +42,7 @@ class PrayerStore:
                         "isha": 15
                     },
                     "friday_mode": True,
-                    "ramadan_mode": False
+                    "ramadan_mode": False,
                 },
                 "events": [],
                 "acknowledgements": []

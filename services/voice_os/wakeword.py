@@ -18,7 +18,7 @@ class WakeWordEvent:
 class WakeWordEngine:
     def __init__(self) -> None:
         self._lock = RLock()
-        self._wake_words = {"halo", "hey halo", "hello halo"}
+        self._wake_words = {"noor", "nur", "hey noor", "hey nur", "hello noor", "hello nur"}
         self._armed_until = 0.0
         self._last_event: dict[str, Any] | None = None
 
@@ -38,7 +38,15 @@ class WakeWordEngine:
         return self.status()
 
     def detect_text(self, text: str) -> WakeWordEvent:
-        normalized = re.sub(r"\s+", " ", text.strip().casefold())
+        normalized = text.strip().casefold()
+        normalized = re.sub(r"[^a-z0-9\\s]", " ", normalized)
+        normalized = re.sub(r"\\s+", " ", normalized).strip()
+
+        # Whisper may hear the name "Noor" as "no".
+        if normalized == "no" or normalized.startswith("no "):
+            normalized = "noor" + normalized[2:]
+        elif normalized == "hey no" or normalized.startswith("hey no "):
+            normalized = "hey noor" + normalized[6:]
 
         with self._lock:
             matched = next(

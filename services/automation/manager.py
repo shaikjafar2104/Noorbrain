@@ -44,7 +44,29 @@ class DeviceManager:
         return self.storage.delete(device_id)
 
     def set_state(self, device_id: str, state: DeviceState) -> Device:
-        return self.update_device(device_id, {"state": state})
+        device = self.get_device(device_id)
+
+        if not device.online:
+            raise RuntimeError(
+                f'Device "{device.name}" is offline.'
+            )
+
+        from services.unified_device_runtime.executor import (
+            physical_device_executor,
+        )
+
+        requested = state.value if isinstance(state, DeviceState) else str(state)
+        execution = physical_device_executor.execute(
+            device.model_dump(mode="json"),
+            requested,
+        )
+
+        if not execution.get("executed"):
+            raise RuntimeError(
+                str(execution.get("reason") or "Physical device execution failed.")
+            )
+
+        return self.update_device(device_id, {"state": requested})
 
     def toggle(self, device_id: str) -> Device:
         device = self.get_device(device_id)

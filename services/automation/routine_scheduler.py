@@ -128,6 +128,13 @@ class RoutineScheduler:
             raise ValueError("Routine is disabled.")
 
         result = scene_manager.execute(routine["scene_id"])
+        if result.get("status") != "ok":
+            return {
+                "status": "failed",
+                "routine": routine,
+                "scene_result": result,
+            }
+
         now = utc_now()
         routine["last_run_at"] = now
         routine["run_count"] = int(routine.get("run_count", 0)) + 1

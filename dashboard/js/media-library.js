@@ -6,6 +6,7 @@
   let mediaItems = [];
   let categories = [];
   let initialized = false;
+  let previewAudio = null;
 
   const $ = id => document.getElementById(id);
 
@@ -160,6 +161,28 @@
       .ml-progress.visible {
         display:block;
       }
+
+      .ml-edit-modal {
+        position:fixed;
+        inset:0;
+        z-index:10000;
+        display:grid;
+        place-items:center;
+        padding:20px;
+        background:rgba(2,7,14,.78);
+      }
+
+      .ml-edit-modal[hidden] { display:none; }
+
+      .ml-edit-panel {
+        width:min(460px,100%);
+        padding:20px;
+        border:1px solid var(--line);
+        border-radius:16px;
+        background:var(--panel);
+      }
+
+      .ml-edit-panel h3 { margin:0 0 16px; }
 
       @media(max-width:1000px) {
         .ml-layout {
@@ -401,6 +424,34 @@
           </div>
         </article>
 
+      </div>
+
+      <div id="mlEditModal" class="ml-edit-modal" hidden>
+        <form id="mlEditForm" class="ml-edit-panel ml-form">
+          <h3>Edit Media</h3>
+          <input id="mlEditId" type="hidden">
+          <label>
+            Display name
+            <input id="mlEditName" required maxlength="150">
+          </label>
+          <label>
+            Category
+            <select id="mlEditCategory"></select>
+          </label>
+          <label>
+            Islamic association
+            <select id="mlEditAssociation">
+              <option value="">None</option>
+              <option value="dua">Dua</option>
+              <option value="azkar">Azkar</option>
+              <option value="prayer">Prayer</option>
+            </select>
+          </label>
+          <div class="ml-actions">
+            <button class="button success" type="submit">Save</button>
+            <button id="mlEditCancel" class="button secondary" type="button">Cancel</button>
+          </div>
+        </form>
       </div>
     `;
 
@@ -707,7 +758,16 @@
                   data-ml-action="play"
                   data-media-id="${escapeHtml(id)}"
                 >
-                  ▶ Play
+                  ▶ Preview
+                </button>
+
+                <button
+                  class="button secondary"
+                  type="button"
+                  data-ml-action="edit"
+                  data-media-id="${escapeHtml(id)}"
+                >
+                  Edit
                 </button>
 
                 <button
@@ -916,27 +976,26 @@
     }
 
     try {
-      setMessage("Starting playback…");
+      setMessage("Starting local preview…");
 
-      await request(
-        `/media/${encodeURIComponent(id)}/play`,
-        {
-          method: "POST"
-        }
+      previewAudio?.pause?.();
+      previewAudio = new Audio(
+        `/api/media/${encodeURIComponent(id)}/file`
       );
+      await previewAudio.play();
 
       if ($("mlPlaybackStatus")) {
         $("mlPlaybackStatus").textContent =
-          "Playing";
+          "Previewing";
       }
 
       setMessage(
-        "Audio playback started.",
+        "Local preview started.",
         "success"
       );
     } catch (error) {
       setMessage(
-        `Playback failed: ${error.message}`,
+        `Preview failed: ${error.message}`,
         "error"
       );
     }
@@ -944,12 +1003,8 @@
 
   async function stopMedia() {
     try {
-      await request(
-        "/media/stop",
-        {
-          method: "POST"
-        }
-      );
+      previewAudio?.pause?.();
+      if (previewAudio) previewAudio.currentTime = 0;
 
       if ($("mlPlaybackStatus")) {
         $("mlPlaybackStatus").textContent =
@@ -957,7 +1012,7 @@
       }
 
       setMessage(
-        "Audio playback stopped.",
+        "Local preview stopped.",
         "success"
       );
     } catch (error) {
@@ -1007,6 +1062,60 @@
     }
   }
 
+  function openEditMedia(id) {
+    const item = mediaItems.find(entry =>
+      String(itemId(entry)) === String(id)
+    );
+    if (!item) return;
+
+    const select = $("mlEditCategory");
+    select.innerHTML = categories.map(category => `
+      <option value="${escapeHtml(category)}">
+        ${escapeHtml(category)}
+      </option>
+    `).join("");
+
+    $("mlEditId").value = String(id);
+    $("mlEditName").value = itemName(item);
+    select.value = itemCategory(item);
+    $("mlEditAssociation").value =
+      item.metadata?.islamic_type || "";
+    $("mlEditModal").hidden = false;
+    $("mlEditName").focus();
+  }
+
+  function closeEditMedia() {
+    $("mlEditModal").hidden = true;
+  }
+
+  async function saveEditMedia(event) {
+    event.preventDefault();
+    const id = $("mlEditId").value;
+    const item = mediaItems.find(entry =>
+      String(itemId(entry)) === String(id)
+    );
+
+    try {
+      await request(`/api/media/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          name: $("mlEditName").value.trim(),
+          category: $("mlEditCategory").value,
+          metadata: {
+            ...(item?.metadata || {}),
+            islamic_type: $("mlEditAssociation").value || null
+          }
+        })
+      });
+      closeEditMedia();
+      setMessage("Media metadata updated.", "success");
+      await loadMedia();
+    } catch (error) {
+      setMessage(`Edit failed: ${error.message}`, "error");
+    }
+  }
+
   function bindEvents() {
     if (initialized) {
       return;
@@ -1051,6 +1160,9 @@
       }
     );
 
+    $("mlEditForm")?.addEventListener("submit", saveEditMedia);
+    $("mlEditCancel")?.addEventListener("click", closeEditMedia);
+
     $("mlTableBody")?.addEventListener(
       "click",
       event => {
@@ -1072,6 +1184,10 @@
 
         if (action === "stop") {
           stopMedia();
+        }
+
+        if (action === "edit") {
+          openEditMedia(id);
         }
 
         if (action === "delete") {

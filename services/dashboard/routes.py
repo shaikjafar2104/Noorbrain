@@ -18,6 +18,6 @@ router = APIRouter(
 )
 
 
-@router.get("/dashboard")
+@router.get("/api/dashboard")
 def get_dashboard():
     return dashboard.snapshot()
