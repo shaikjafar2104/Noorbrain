@@ -21,7 +21,7 @@ with zipfile.ZipFile(ROOT / "NoorBrainMobile-PERMANENT-MIC-FIX.apk") as archive:
 def test_halo_uses_real_conversation_and_transcription_apis() -> None:
     assert '"/api/halo-conversation/chat"' in SHELL
     assert 'const VOICE_API = "/api/halo-voice"' in MIC
-    assert "NoorBrainMobile126.sendHalo(clean)" in MIC
+    assert "NoorBrainMobile126.sendHalo(haloText)" in MIC
     assert "toggle," in MIC
     assert "Promise.resolve(mic.toggle(" in SHELL
 
@@ -33,7 +33,7 @@ def test_native_microphone_and_webview_tts_fallback_are_wired_to_v126() -> None:
     assert 'window.location.replace' not in APK_APP
     assert 'emit("NATIVE_START_ACK"' in APK_APP
     assert 'emit("NATIVE_STOP_ACK"' in APK_APP
-    assert 'window.NoorBrainMobile126.sendHalo(clean)' in MIC
+    assert 'window.NoorBrainMobile126.sendHalo(haloText)' in MIC
     assert '"speechSynthesis" in window' in SHELL
 
 
