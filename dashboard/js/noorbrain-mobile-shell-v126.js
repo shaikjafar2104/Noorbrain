@@ -124,10 +124,13 @@ const V126_PARENT_MAP = {
   prayer: "islamic",
   media: "islamic",
   "islamic-rules": "islamic",
+  qibla: "islamic",
+  hijri: "islamic",
   notifications: "more",
   family: "more",
   plugins: "more",
   habits: "more",
+  "shopping-list": "more",
   settings: "more"
 };
 
@@ -457,6 +460,18 @@ function islamic(){
           text:"Islamic voice assistant",
           action:"halo"
         })}
+        ${tile({
+          icon:"🧭",
+          title:"Qibla Compass",
+          text:"Direction to Kaaba",
+          action:"qibla"
+        })}
+        ${tile({
+          icon:"📅",
+          title:"Islamic Calendar",
+          text:"Hijri date converter",
+          action:"hijri"
+        })}
       </div>
     </section>
   `;
@@ -525,6 +540,13 @@ function more(){
       })}
 
       ${tile({
+        icon:"🛒",
+        title:"Shopping List",
+        text:"Voice-managed lists",
+        action:"shopping-list"
+      })}
+
+      ${tile({
         icon:"✦",
         title:"Habit Learning",
         text:"Patterns and suggestions",
@@ -555,11 +577,284 @@ function more(){
   `;
 }
 
-const renderers={
+function qibla() {
+  return `
+    <section class="nb126-page-head">
+      <small>ISLAMIC HOME</small>
+      <h1>Qibla Compass</h1>
+      <p>
+        Direction from your location to the Kaaba in Mecca.
+      </p>
+    </section>
+
+    <section class="nb126-section">
+      <div class="nb126-card">
+        <div style="text-align:center;padding:20px 0;">
+          <div id="nb126QiblaDirection" style="font-size:48px;font-weight:bold;color:#34d399;margin:10px 0;">
+            —°
+          </div>
+          <small style="color:#94a3cb;">Bearing to Kaaba</small>
+          <p style="margin-top:10px;color:#64748b;font-size:12px;">
+            Location: <span id="nb126QiblaLocation">Checking...</span>
+          </p>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button
+            type="button"
+            class="nb126-button nb126-button-primary"
+            onclick="navigator.geolocation.getCurrentPosition(q => {
+              const lat = q.coords.latitude;
+              const lng = q.coords.longitude;
+              document.getElementById('nb126QiblaLocation').textContent = lat.toFixed(4) + ', ' + lng.toFixed(4);
+              fetch('/api/prayer-intelligence/qibla?latitude=' + lat + '&longitude=' + lng)
+                .then(r => r.json())
+                .then(d => {
+                  document.getElementById('nb126QiblaDirection').textContent = d.qibla_direction.toFixed(1) + '°';
+                })
+                .catch(() => {
+                  document.getElementById('nb126QiblaDirection').textContent = 'Error';
+                });
+            }, () => {
+              document.getElementById('nb126QiblaLocation').textContent = 'Location denied';
+            })"
+          >
+            Use My Location
+          </button>
+          <button
+            type="button"
+            class="nb126-button"
+            onclick="refreshQibla()"
+          >
+            Refresh
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="nb126-section">
+      <div class="nb126-section-title">
+        <h2>Info</h2>
+      </div>
+      <div class="nb126-grid">
+        <div style="padding:12px;">
+          <small>Kaaba: 21.4225°N, 39.8262°E</small>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function hijri() {
+  return `
+    <section class="nb126-page-head">
+      <small>ISLAMIC CALENDAR</small>
+      <h1>Hijri Date</h1>
+      <p>
+        Today's date in the Islamic (Hijri) calendar.
+      </p>
+    </section>
+
+    <section class="nb126-section">
+      <div class="nb126-card" style="text-align:center;padding:24px 0;">
+        <div id="nb126HijriDate" style="font-size:36px;font-weight:bold;color:#34d399;margin:10px 0;">
+          Loading...
+        </div>
+        <div id="nb126HijriDateArabic" style="font-size:28px;font-weight:bold;color:#a78bfa;margin:10px 0;direction:rtl;text-align:right;">
+        </div>
+        <small style="color:#94a3cb;">
+          <span id="nb126HijriGregorian">—</span>
+        </small>
+      </div>
+    </section>
+
+    <section class="nb126-section">
+      <div class="nb126-section-title">
+        <h2>Convert Date</h2>
+      </div>
+      <div class="nb126-card">
+        <input
+          type="date"
+          id="nb126ConvertDate"
+          style="width:100%;padding:8px;font-size:14px;margin-bottom:10px;"
+        />
+        <button
+          type="button"
+          class="nb126-button nb126-button-primary"
+          style="width:100%;"
+          onclick="convertDate()"
+        >
+          Convert to Hijri
+        </button>
+        <div id="nb126ConvertResult" style="margin-top:12px;text-align:center;">
+          <small>Enter a date above to convert.</small>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function shoppingList() {
+  return `
+    <section class="nb126-page-head">
+      <small>YOUR LIST</small>
+      <h1>Shopping List</h1>
+      <p>
+        Say \"Hey Noor, add milk to my shopping list\" to add items via HALO voice.
+      </p>
+    </section>
+
+    <section class="nb126-section">
+      <div class="nb126-card">
+        <div class="nb126-list" id="nb126ShoppingListItems" style="max-height:300px;overflow-y:auto;">
+          <small>Loading...</small>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:12px;">
+          <input
+            type="text"
+            id="nb126NewItemInput"
+            placeholder="Add item..."
+            style="flex:1;padding:8px;font-size:14px;border-radius:6px;border:1px solid #334155;background:#1e293b;color:#e2e8f0;"
+          />
+          <button
+            type="button"
+            class="nb126-button nb126-button-primary"
+            onclick="addShoppingItem()"
+          >
+            Add
+          </button>
+        </div>
+        <button
+          type="button"
+          class="nb126-button"
+          style="width:100%;margin-top:10px;"
+          onclick="clearShoppingList()"
+        >
+          Clear All
+        </button>
+      </div>
+    </section>
+  `;
+}
+
+function refreshQibla() {
+  fetch('/api/prayer-intelligence/qibla')
+    .then(r => r.json())
+    .then(d => {
+      document.getElementById('nb126QiblaDirection').textContent = d.qibla_direction.toFixed(1) + '°';
+      document.getElementById('nb126QiblaLocation').textContent =
+        d.latitude + ', ' + d.longitude;
+    })
+    .catch(() => {
+      document.getElementById('nb126QiblaDirection').textContent = 'Error';
+    });
+}
+
+function loadHijri() {
+  fetch('/api/prayer-intelligence/hijri')
+    .then(r => r.json())
+    .then(d => {
+      const h = d.hijri;
+      document.getElementById('nb126HijriDate').textContent =
+        h.day + ' ' + h.month_name + ' ' + h.year + ' AH';
+      document.getElementById('nb126HijriDateArabic').textContent =
+        h.day + ' ' + h.month_name_arabic + ' ' + h.year;
+      document.getElementById('nb126HijriGregorian').textContent = d.gregorian;
+    })
+    .catch(() => {
+      document.getElementById('nb126HijriDate').textContent = 'Error loading Hijri date';
+    });
+}
+
+function convertDate() {
+  const input = document.getElementById('nb126ConvertDate');
+  const result = document.getElementById('nb126ConvertResult');
+  if (!input.value) {
+    result.innerHTML = '<small style="color:#f59e0b;">Please select a date.</small>';
+    return;
+  }
+  fetch('/api/prayer-intelligence/hijri?gregorian_date=' + input.value)
+    .then(r => r.json())
+    .then(d => {
+      const h = d.hijri;
+      result.innerHTML = '<small style="color:#34d399;font-weight:bold;">' +
+        h.day + ' ' + h.month_name + ' ' + h.year + ' AH (' + h.month_name_arabic + ')</small>';
+    })
+    .catch(() => {
+      result.innerHTML = '<small style="color:#ef4444;">Conversion failed.</small>';
+    });
+}
+
+function loadShoppingList() {
+  fetch('/api/shopping-list/shopping/items')
+    .then(r => r.json())
+    .then(d => {
+      const container = document.getElementById('nb126ShoppingListItems');
+      const items = d.items || [];
+      if (items.length === 0) {
+        container.innerHTML = '<small style="color:#64748b;">Your list is empty. Add items below or say "Hey Noor, add milk to my shopping list".</small>';
+      } else {
+        container.innerHTML = items.map(item => `
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #334155;">
+            <input
+              type="checkbox"
+              ${item.checked ? 'checked' : ''}
+              onchange="toggleShoppingItem(${item.id})"
+              style="width:16px;height:16px;"
+            />
+            <span style="${item.checked ? 'text-decoration:line-through;color:#64748b;' : 'color:#e2e8f0;'}">
+              ${item.text}
+            </span>
+          </div>
+        `).join('');
+      }
+    })
+    .catch(() => {
+      const container = document.getElementById('nb126ShoppingListItems');
+      container.innerHTML = '<small style="color:#ef4444;">Failed to load list.</small>';
+    });
+}
+
+function addShoppingItem() {
+  const input = document.getElementById('nb126NewItemInput');
+  const text = input.value.trim();
+  if (!text) return;
+  fetch('/api/shopping-list/shopping/items', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: text })
+  })
+    .then(r => r.json())
+    .then(() => {
+      input.value = '';
+      loadShoppingList();
+    })
+    .catch(() => {
+      alert('Failed to add item');
+    });
+}
+
+function toggleShoppingItem(itemId) {
+  fetch('/api/shopping-list/shopping/items/' + itemId + '/toggle', { method: 'PATCH' })
+    .then(() => loadShoppingList())
+    .catch(() => {});
+}
+
+function clearShoppingList() {
+  if (!confirm('Clear all items from your shopping list?')) return;
+  fetch('/api/shopping-list/shopping/items/clear', { method: 'DELETE' })
+    .then(() => loadShoppingList())
+    .catch(() => {});
+}
+
+const renderers = {
   home,
   automation,
   halo,
   islamic,
+  qibla,
+  hijri,
+  shoppingList,
+  "shopping-list": shoppingList,
   "auto-intercom-settings": openAutoIntercomSettings,
   more
 };
@@ -3787,6 +4082,15 @@ function navigate(name,push=true){
 
   content.scrollTop=0;
   window.scrollTo(0,0);
+
+  // Post-render: load dynamic content for specific pages
+  if (name === "hijri") {
+    loadHijri();
+  }
+  if (name === "shopping-list") {
+    loadShoppingList();
+  }
+
   logV126("RESULT", {route: name, visible: !!document.querySelector("#nb126Content")});
 }
 

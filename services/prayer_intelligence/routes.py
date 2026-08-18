@@ -64,6 +64,59 @@ async def times(
     )
 
 
+@router.get("/qibla")
+async def qibla(
+    latitude: float | None = Query(default=None),
+    longitude: float | None = Query(default=None),
+) -> dict[str, Any]:
+    """Calculate Qibla compass direction toward the Kaaba.
+
+    If latitude/longitude are not provided, uses the configured prayer
+    settings location.
+    """
+    from .calculator import calculate_qibla_direction
+    from .store import prayer_store
+
+    if latitude is None or longitude is None:
+        data = await asyncio.to_thread(prayer_store.read)
+        settings = data.get("settings", {})
+        latitude = settings.get("latitude", 0)
+        longitude = settings.get("longitude", 0)
+
+    if latitude is None:
+        latitude = 0.0
+    if longitude is None:
+        longitude = 0.0
+
+    bearing = calculate_qibla_direction(latitude, longitude)
+    return {
+        "status": "ok",
+        "qibla_direction": round(bearing, 2),
+        "direction": round(bearing, 1),
+        "latitude": latitude,
+        "longitude": longitude,
+        "target": "Kaaba, Mecca",
+        "target_latitude": 21.422487,
+        "target_longitude": 39.826206,
+    }
+
+
+@router.get("/hijri")
+async def hijri(
+    gregorian_date: date | None = Query(default=None),
+) -> dict[str, Any]:
+    """Convert Gregorian date to Hijri (Islamic) date."""
+    from .calculator import to_hijri_date
+
+    g_date = gregorian_date or date.today()
+    hijri_result = to_hijri_date(g_date)
+    return {
+        "status": "ok",
+        "gregorian": g_date.isoformat(),
+        "hijri": hijri_result,
+    }
+
+
 @router.get("/status")
 async def status() -> dict[str, Any]:
     return await asyncio.to_thread(

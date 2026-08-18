@@ -6,6 +6,109 @@ from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 
+# Kaaba coordinates
+KAABA_LATITUDE = 21.422487
+KAABA_LONGITUDE = 39.826206
+
+
+def calculate_qibla_direction(
+    latitude: float,
+    longitude: float,
+) -> float:
+    """Calculate Qibla compass bearing (degrees from North) toward the Kaaba.
+
+    Uses the great-circle initial bearing formula. Returns 0–360 degrees.
+    """
+    lat1 = math.radians(latitude)
+    lon1 = math.radians(longitude)
+    lat2 = math.radians(KAABA_LATITUDE)
+    lon2 = math.radians(KAABA_LONGITUDE)
+
+    d_lon = lon2 - lon1
+    y = math.sin(d_lon) * math.cos(lat2)
+    x = (
+        math.sin(lat2) * math.cos(lat1)
+        - math.sin(lat1) * math.cos(lat2) * math.cos(d_lon)
+    )
+    bearing = math.degrees(math.atan2(y, x))
+    return _fix_angle(bearing)
+
+
+def to_hijri_date(gregorian: date) -> dict[str, str | int]:
+    """Convert a Gregorian date to Hijri (Islamic) date using tabular method.
+
+    Uses the algorithm from the University of Umm Al-Qura algorithm.
+    Returns a dict with: year, month, day, month_name, month_name_arabic.
+    """
+    hijri_months = [
+        "Muharram", "Safar", "Rabi al-Awwal", "Rabi al-Thani",
+        "Jumada al-Awwal", "Jumada al-Thani", "Rajab", "Sha'ban",
+        "Ramadan", "Shawwal", "Dhu al-Qi'dah", "Dhu al-Hijjah",
+    ]
+    hijri_months_arabic = [
+        "المحرم", "الصفر", "ربيع الأول", "ربيع الثاني",
+        "جمادى الأولى", "جمادى الآخرة", "رجب", "شعبان",
+        "رمضان", "شوال", "ذو القعدة", "ذو الحجة",
+    ]
+
+    # Tabular Islamic calendar: Hijri year 1 = 622-07-16 (Julian day 1948439.5)
+    # Each year is 354 or 355 days. Leap years: year%30 in {2,5,7,10,13,16,18,21,24,26,29}
+    def hijri_to_jd(year: int, month: int, day: int) -> float:
+        """Convert Hijri date to Julian day."""
+        return day + _days_from_hijri_year(year) + 1948439.5
+
+    def _days_from_hijri_year(year: int) -> int:
+        """Total days from Hijri year 1 to start of given year."""
+        total = 0
+        for y in range(1, year):
+            total += 354 + (1 if _is_hijri_leap(y) else 0)
+        return total
+
+    def _is_hijri_leap(year: int) -> bool:
+        return (year * 11 + 14) % 30 < 11
+
+    def _hijri_month_length(year: int, month: int) -> int:
+        """Length of Hijri month (1-indexed): 30 for odd, 29 for even, last=30 if leap."""
+        if month < 1 or month > 12:
+            return 29
+        if month == 12 and _is_hijri_leap(year):
+            return 30
+        return 30 if month % 2 == 1 else 29
+
+    # Start with approximate Hijri year
+    jd = _julian_day(gregorian)
+    hijri_year = int((jd - 1948439.5) / 354.375) + 1
+
+    # Refine year
+    while hijri_to_jd(hijri_year, 1, 1) > jd:
+        hijri_year -= 1
+    while hijri_to_jd(hijri_year + 1, 1, 1) <= jd:
+        hijri_year += 1
+
+    # Find month and day
+    month = 1
+    day_in_year = int(jd - hijri_to_jd(hijri_year, 1, 1) + 1)
+    for m in range(1, 13):
+        mlen = _hijri_month_length(hijri_year, m)
+        if day_in_year <= mlen:
+            month = m
+            day = day_in_year
+            break
+        day_in_year -= mlen
+    else:
+        month = 1
+        day = 1
+
+    return {
+        "year": hijri_year,
+        "month": month,
+        "day": day,
+        "month_name": hijri_months[month - 1],
+        "month_name_arabic": hijri_months_arabic[month - 1],
+        "is_leap_year": _is_hijri_leap(hijri_year),
+    }
+
+
 @dataclass(frozen=True)
 class PrayerSettings:
     latitude: float

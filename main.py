@@ -58,6 +58,7 @@ from services.scene_intelligence.routes import router as scene_intelligence_rout
 from services.decision_engine.routes import router as decision_engine_router
 from services.ai_assistant.routes import router as ai_assistant_router
 from services.sprint7_half1.routes import router as sprint7_half1_router
+from services.shopping_list.routes import router as shopping_list_router
 from services.prediction.routes import router as prediction_router
 from services.anomaly.routes import router as anomaly_router
 from services.household.routes import router as household_router
@@ -88,6 +89,7 @@ app.include_router(operations_router)
 app.include_router(qa_router)
 app.include_router(release_router)
 app.include_router(sprint7_half1_router)
+app.include_router(shopping_list_router)
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 DASHBOARD_DIR = PROJECT_ROOT / "dashboard"
