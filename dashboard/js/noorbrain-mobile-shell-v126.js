@@ -4098,6 +4098,9 @@ function navigate(name,push=true){
   window.scrollTo(0,0);
 
   // Post-render: load dynamic content for specific pages
+  if (name === "qibla") {
+    refreshQibla();
+  }
   if (name === "hijri") {
     loadHijri();
   }
@@ -4116,6 +4119,21 @@ function runAction(action){
   logV126("CLICK", {action});
 
   if (action && TABS[action]) {
+    navigate(action, true);
+    return true;
+  }
+
+  if (
+    action === "qibla" ||
+    action === "hijri" ||
+    action === "shopping-list"
+  ) {
+    const parent =
+      V126_PARENT_MAP[action] ||
+      getNativeBackTarget("home");
+
+    setNativeBackTarget(parent);
+    setActiveTab(parent);
     navigate(action, true);
     return true;
   }
