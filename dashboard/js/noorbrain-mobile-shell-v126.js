@@ -4154,6 +4154,9 @@ function navigate(name,push=true){
   if (name === "shopping-list") {
     loadShoppingList();
   }
+  if (name === "smart-learning") {
+    loadSmartLearning();
+  }
 
   logV126("RESULT", {route: name, visible: !!document.querySelector("#nb126Content")});
 }
@@ -4173,7 +4176,8 @@ function runAction(action){
   if (
     action === "qibla" ||
     action === "hijri" ||
-    action === "shopping-list"
+    action === "shopping-list" ||
+    action === "smart-learning"
   ) {
     const parent =
       V126_PARENT_MAP[action] ||
