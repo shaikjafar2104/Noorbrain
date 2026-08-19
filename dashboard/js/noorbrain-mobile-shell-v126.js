@@ -131,6 +131,7 @@ const V126_PARENT_MAP = {
   plugins: "more",
   habits: "more",
   "shopping-list": "more",
+  "smart-learning": "more",
   settings: "more"
 };
 
@@ -554,6 +555,13 @@ function more(){
       })}
 
       ${tile({
+          icon:"\ud83e\uddee",
+          title:"Smart Learning",
+          text:"Human activity intelligence",
+          action:"smart-learning"
+        })}
+
+        ${tile({
         icon:"🛒",
         title:"Shopping List",
         text:"Voice-managed lists",
@@ -860,6 +868,44 @@ function clearShoppingList() {
     .catch(() => {});
 }
 
+function smartLearning(){
+  loadSmartLearning();
+  return `
+    <section class="nb126-page-head">
+      <small>NOORBRAIN V12.8</small>
+      <h1>Smart Learning</h1>
+      <p>
+        Human Activity Intelligence. Observe patterns, approve rule suggestions.
+      </p>
+    </section>
+
+    <section class="nb126-card">
+      <h2>Live Activity</h2>
+      <div id="ha-live"></div>
+    </section>
+
+    <section class="nb126-card">
+      <h2>Activity Timeline</h2>
+      <div id="ha-timeline"></div>
+    </section>
+
+    <section class="nb126-card">
+      <h2>Learned Patterns</h2>
+      <div id="ha-patterns"></div>
+    </section>
+
+    <section class="nb126-card">
+      <h2>Rule Suggestions</h2>
+      <div id="ha-suggestions"></div>
+    </section>
+
+    <section class="nb126-card">
+      <h2>Settings</h2>
+      <div id="ha-settings"></div>
+    </section>
+  `;
+}
+
 const renderers = {
   home,
   automation,
@@ -869,6 +915,7 @@ const renderers = {
   hijri,
   shoppingList,
   "shopping-list": shoppingList,
+  "smart-learning": smartLearning,
   "auto-intercom-settings": openAutoIntercomSettings,
   more
 };
@@ -4401,3 +4448,121 @@ if(document.readyState==="loading"){
 }
 
 })();
+
+
+function loadSmartLearning(){
+  fetch('/api/human-activity-intelligence/snapshot')
+    .then(r => r.json())
+    .then(d => {
+      let html = '<div style="font-size:14px">';
+      if (d.sessions && d.sessions.length > 0) {
+        d.sessions.forEach(s => {
+          html += '<div style="margin-bottom:8px;padding:8px;background:rgba(255,255,255,0.05);border-radius:8px">';
+          html += '<strong>Person ' + s.person_id + '</strong><br>';
+          html += 'Zone: ' + (s.zone || 'Unknown') + '<br>';
+          html += 'Activity: ' + s.activity_type + '<br>';
+          html += 'Motion: ' + (s.motion_state || 'unknown') + '<br>';
+          html += 'Duration: ' + Math.round(s.duration_seconds) + 's<br>';
+          html += 'Confidence: ' + Math.round(s.confidence * 100) + '%';
+          html += '</div>';
+        });
+      } else {
+        html += '<div style="color:#999">No active people detected</div>';
+      }
+      html += '</div>';
+      document.getElementById('ha-live').innerHTML = html;
+    })
+    .catch(() => { document.getElementById('ha-live').innerHTML = '<div style="color:#ef4444">Failed to load live activity</div>'; });
+
+  fetch('/api/human-activity-intelligence/events/recent?limit=20')
+    .then(r => r.json())
+    .then(d => {
+      let html = '<div style="font-size:14px">';
+      if (d.events && d.events.length > 0) {
+        d.events.forEach(e => {
+          html += '<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.1)">';
+          html += '<strong>' + e.event_type + '</strong> | Person ' + (e.person_id || '?') + ' | ' + (e.zone || '?');
+          html += '</div>';
+        });
+      } else {
+        html += '<div style="color:#999">No events yet</div>';
+      }
+      html += '</div>';
+      document.getElementById('ha-timeline').innerHTML = html;
+    })
+    .catch(() => { document.getElementById('ha-timeline').innerHTML = '<div style="color:#ef4444">Failed to load timeline</div>'; });
+
+  fetch('/api/human-activity-intelligence/patterns?limit=10')
+    .then(r => r.json())
+    .then(d => {
+      let html = '<div style="font-size:14px">';
+      if (d.patterns && d.patterns.length > 0) {
+        d.patterns.forEach(p => {
+          html += '<div style="padding:8px;margin-bottom:8px;background:rgba(255,255,255,0.05);border-radius:8px">';
+          html += '<strong>' + p.activity_type + '</strong> in ' + (p.zone || 'unknown');
+          html += '<br>Occurrences: ' + p.support_count + ' | Confidence: ' + Math.round(p.confidence * 100) + '%';
+          html += '</div>';
+        });
+      } else {
+        html += '<div style="color:#999">No patterns learned yet</div>';
+      }
+      html += '</div>';
+      document.getElementById('ha-patterns').innerHTML = html;
+    })
+    .catch(() => { document.getElementById('ha-patterns').innerHTML = '<div style="color:#ef4444">Failed to load patterns</div>'; });
+
+  fetch('/api/human-activity-intelligence/suggestions?status=new&limit=10')
+    .then(r => r.json())
+    .then(d => {
+      let html = '<div style="font-size:14px">';
+      if (d.suggestions && d.suggestions.length > 0) {
+        d.suggestions.forEach(s => {
+          html += '<div style="padding:8px;margin-bottom:8px;background:rgba(255,255,255,0.05);border-radius:8px">';
+          html += '<strong>' + s.rule_name + '</strong><br>';
+          html += 'Trigger: ' + s.rule_trigger + ' in ' + (s.rule_zone || 'any zone');
+          html += '<br><em>' + s.rule_message + '</em>';
+          html += '<br><small>Confidence: ' + Math.round(s.priority * 100) + '%</small>';
+      html += '<br><button onclick="approveSuggestion(\'' + s.id + '\')" style="margin-right:8px;margin-top:4px">APPROVE</button>';
+      html += '<button onclick="rejectSuggestion(\'' + s.id + '\')" style="margin-top:4px">REJECT</button>';
+          html += '</div>';
+        });
+      } else {
+        html += '<div style="color:#999">No suggestions pending. Approve a pattern to create a rule.</div>';
+      }
+      html += '</div>';
+      document.getElementById('ha-suggestions').innerHTML = html;
+    })
+    .catch(() => { document.getElementById('ha-suggestions').innerHTML = '<div style="color:#ef4444">Failed to load suggestions</div>'; });
+
+  fetch('/api/human-activity-intelligence/settings')
+    .then(r => r.json())
+    .then(d => {
+      let html = '<div style="font-size:14px">';
+      let settings = d.settings || {};
+      html += 'Learning: <strong>' + (settings.learning_enabled === "true" ? "ON" : "OFF") + '</strong><br>';
+      html += 'Auto-create rules: <strong>' + (settings.automatic_rule_creation === "true" ? "ON" : "OFF") + '</strong><br>';
+      html += 'Snapshots: <strong>' + (settings.snapshot_enabled === "true" ? "ON" : "OFF") + '</strong><br>';
+      html += 'Min pattern occurrences: <strong>' + (settings.minimum_pattern_occurrences || "3") + '</strong>';
+      html += '</div>';
+      document.getElementById('ha-settings').innerHTML = html;
+    })
+    .catch(() => { document.getElementById('ha-settings').innerHTML = '<div style="color:#ef4444">Failed to load settings</div>'; });
+}
+
+function approveSuggestion(suggestionId){
+  fetch('/api/human-activity-intelligence/suggestions/' + suggestionId + '/approve', { method: 'POST' })
+    .then(r => r.json())
+    .then(d => {
+      alert(d.status === 'approved' ? 'Rule approved! It will trigger automatically.' : 'Approval failed');
+      loadSmartLearning();
+    });
+}
+
+function rejectSuggestion(suggestionId){
+  fetch('/api/human-activity-intelligence/suggestions/' + suggestionId + '/reject', { method: 'POST' })
+    .then(r => r.json())
+    .then(d => {
+      alert("Suggestion rejected. Won't propose again for 72 hours.");
+      loadSmartLearning();
+    });
+}

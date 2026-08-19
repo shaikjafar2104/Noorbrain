@@ -7,10 +7,32 @@ from typing import Any
 
 from fastapi import APIRouter, Body, Query
 
+from .adaptive_service import adaptive_rule_intelligence
 from .engine import human_activity_intelligence, HumanActivityIntelligence
 from .store import activity_store
 
 router = APIRouter(prefix="/api/human-activity-intelligence", tags=["Human Activity Intelligence"])
+
+# Initialize default settings if not present
+def _ensure_default_settings():
+    defaults = {
+        "learning_enabled": "true",
+        "activity_history_enabled": "true",
+        "movement_start_seconds": "2",
+        "movement_stop_seconds": "3",
+        "stationary_threshold_seconds": "5",
+        "long_stationary_seconds": "900",
+        "long_sitting_seconds": "1800",
+        "minimum_pattern_occurrences": "3",
+        "proposal_cooldown_hours": "72",
+        "automatic_rule_creation": "false",
+        "snapshots_enabled": "false",
+    }
+    for key, value in defaults.items():
+        if activity_store.get_setting(key) is None:
+            activity_store.set_setting(key, value)
+
+_ensure_default_settings()
 
 # Backward-compatibility alias: routes written before engine refactor may call
 # human_activity_intelligence.drainage(); map to the authoritative drain_events().
@@ -386,3 +408,92 @@ async def stop_snapshot_scheduler(timeout: float = 5.0) -> dict[str, Any]:
         _snapshot_stop.set()
         _snapshot_started.clear()
     return {"status": "stopped"}
+
+
+# ------------------------------------------------------------------
+# Adaptive Rule Intelligence — pattern learning and approvals
+# ------------------------------------------------------------------
+
+@router.get("/adaptive-rules/health")
+async def adaptive_health() -> dict[str, Any]:
+    return adaptive_rule_intelligence.health()
+
+@router.get("/adaptive-rules/status")
+async def adaptive_status() -> dict[str, Any]:
+    settings = activity_store.get_all_settings()
+    return {
+        "status": "ok",
+        "learning_enabled": settings.get("learning_enabled", "true") in {"1", "true", "yes"},
+        "automatic_rule_creation": settings.get("automatic_rule_creation", "false") in {"1", "true", "yes"},
+        "pattern_count": activity_store.pattern_count(),
+        "suggestion_count": activity_store.suggestion_count(),
+        "event_count": activity_store.event_count(),
+    }
+
+@router.get("/adaptive-rules/activity")
+async def adaptive_activity() -> dict[str, Any]:
+    """Live human activity snapshot."""
+    return human_activity_intelligence.snapshot()
+
+@router.get("/adaptive-rules/timeline")
+async def adaptive_timeline(
+    limit: int = Query(default=100, ge=1, le=500),
+) -> dict[str, Any]:
+    items = activity_store.recent_events(limit=limit)
+    return {"status": "ok", "count": len(items), "events": items}
+
+@router.get("/adaptive-rules/patterns")
+async def adaptive_patterns(
+    person_id: str | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+) -> dict[str, Any]:
+    return adaptive_rule_intelligence.patterns(person_id=person_id, limit=limit)
+
+@router.get("/adaptive-rules/proposals")
+async def adaptive_proposals(
+    status: str | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+) -> dict[str, Any]:
+    return adaptive_rule_intelligence.suggestions(status=status, limit=limit)
+
+@router.post("/adaptive-rules/patterns/rebuild")
+async def adaptive_rebuild(payload: dict[str, Any] | None = Body(default=None)) -> dict[str, Any]:
+    result = adaptive_rule_intelligence.rebuild_patterns()
+    sug_result = adaptive_rule_intelligence.generate_suggestions()
+    return {
+        "status": "ok",
+        "patterns": result,
+        "suggestions": sug_result,
+    }
+
+@router.post("/adaptive-rules/proposals/{proposal_id}/approve")
+async def adaptive_approve(proposal_id: str) -> dict[str, Any]:
+    return adaptive_rule_intelligence.approve_suggestion(proposal_id)
+
+@router.post("/adaptive-rules/proposals/{proposal_id}/reject")
+async def adaptive_reject(proposal_id: str) -> dict[str, Any]:
+    return adaptive_rule_intelligence.reject_suggestion(proposal_id)
+
+@router.patch("/adaptive-rules/proposals/{proposal_id}")
+async def adaptive_patch_proposal(
+    proposal_id: str,
+    payload: dict[str, Any] = Body(...),
+) -> dict[str, Any]:
+    """Edit a proposal (message, cooldown, zone, etc.)."""
+    result = activity_store.update_suggestion(proposal_id, payload)
+    if result is None:
+        return {"status": "error", "detail": "proposal not found"}
+    return {"status": "updated", "proposal": result}
+
+@router.get("/adaptive-rules/settings")
+async def adaptive_settings() -> dict[str, Any]:
+    return {"status": "ok", "settings": activity_store.get_all_settings()}
+
+@router.patch("/adaptive-rules/settings")
+async def adaptive_update_settings(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    key = str(payload.get("key") or "").strip()
+    value = str(payload.get("value") or "").strip()
+    if not key:
+        return {"status": "error", "detail": "key required"}
+    activity_store.set_setting(key, value)
+    return {"status": "updated", "key": key, "value": value}

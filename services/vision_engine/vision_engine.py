@@ -23,6 +23,7 @@ from shared.scene_memory import scene_memory
 from services.activity_engine import activity_engine
 from services.camera_client import camera_client
 from services.habit_engine import habit_engine
+from services.human_activity_intelligence.engine import human_activity_intelligence
 from services.sprint7_half1 import sprint7_intelligence
 from services.reminder_rules import reminder_rules
 from services.zone_engine import zone_engine
@@ -238,8 +239,39 @@ class VisionEngine:
     def _process_activity_events(self):
         """
         Deliver each activity event exactly once to habit and
-        reminder engines.
+        reminder engines. Also drain HAI events.
         """
+
+        # Drain HAI events first
+        hai_events = human_activity_intelligence.drain_events()
+        for hai_event in hai_events:
+            try:
+                habit_engine.observe(
+                    hai_event
+                )
+            except Exception:
+                logger.exception(
+                    "Habit Engine HAI event handling failed"
+                )
+            try:
+                fired_reminders = (
+                    reminder_rules.handle_event(
+                        hai_event
+                    )
+                )
+                if fired_reminders:
+                    logger.info(
+                        "HAI REMINDER RULES : %s fired for "
+                        "%s person=%s zone=%s",
+                        len(fired_reminders),
+                        hai_event.get("type"),
+                        hai_event.get("person_id"),
+                        hai_event.get("zone"),
+                    )
+            except Exception:
+                logger.exception(
+                    "HAI Reminder Rules event handling failed"
+                )
 
         for activity_event in activity_engine.drain_events():
             try:
@@ -411,6 +443,24 @@ class VisionEngine:
                 logger.exception(
                     "Activity Engine update failed"
                 )
+
+            # Human Activity Intelligence — observe each tracked person
+            # with motion state from the person tracker
+            for detection in active_detections:
+                try:
+                    human_activity_intelligence.observe(
+                        person_id=str(detection.get("person_id", "")),
+                        track_id=str(detection.get("id", "")),
+                        zone=detection.get("zone", ""),
+                        box=detection.get("box"),
+                        motion_delta=detection.get("velocity_px_s", 0.0),
+                        frame_epoch=detection.get("last_seen"),
+                        observed_objects=detection.get("objects", []),
+                    )
+                except Exception:
+                    logger.exception(
+                        "HAI observe failed"
+                    )
 
             self._process_activity_events()
 

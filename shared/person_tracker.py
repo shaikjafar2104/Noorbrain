@@ -53,6 +53,14 @@ class PersonTracker:
             "confidence": detection.get("confidence", 0),
             "first_seen": now,
             "last_seen": now,
+            "last_center": center,
+            "last_motion_time": now,
+            "displacement_px": 0.0,
+            "velocity_px_s": 0.0,
+            "motion_state": "stationary",
+            "motion_state_started": now,
+            "moving_streak": 0,
+            "stationary_streak": 0,
             "hits": 1,
             "visible": True
         }
@@ -113,6 +121,26 @@ class PersonTracker:
                         "Unknown"
                     )
 
+                    dt = now - track["last_seen"]
+                    prev_center = track["center"]
+                    displacement = self._distance(center, prev_center)
+                    velocity = displacement / dt if dt > 0 else 0.0
+
+                    # Motion state with debounce
+                    motion_state = track.get("motion_state", "stationary")
+                    moving_streak = track.get("moving_streak", 0) + 1 if displacement > 3.0 else 0
+                    stationary_streak = track.get("stationary_streak", 0) + 1 if displacement <= 3.0 else 0
+
+                    # Debounce: require 2 consecutive moving frames to switch
+                    if moving_streak >= 2 and motion_state != "moving":
+                        motion_state = "moving"
+                        motion_state_started = now
+                    elif stationary_streak >= 2 and motion_state != "stationary":
+                        motion_state = "stationary"
+                        motion_state_started = now
+                    else:
+                        motion_state_started = track.get("motion_state_started", now)
+
                     track.update({
                         "center": center,
                         "box": list(box),
@@ -127,6 +155,14 @@ class PersonTracker:
                             0
                         ),
                         "last_seen": now,
+                        "last_center": prev_center,
+                        "last_motion_time": now,
+                        "displacement_px": round(displacement, 2),
+                        "velocity_px_s": round(velocity, 2),
+                        "motion_state": motion_state,
+                        "motion_state_started": motion_state_started,
+                        "moving_streak": moving_streak,
+                        "stationary_streak": stationary_streak,
                         "hits": track["hits"] + 1,
                         "visible": True
                     })
@@ -151,7 +187,24 @@ class PersonTracker:
                         if track["hits"] >= self.minimum_hits
                         else "confirming"
                     ),
-                    "previous_zone": track["previous_zone"]
+                    "previous_zone": track["previous_zone"],
+                    "center": track["center"],
+                    "displacement_px": track["displacement_px"],
+                    "velocity_px_s": track["velocity_px_s"],
+                    "motion_state": track["motion_state"],
+                    "motion_duration": round(
+                        now - track["motion_state_started"],
+                        1
+                    ),
+                    "direction": round(
+                        math.degrees(
+                            math.atan2(
+                                track.get("center", (0, 0))[0] - track.get("last_center", track.get("center", (0, 0)))[0],
+                                track.get("center", (0, 0))[1] - track.get("last_center", track.get("center", (0, 0)))[1]
+                            )
+                        ),
+                        1
+                    ) if displacement > 0 else 0.0,
                 })
 
                 results.append(enriched)
@@ -190,7 +243,15 @@ class PersonTracker:
                         "active"
                         if track["visible"]
                         else "temporarily_missing"
-                    )
+                    ),
+                    "center": track["center"],
+                    "displacement_px": track["displacement_px"],
+                    "velocity_px_s": track["velocity_px_s"],
+                    "motion_state": track["motion_state"],
+                    "motion_duration": round(
+                        now - track["motion_state_started"],
+                        1
+                    ),
                 }
                 for track in self._tracks.values()
             ]

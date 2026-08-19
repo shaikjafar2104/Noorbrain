@@ -64,6 +64,11 @@ class SessionState:
         self.ended_at: float | None = None
         self.ended_at_iso: str | None = None
         self.duration_seconds: float | None = None
+        self.motion_duration: float = 0.0
+        self.stationary_duration: float = 0.0
+        self.motion_started_at: float = started_at
+        self.stationary_started_at: float = started_at
+        self.last_motion_state: str = "stationary"
 
     @property
     def ended_at_set(self) -> bool:
@@ -763,6 +768,10 @@ class ActivityStore:
 
     def approve_suggestion(self, sid: str) -> dict[str, Any] | None:
         return self.update_suggestion(sid, {"status": "approved", "user_approved": True})
+
+    def reject_suggestion(self, sid: str) -> dict[str, Any] | None:
+        """Reject a suggestion and mark it as rejected for cooldown handling."""
+        return self.update_suggestion(sid, {"status": "rejected", "user_approved": False})
 
     def suggestion_count(self) -> int:
         with self._lock:

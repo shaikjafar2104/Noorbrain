@@ -120,7 +120,11 @@ def generate_rule_suggestions(payload: dict[str, Any] | None = None, store: Any 
             "activity_moving": "Movement detected.",
         }
 
-        sid = f"sug:{pat['id']}"
+        # Skip if suggestion already exists (avoid duplicate proposals)
+        sid = f"sugg:{pat['id']}"
+        if store.get_suggestion(sid) is not None:
+            continue
+
         suggestion = {
             "id": sid,
             "suggestion_type": "rule_suggestion",

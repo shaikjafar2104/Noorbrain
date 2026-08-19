@@ -49,8 +49,11 @@ SITTING_HEIGHT_RATIO_MAX = 1.0
 MOTION_MOVING_MIN = 8.0
 MOTION_STATIONARY_MAX = 3.0
 LONG_SITTING_THRESHOLD_SECONDS = 1800   # 30 min
-INACTIVITY_THRESHOLD_SECONDS = 1800     # 30 min
+LONG_INACTIVITY_THRESHOLD_SECONDS = 1800     # 30 min
+INACTIVITY_THRESHOLD_SECONDS = LONG_INACTIVITY_THRESHOLD_SECONDS  # backward compat alias
+LONG_STATIONARY_THRESHOLD_SECONDS = 900   # 15 min
 SESSION_STALE_SECONDS = 600             # 10 min without observation
+MOVEMENT_DEBOUNCE_FRAMES = 3  # Require 3 consecutive frames to switch motion state
 CONFIDENCE_RAMP_PER_OBSERVATION = 0.08
 CONFIDENCE_INITIAL_MAX = 0.75
 CONFIDENCE_FLOOR = 0.45
@@ -94,11 +97,16 @@ class HumanActivityIntelligence:
         self._store = store or ActivityStore()
         self._sessions: dict[str, SessionState] = {}
         self._previous_zone: dict[str, str] = {}
+        self._previous_motion_state: dict[str, str] = {}
+        self._motion_frame_count: dict[str, int] = {}
+        self._previous_posture: dict[str, str] = {}
         self._lock = threading.RLock()
         self._drain_stop = threading.Event()
         self._snapshot_stop = threading.Event()
+        self._pattern_stop = threading.Event()
         self._drain_thread: threading.Thread | None = None
         self._snapshot_thread: threading.Thread | None = None
+        self._pattern_thread: threading.Thread | None = None
         self._started_at = time.time()
         # Allow tests to override TV context zones
         self.tv_context_zones = TV_CONTEXT_ZONES
@@ -156,6 +164,49 @@ class HumanActivityIntelligence:
             # ---- zone transition ----
             prev_zone = self._previous_zone.get(person_id)
             if prev_zone and prev_zone != zone:
+                if zone and prev_zone:
+                    emitted.append(self._make_event(
+                        event_type="zone_changed",
+                        type="zone_changed",
+                        person_id=person_id,
+                        track_id=track_id,
+                        zone=zone,
+                        room=room,
+                        confidence=CONFIDENCE_HIGH,
+                        timestamp=t,
+                        timestamp_iso=now_iso,
+                        metadata={"from_zone": prev_zone, "to_zone": zone, "sibling_count": sibling_count},
+                        support_signals=["zone_transition"],
+                    ))
+                if prev_zone and not zone:
+                    emitted.append(self._make_event(
+                        event_type="left_zone",
+                        type="left_zone",
+                        person_id=person_id,
+                        track_id=track_id,
+                        zone=None,
+                        room=room,
+                        confidence=CONFIDENCE_HIGH,
+                        timestamp=t,
+                        timestamp_iso=now_iso,
+                        metadata={"from_zone": prev_zone, "sibling_count": sibling_count},
+                        support_signals=["zone_transition"],
+                    ))
+                if zone and not prev_zone:
+                    emitted.append(self._make_event(
+                        event_type="entered_zone",
+                        type="entered_zone",
+                        person_id=person_id,
+                        track_id=track_id,
+                        zone=zone,
+                        room=room,
+                        confidence=CONFIDENCE_HIGH,
+                        timestamp=t,
+                        timestamp_iso=now_iso,
+                        metadata={"to_zone": zone, "sibling_count": sibling_count},
+                        support_signals=["zone_transition"],
+                    ))
+                # Backward compat: keep moved_zone
                 emitted.append(self._make_event(
                     event_type="moved_zone",
                     type="moved_zone",
@@ -169,7 +220,6 @@ class HumanActivityIntelligence:
                     metadata={"from_zone": prev_zone, "to_zone": zone, "sibling_count": sibling_count},
                     support_signals=["zone_transition"],
                 ))
-
             self._previous_zone[person_id] = zone
 
             # ---- start or update session ----
@@ -201,6 +251,19 @@ class HumanActivityIntelligence:
                     metadata={"sibling_count": sibling_count, "posture": posture},
                     support_signals=["session_start"],
                 ))
+                emitted.append(self._make_event(
+                    event_type="appeared",
+                    type="appeared",
+                    person_id=person_id,
+                    track_id=track_id,
+                    zone=zone,
+                    room=room,
+                    confidence=CONFIDENCE_FLOOR,
+                    timestamp=t,
+                    timestamp_iso=now_iso,
+                    metadata={"sibling_count": sibling_count, "posture": posture},
+                    support_signals=["session_start"],
+                ))
 
             # ---- update session ----
             dwell = t - session.started_at
@@ -217,8 +280,36 @@ class HumanActivityIntelligence:
             if posture not in session.support_signals:
                 session.support_signals.append(posture)
 
+            # Track motion vs stationary durations
+            if is_moving and session.last_motion_state != "moving":
+                session.motion_started_at = t
+                session.last_motion_state = "moving"
+            elif is_stationary and session.last_motion_state != "stationary":
+                session.stationary_started_at = t
+                session.last_motion_state = "stationary"
+
+            if session.last_motion_state == "moving":
+                session.motion_duration = t - session.motion_started_at
+            elif session.last_motion_state == "stationary":
+                session.stationary_duration = t - session.stationary_started_at
+
             # persist updated session
             self._store.upsert_session(session)
+            emitted.append(self._make_event(
+                event_type="present",
+                type="present",
+                person_id=person_id,
+                track_id=track_id,
+                zone=zone,
+                room=room,
+                activity_type=activity_type,
+                confidence=min(new_conf, 0.8),
+                timestamp=t,
+                timestamp_iso=now_iso,
+                duration=dwell,
+                metadata={"sibling_count": sibling_count, "posture": posture, "dwell_seconds": round(dwell, 1)},
+                support_signals=["presence_update"],
+            ))
 
             # ---- emit activity type event (once per observation) ----
             # Stationary is a MOTION signal, posture is a POSE signal.
@@ -282,7 +373,7 @@ class HumanActivityIntelligence:
                     ))
 
             # ---- inactivity (stationary + low motion + dwell >= threshold) ----
-            if is_stationary and activity_type in {"stationary", "standing", "sitting"} and dwell >= INACTIVITY_THRESHOLD_SECONDS:
+            if is_stationary and activity_type in {"stationary", "standing", "sitting"} and dwell >= LONG_INACTIVITY_THRESHOLD_SECONDS:
                 if "inactivity" not in session.support_signals:
                     session.support_signals.append("inactivity")
                     emitted.append(self._make_event(
@@ -358,6 +449,74 @@ class HumanActivityIntelligence:
                         support_signals=["possible_tv_context", "tv_zone", "evening"],
                     ))
 
+            # ---- movement state with debounce ----
+            motion_state = self._track_motion_state(person_id, is_moving, is_stationary, t,
+                                                       zone=zone, room=room, track_id=track_id)
+
+            # ---- posture transition detection ----
+            prev_posture = self._previous_posture.get(person_id)
+            if prev_posture is not None and prev_posture != posture and posture != "unknown":
+                if prev_posture == "standing" and posture == "sitting":
+                    evt = self._make_event(
+                        event_type="stand_to_sit",
+                        type="stand_to_sit",
+                        person_id=person_id,
+                        track_id=track_id,
+                        zone=zone,
+                        room=room,
+                        activity_type="sitting",
+                        confidence=min(new_conf, 0.7),
+                        timestamp=t,
+                        timestamp_iso=now_iso,
+                        duration=0.0,
+                        metadata={"from_posture": prev_posture, "to_posture": posture},
+                        support_signals=["posture_transition"],
+                    )
+                    emitted.append(evt)
+                    self._store.add_event(evt)
+                elif prev_posture == "sitting" and posture == "standing":
+                    evt = self._make_event(
+                        event_type="sit_to_stand",
+                        type="sit_to_stand",
+                        person_id=person_id,
+                        track_id=track_id,
+                        zone=zone,
+                        room=room,
+                        activity_type="standing",
+                        confidence=min(new_conf, 0.7),
+                        timestamp=t,
+                        timestamp_iso=now_iso,
+                        duration=0.0,
+                        metadata={"from_posture": prev_posture, "to_posture": posture},
+                        support_signals=["posture_transition"],
+                    )
+                    emitted.append(evt)
+                    self._store.add_event(evt)
+
+            self._previous_posture[person_id] = posture
+
+            # ---- long stationary ----
+            if is_stationary and dwell >= LONG_STATIONARY_THRESHOLD_SECONDS:
+                if "long_stationary" not in session.support_signals:
+                    session.support_signals.append("long_stationary")
+                    evt = self._make_event(
+                        event_type="long_stationary",
+                        type="long_stationary",
+                        person_id=person_id,
+                        track_id=track_id,
+                        zone=zone,
+                        room=room,
+                        activity_type="stationary",
+                        confidence=min(new_conf, 0.65),
+                        timestamp=t,
+                        timestamp_iso=now_iso,
+                        duration=dwell,
+                        metadata={"dwell_seconds": round(dwell, 1), "posture": posture},
+                        support_signals=["long_stationary", "stationary"],
+                    )
+                    emitted.append(evt)
+                    self._store.add_event(evt)
+
             # ---- persist emitted events to injected store ----
             for ev in emitted:
                 self._store.add_event(ev)
@@ -382,12 +541,45 @@ class HumanActivityIntelligence:
                 if session.last_observed_at < cutoff:
                     to_remove.append(key)
                     self._store.end_session(session.session_id, confidence=session.confidence)
+                    # Emit disappeared event
+                    last_zone = session.zone
+                    if last_zone:
+                        expired.append(self._make_event(
+                            event_type="left_zone",
+                            type="left_zone",
+                            person_id=session.person_id,
+                            track_id=session.track_id,
+                            zone=None,
+                            room=session.room,
+                            confidence=CONFIDENCE_HIGH,
+                            timestamp=t,
+                            timestamp_iso=datetime.fromtimestamp(t, tz=timezone.utc).isoformat(),
+                            duration=session.last_observed_at - session.started_at,
+                            metadata={"from_zone": last_zone, "stale_seconds": round(t - session.last_observed_at, 1)},
+                            support_signals=["zone_transition"],
+                        ))
+                    expired.append(self._make_event(
+                        event_type="disappeared",
+                        type="disappeared",
+                        person_id=session.person_id,
+                        track_id=session.track_id,
+                        zone=last_zone,
+                        room=session.room,
+                        activity_type=session.activity_type,
+                        confidence=session.confidence,
+                        timestamp=t,
+                        timestamp_iso=datetime.fromtimestamp(t, tz=timezone.utc).isoformat(),
+                        duration=session.last_observed_at - session.started_at,
+                        metadata={"stale_seconds": round(t - session.last_observed_at, 1)},
+                        support_signals=["stale_timeout"],
+                    ))
+                    # Also emit activity_expired for backward compatibility
                     expired.append(self._make_event(
                         event_type="activity_expired",
                         type="activity_expired",
                         person_id=session.person_id,
                         track_id=session.track_id,
-                        zone=session.zone,
+                        zone=last_zone,
                         room=session.room,
                         activity_type=session.activity_type,
                         confidence=session.confidence,
@@ -429,6 +621,9 @@ class HumanActivityIntelligence:
                         "confidence": round(s.confidence, 3),
                         "started_at_iso": s.started_at_iso,
                         "duration_seconds": round(s.last_observed_at - s.started_at, 1),
+                        "motion_duration": round(s.motion_duration, 1),
+                        "stationary_duration": round(s.stationary_duration, 1),
+                        "motion_state": s.last_motion_state,
                         "event_count": s.event_count,
                     }
                     for s in self._sessions.values()
@@ -487,8 +682,98 @@ class HumanActivityIntelligence:
             return {"status": "stopped"}
 
     # ------------------------------------------------------------------
-    # Internal helpers
+    # Pattern learning scheduler
     # ------------------------------------------------------------------
+
+    def start_pattern_learner(self, interval_seconds: float = 300.0) -> dict[str, Any]:
+        """Start periodic pattern rebuild + suggestion generation.
+
+        Runs in a background daemon thread. Rebuilds patterns from
+        recent activity events and generates new rule suggestions.
+        """
+        with self._lock:
+            if self._pattern_thread is not None and self._pattern_thread.is_alive():
+                return {"status": "already_running"}
+            self._pattern_stop.clear()
+            self._pattern_thread = threading.Thread(
+                target=self._pattern_loop,
+                args=(interval_seconds,),
+                daemon=True,
+                name="HAI-pattern",
+            )
+            self._pattern_thread.start()
+            return {"status": "started", "interval_seconds": interval_seconds}
+
+    def stop_pattern_learner(self, timeout: float = 5.0) -> dict[str, Any]:
+        with self._lock:
+            self._pattern_stop.set()
+            if self._pattern_thread is not None:
+                self._pattern_thread.join(timeout=timeout)
+            self._pattern_thread = None
+            return {"status": "stopped"}
+
+    def _pattern_loop(self, interval: float) -> None:
+        while not self._pattern_stop.wait(interval):
+            try:
+                from .pattern_learner import rebuild_patterns, generate_rule_suggestions
+                rebuild_patterns(store=self._store)
+                generate_rule_suggestions(store=self._store)
+            except Exception:
+                pass
+
+    def _track_motion_state(self, person_id, is_moving, is_stationary, t,
+                            zone=None, room=None, track_id=None) -> str:
+        """Track moving/stationary state with debounce.
+
+        Returns current motion_state ('moving' or 'stationary').
+        Requires MOVEMENT_DEBOUNCE_FRAMES consecutive frames to switch.
+        Emits movement_started / movement_stopped events on transitions.
+        """
+        prev_state = self._previous_motion_state.get(person_id, "stationary")
+        count = self._motion_frame_count.get(person_id, 0)
+
+        # Count consecutive frames where the *desired* state matches the input
+        # This accumulates regardless of current motion_state, allowing the
+        # debounce to complete after MOVEMENT_DEBOUNCE_FRAMES frames.
+        if is_moving:
+            # Increment if we're seeing moving frames (regardless of current state)
+            new_count = count + 1 if prev_state == "moving" else count + 1
+        elif is_stationary:
+            new_count = count + 1 if prev_state == "stationary" else count + 1
+        else:
+            new_count = 0
+
+        new_state = prev_state
+        if new_count >= MOVEMENT_DEBOUNCE_FRAMES:
+            if is_moving:
+                new_state = "moving"
+            elif is_stationary:
+                new_state = "stationary"
+            if new_state != prev_state:
+                self._previous_motion_state[person_id] = new_state
+                self._motion_frame_count[person_id] = 0
+                # Emit transition event
+                event_type = "movement_started" if new_state == "moving" else "movement_stopped"
+                self._store.add_event({
+                    "event_type": event_type,
+                    "type": event_type,
+                    "person_id": person_id,
+                    "track_id": track_id,
+                    "zone": zone or "",
+                    "room": room or "",
+                    "activity_type": new_state,
+                    "confidence": CONFIDENCE_HIGH,
+                    "timestamp": t,
+                    "duration": 0.0,
+                    "metadata": {"from_state": prev_state, "to_state": new_state},
+                    "support_signals": ["motion_debounce"],
+                })
+            else:
+                self._motion_frame_count[person_id] = new_count
+        else:
+            self._motion_frame_count[person_id] = new_count
+
+        return new_state
 
     @staticmethod
     def _classify_posture(box: list[float] | None) -> str:
@@ -528,8 +813,8 @@ class HumanActivityIntelligence:
         type: str,
         person_id: str,
         track_id: str | None,
-        zone: str,
-        room: str,
+        zone: Any = "",
+        room: Any = "",
         activity_type: str = "",
         confidence: float,
         timestamp: float,
@@ -570,6 +855,9 @@ class HumanActivityIntelligence:
             "support_signals": session.support_signals,
             "last_observed_at": session.last_observed_at,
             "last_observed_iso": session.last_observed_iso,
+            "motion_duration": round(session.motion_duration, 1),
+            "stationary_duration": round(session.stationary_duration, 1),
+            "motion_state": session.last_motion_state,
         }
 
     # ------------------------------------------------------------------
