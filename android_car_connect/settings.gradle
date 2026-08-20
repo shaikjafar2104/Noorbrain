@@ -1,0 +1,5 @@
+// Gradle settings for Android Car Connect — Phase 2 USB Prototype
+// NoorBrain Android Car Connect project
+
+rootProject.name = "NoorBrainCarConnect"
+include(":app")

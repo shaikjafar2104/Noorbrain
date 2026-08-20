@@ -14,6 +14,85 @@ from .store import activity_store
 
 router = APIRouter(prefix="/api/human-activity-intelligence", tags=["Human Activity Intelligence"])
 
+# ------------------------------------------------------------------
+# Islamic Stories Library (Feature 3 — HALO Islamic Story Mode)
+# ------------------------------------------------------------------
+
+ISLAMIC_STORIES: dict[str, dict[str, Any]] = {
+    "prophet-yusuf": {
+        "title": "The Story of Prophet Yusuf (Joseph)",
+        "summary": "Prophet Yusuf was betrayed by his brothers who threw him into a well. He was sold into slavery, rose to power in Egypt, and forgave his brothers during famine.",
+        "categories": ["quran", "prophet"],
+        "surah_reference": "Surah Yusuf (Quran 12)",
+    },
+    "prophet-musa": {
+        "title": "The Story of Prophet Musa (Moses)",
+        "summary": "Prophet Musa was saved from the river as a baby, grew in Pharaoh's court, led the Exodus, and received the Torah on Mount Sinai.",
+        "categories": ["quran", "prophet"],
+        "surah_reference": "Surah Ash-Shu'ara (Quran 26), Surah Al-Qasas (Quran 28)",
+    },
+    "prophet-ibrahim": {
+        "title": "The Story of Prophet Ibrahim (Abraham)",
+        "summary": "Prophet Ibrahim was tested by Allah with trials of sacrifice and was willing to sacrifice his son. He was the first monotheist and a friend of Allah.",
+        "categories": ["quran", "prophet"],
+        "surah_reference": "Surah As-Saffat (Quran 37)",
+    },
+    "prophet-yunus": {
+        "title": "The Story of Prophet Yunus (Jonah)",
+        "summary": "Prophet Yunus was swallowed by a great fish after his people rejected him. He spent time in the darkness of the fish, repented, and was saved by Allah.",
+        "categories": ["quran", "prophet"],
+        "surah_reference": "Surah Al-Anbiya (Quran 21:87-88)",
+    },
+    "prophet-ayub": {
+        "title": "The Story of Prophet Ayub (Job)",
+        "summary": "Prophet Ayub was tested with loss of wealth, family, and health. He remained patient and faithful, and Allah restored everything to him double.",
+        "categories": ["quran", "prophet"],
+        "surah_reference": "Surah Al-Anbiya (Quran 21), Surah Al-Hajj (Quran 22)",
+    },
+    "prophet-dawud": {
+        "title": "The Story of Prophet Dawud (David) and Sulaiman",
+        "summary": "Prophet Dawud was a wise king who received the Psalms (Zabur). His son Sulaiman (Solomon) inherited his kingdom and was given the ability to communicate with jinn, animals, and birds.",
+        "categories": ["quran", "prophet"],
+        "surah_reference": "Surah Sad (Quran 38)",
+    },
+    "prophet-isa": {
+        "title": "The Story of Prophet Isa (Jesus)",
+        "summary": "Prophet Isa was born of the Virgin Maryam (Mary) through Allah's miracle. He spoke in the cradle, healed the sick, and was raised up to Allah. He foretold the coming of the Final Messenger.",
+        "categories": ["quran", "prophet"],
+        "surah_reference": "Surah Maryam (Quran 19), Surah Al-Imran (Quran 3)",
+    },
+    "prophet-muhammad": {
+        "title": "The Story of Prophet Muhammad ﷺ (Seerah)",
+        "summary": "The Final Messenger of Allah was born in Mecca, received revelation at age 40 in the cave of Hira, migrated to Medina, and brought the complete message of Islam.",
+        "categories": ["seerah", "prophet"],
+        "surah_reference": "Surah Al-Mu'minun (Quran 23), Surah Al-Qalam (Quran 68)",
+    },
+    "salah-guide": {
+        "title": "The Guide to Salah (Prayer)",
+        "summary": "Prayer is one of the five pillars of Islam. The Prophet Muhammad ﷣said: 'The first matter for which a servant will be brought to account on the Day of Judgment is his prayer.'",
+        "categories": ["worship", "guide"],
+        "surah_reference": "Surah Al-Baqarah (Quran 2:183-187)",
+    },
+    "fasting-guide": {
+        "title": "The Guide to Sawm (Fasting)",
+        "summary": "Fasting in Ramadan is the third pillar of Islam. It teaches patience, gratitude, and empathy for the less fortunate.",
+        "categories": ["worship", "guide"],
+        "surah_reference": "Surah Al-Baqarah (Quran 2:183-185)",
+    },
+    "zakat-guide": {
+        "title": "The Guide to Zakat (Charity)",
+        "summary": "Zakat is the third pillar and purifies wealth, cleansing greed from the heart. It is 2.5% of surplus wealth above nisab.",
+        "categories": ["worship", "guide"],
+        "surah_reference": "Surah At-Tawbah (Quran 9:60)",
+    },
+    "hajj-guide": {
+        "title": "The Guide to Hajj (Pilgrimage)",
+        "summary": "Hajj is the fifth pillar, performed once in a lifetime by those who are able. It symbolizes unity and equality before Allah.",
+        "categories": ["worship", "guide"],
+        "surah_reference": "Surah Al-Hajj (Quran 22)",
+    },
+}
+
 # Initialize default settings if not present
 def _ensure_default_settings():
     defaults = {
@@ -443,6 +522,28 @@ async def adaptive_timeline(
     items = activity_store.recent_events(limit=limit)
     return {"status": "ok", "count": len(items), "events": items}
 
+
+@router.get("/timeline/categorized")
+async def timeline_categorized(
+    limit: int = Query(default=100, ge=1, le=500),
+) -> dict[str, Any]:
+    """Return semantically categorized activity timeline.
+
+    Categories: prayer, prayer_prep, cooking, reading_quran,
+    sleep_preparation, morning_routine, other
+    """
+    items = activity_store.categorized_timeline(limit=limit)
+    category_summary = {}
+    for ev in items:
+        cat = ev["category"]
+        category_summary[cat] = category_summary.get(cat, 0) + 1
+    return {
+        "status": "ok",
+        "count": len(items),
+        "category_summary": category_summary,
+        "events": items,
+    }
+
 @router.get("/adaptive-rules/patterns")
 async def adaptive_patterns(
     person_id: str | None = Query(default=None),
@@ -690,3 +791,66 @@ async def prayer_zone_trigger_status(zone_name: str) -> dict[str, Any]:
     if not zone:
         return {"status": "not_found", "zone_name": zone_name}
     return {"status": "ok", "zone": zone, "currently_active": False}
+
+
+# ------------------------------------------------------------------
+# Islamic Stories — Feature 3: HALO Islamic Story Mode
+# ------------------------------------------------------------------
+
+@router.get("/stories")
+async def list_stories(
+    category: str | None = Query(default=None),
+    search: str | None = Query(default=None),
+) -> dict[str, Any]:
+    """List available Islamic stories, optionally filtered by category or search term."""
+    items = []
+    for key, story in ISLAMIC_STORIES.items():
+        cats = story.get("categories", [])
+        if category and category not in cats:
+            continue
+        title = story["title"].lower()
+        summary = story["summary"].lower()
+        if search and search.lower() not in title and search.lower() not in summary and search.lower() not in key:
+            continue
+        items.append({
+            "id": key,
+            "title": story["title"],
+            "categories": cats,
+            "surah_reference": story["surah_reference"],
+        })
+    return {"status": "ok", "count": len(items), "stories": items}
+
+
+@router.get("/stories/{story_id}")
+async def get_story(story_id: str) -> dict[str, Any]:
+    """Get full story content by ID."""
+    story = ISLAMIC_STORIES.get(story_id)
+    if not story:
+        # Fuzzy search by topic
+        for key, s in ISLAMIC_STORIES.items():
+            if story_id.lower() in key.lower() or story_id.lower() in s["title"].lower():
+                story = s
+                story_id = key
+                break
+    if not story:
+        return {"status": "not_found", "story_id": story_id}
+    return {"status": "ok", "id": story_id, "story": story}
+
+
+@router.post("/stories/search")
+async def search_stories(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    """Search stories by keyword (for HALO story mode queries)."""
+    query = str(payload.get("query", "")).strip().lower()
+    results = []
+    for key, story in ISLAMIC_STORIES.items():
+        title = story["title"].lower()
+        summary = story["summary"].lower()
+        cats = " ".join(story.get("categories", []))
+        if query in title or query in summary or query in key or query in cats:
+            results.append({
+                "id": key,
+                "title": story["title"],
+                "summary": story["summary"],
+                "categories": story["categories"],
+            })
+    return {"status": "ok", "count": len(results), "results": results}

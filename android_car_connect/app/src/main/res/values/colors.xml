@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Car-friendly dark theme colors -->
+    <color name="car_dark_background">#0A0A0E</color>
+    <color name="car_surface">#1A1A22</color>
+    <color name="car_surface_variant">#2A2A33</color>
+    <color name="car_on_background">#E0E0E0</color>
+    <color name="car_on_surface">#CCCCCC</color>
+    <color name="car_primary">#00B4D8</color>
+    <color name="car_primary_variant">#0096C6</color>
+    <color name="car_secondary">#FFA500</color>
+    <color name="car_success">#00CC66</color>
+    <color name="car_error">#FF5555</color>
+    <color name="car_on_primary">#FFFFFF</color>
+    <color name="car_divider">#3A3A44</color>
+    <color name="log_background">#000000</color>
+    <color name="log_text">#D0D0D0</color>
+</resources>

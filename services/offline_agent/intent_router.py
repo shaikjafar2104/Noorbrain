@@ -114,6 +114,20 @@ class IntentRouter:
                 if name:
                     return Intent("get_device_status", {"name": name}, 0.90)
 
+        # Islamic Story Mode: "Tell me a story about [Prophet X]"
+        story_patterns = (
+            r"(?:tell me|tell|give me|kahaani sunao|sunao|kahani|history)\s+(?:a\s+)?story(?: about)?\s+(.+)",
+            r"(?:story mode|storytime)\s+(.+)",
+            r"story\s+(.+)",
+        )
+        for pattern in story_patterns:
+            match = re.search(pattern, normalized)
+            if match:
+                topic = match.group(1).strip(" ?.")
+                # Filter out non-story topics
+                if topic and len(topic) > 2:
+                    return Intent("islamic_story", {"topic": topic}, 0.95)
+
         return Intent("conversation", {"text": original}, 0.40)
 
 

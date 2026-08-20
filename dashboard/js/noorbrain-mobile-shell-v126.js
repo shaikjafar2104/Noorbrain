@@ -915,6 +915,13 @@ function smartLearning(){
         <div style="color:#999">Loading...</div>
       </div>
     </section>
+
+    <section class="nb126-card">
+      <h2>📅 Categorized Timeline</h2>
+      <div id="categorized-timeline">
+        <div style="color:#999">Loading...</div>
+      </div>
+    </section>
   `;
 }
 const renderers = {
@@ -4169,6 +4176,7 @@ function navigate(name,push=true){
     loadSmartLearning();
     loadSmartHabits();
     loadPrayerZones();
+    loadCategorizedTimeline();
   }
 
   logV126("RESULT", {route: name, visible: !!document.querySelector("#nb126Content")});
@@ -4846,5 +4854,50 @@ function loadSmartHabits(){
         alert('Prayer zone removed');
       }
       loadPrayerZones();
+    });
+  }
+
+  function loadCategorizedTimeline(){
+    fetch('/api/human-activity-intelligence/timeline/categorized?limit=30')
+    .then(r => r.json())
+    .then(d => {
+      var html = '<div style="font-size:13px">';
+      if (d.events && d.events.length > 0) {
+        // Show category summary
+        html += '<div style="margin-bottom:8px">';
+        for (var cat in d.category_summary) {
+          var colors = {'prayer':'#4CAF50','prayer_prep':'#8BC34A','cooking':'#FF9800',
+            'reading_quran':'#2196F3','sleep_preparation':'#9C27B0',
+            'morning_routine':'#00BCD4','other':'#9E9E9E'};
+          var color = colors[cat] || '#9E9E9E';
+          html += '<span style="display:inline-block;margin-right:10px">';
+          html += '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + color + ';margin-right:4px"></span>';
+          html += '<strong>' + d.category_summary[cat] + '</strong> ' + cat.replace(/_/g, ' ');
+          html += '</span>';
+        }
+        html += '</div>';
+
+        // Show events
+        d.events.forEach(function(ev) {
+          var color = ev.category_color || '#9E9E9E';
+          var time = ev.created_at_iso ? new Date(ev.created_at_iso).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+          html += '<div style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05)">';
+          html += '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + color + ';margin-right:6px"></span>';
+          html += '<strong>' + ev.category_label + '</strong> ';
+          html += '<span style="color:#999;font-size:11px">(' + ev.event_type + ')</span>';
+          if (ev.zone) html += ' <span style="color:#aaa">' + ev.zone + '</span>';
+          if (time) html += ' <span style="color:#666;float:right">' + time + '</span>';
+          html += '</div>';
+        });
+      } else {
+        html += '<div style="color:#999">No activity yet. Timeline will populate as HAI events are detected.</div>';
+      }
+      html += '</div>';
+      var el = document.getElementById('categorized-timeline');
+      if (el) el.innerHTML = html;
+    })
+    .catch(() => {
+      var el = document.getElementById('categorized-timeline');
+      if (el) el.innerHTML = '<div style="color:#ef4444">Failed to load timeline</div>';
     });
   }

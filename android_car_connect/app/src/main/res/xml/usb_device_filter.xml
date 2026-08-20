@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Generic USB device filter for Phase 2 prototype.
+         In a production app, this would be filtered more specifically
+         to match known Toyota/Entune USB device IDs.
+         For the prototype, we accept any USB device. -->
+    <usb-device
+        vendor-id="-1"
+        product-id="-1" />
+</resources>

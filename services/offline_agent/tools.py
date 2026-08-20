@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any, Callable
 
 from services.automation.models import DeviceState
@@ -313,3 +314,40 @@ tool_registry.register("reports_summary", reports_summary)
 tool_registry.register("system_health", system_health)
 tool_registry.register("home_status", home_status)
 tool_registry.register("skills_status", skills_status)
+
+
+def islamic_story(arguments: dict[str, Any]) -> dict[str, Any]:
+    """Fetch an Islamic story by topic for HALO Story Mode."""
+    topic = arguments.get("topic", "").strip().lower()
+    try:
+        import urllib.request
+        req = urllib.request.Request(
+            f"http://127.0.0.1:8001/api/human-activity-intelligence/stories/search",
+            data=f'{{"query": "{topic}"}}'.encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        resp = urllib.request.urlopen(req, timeout=3)
+        d = json.loads(resp.read())
+        if d["count"] > 0:
+            best = d["results"][0]
+            return {
+                "type": "speech",
+                "text": f"Here's a story: {best['title']}. {best['summary']}",
+                "title": best["title"],
+                "summary": best["summary"],
+                "categories": best["categories"],
+            }
+        else:
+            return {
+                "type": "speech",
+                "text": "I couldn't find a story about that topic. Try asking about Prophet Yusuf, Prophet Musa, or the Seerah of the Prophet.",
+            }
+    except Exception:
+        return {
+            "type": "speech",
+            "text": "I'm unable to fetch stories right now. Please try again.",
+        }
+
+
+tool_registry.register("islamic_story", islamic_story)

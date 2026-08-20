@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Simplified car icon foreground -->
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M36,30 L36,38 L30,38 L30,30 L36,30 Z M78,30 L84,30 L84,38 L78,38 L78,30 Z M42,38 L66,38 L66,30 L42,30 L42,38 Z M30,46 L30,66 L78,66 L78,46 L30,46 Z M36,52 L66,52 L66,60 L36,60 L36,52 Z M24,68 L24,78 L18,78 L18,68 L24,68 Z M90,68 L90,78 L84,78 L84,68 L90,68 Z M24,58 L30,58 L30,46 L24,46 L24,58 Z M84,58 L90,58 L90,46 L84,46 L84,58 Z" />
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M32,68 L58,78 L50,68 L32,68 Z M76,68 L50,78 L58,68 L76,68 Z" />
+    <path
+        android:fillColor="@color/car_primary"
+        android:pathData="M20,58 L18,78 L24,78 L24,68 L30,68 L30,78 L36,78 L36,58 L20,58 Z M92,58 L88,58 L88,78 L94,78 L94,58 L92,58 Z" />
+</vector>

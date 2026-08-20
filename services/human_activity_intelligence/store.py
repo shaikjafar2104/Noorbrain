@@ -385,6 +385,101 @@ class ActivityStore:
     def recent_events(self, limit: int = 50) -> list[dict[str, Any]]:
         return self.list_events(limit=limit)
 
+    def categorized_timeline(self, limit: int = 100) -> list[dict[str, Any]]:
+        """Return events enriched with Islamic activity category labels.
+
+        Mapping rules (semantic enrichment over raw events):
+          - long_sitting + prayer_room zone → prayer
+          - enter/exit prayer zone → prayer_prep
+          - long_stationary + bedroom → sleep_preparation
+          - movement + kitchen zone → cooking
+          - long_sitting + reading zone → reading_quran
+          - person_appeared morning → morning_routine
+          - quran_reading habit trigger → reading_quran
+        """
+        raw = self.list_events(limit=limit)
+        categorized = []
+        for ev in raw:
+            cat = self._categorize_event(ev)
+            ev_with_cat = dict(ev)
+            ev_with_cat["category"] = cat
+            ev_with_cat["category_label"] = self._category_label(cat)
+            ev_with_cat["category_color"] = self._category_color(cat)
+            categorized.append(ev_with_cat)
+        return categorized
+
+    @staticmethod
+    def _categorize_event(ev: dict[str, Any]) -> str:
+        etype = ev.get("event_type", "")
+        zone = (ev.get("zone") or "").lower()
+        room = (ev.get("room") or "").lower()
+        activity = (ev.get("activity_type") or "").lower()
+        metadata = ev.get("metadata") or {}
+
+        # Prayer-related
+        if "prayer" in zone or "prayer" in room:
+            if "sitting" in activity or etype == "long_stationary":
+                return "prayer"
+            if "appeared" in etype or "entered" in etype:
+                return "prayer_prep"
+        if etype == "long_stationary" and "prayer" in zone:
+            return "prayer"
+
+        # Sleep preparation
+        if etype == "long_stationary" and ("bedroom" in zone or "bedroom" in room):
+            return "sleep_preparation"
+
+        # Cooking
+        if "kitchen" in zone or "kitchen" in room or "kitchen" in activity:
+            if etype in ("movement_started", "entered_zone", "appeared"):
+                return "cooking"
+
+        # Quran reading
+        if "reading" in zone or "library" in zone or "library" in room:
+            if etype in ("long_sitting", "stayed", "long_stationary"):
+                return "reading_quran"
+        if metadata.get("activity_type") == "reading_quran":
+            return "reading_quran"
+
+        # Morning routine
+        if etype == "person_appeared":
+            from datetime import datetime as dt
+            try:
+                created = ev.get("created_at_iso", "")
+                hour = int(created[11:13])
+                if 5 <= hour <= 10:
+                    return "morning_routine"
+            except (ValueError, TypeError):
+                pass
+
+        return "other"
+
+    @staticmethod
+    def _category_label(cat: str) -> str:
+        labels = {
+            "prayer": "Prayer",
+            "prayer_prep": "Prayer Preparation",
+            "sleep_preparation": "Sleep Preparation",
+            "cooking": "Cooking",
+            "reading_quran": "Quran Reading",
+            "morning_routine": "Morning Routine",
+            "other": "General Activity",
+        }
+        return labels.get(cat, "Activity")
+
+    @staticmethod
+    def _category_color(cat: str) -> str:
+        colors = {
+            "prayer": "#4CAF50",          # green
+            "prayer_prep": "#8BC34A",     # light green
+            "sleep_preparation": "#9C27B0", # purple
+            "cooking": "#FF9800",          # amber
+            "reading_quran": "#2196F3",   # blue
+            "morning_routine": "#00BCD4", # cyan
+            "other": "#9E9E9E",            # gray
+        }
+        return colors.get(cat, "#9E9E9E")
+
     @staticmethod
     def _event_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
         return {

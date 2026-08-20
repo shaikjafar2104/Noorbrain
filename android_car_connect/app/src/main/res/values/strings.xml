@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">NoorBrain CarConnect</string>
+    <string name="phase_label">Phase 2: USB Prototype</string>
+    <string name="usb_status_disconnected">USB: Disconnected</string>
+    <string name="usb_status_connected">USB: Connected</string>
+    <string name="usb_no_device">No USB device detected</string>
+    <string name="btn_scan_usb">Scan USB Devices</string>
+    <string name="btn_clear_log">Clear Log</string>
+    <string name="btn_refresh_log">Refresh Log</string>
+    <string name="connection_mode_label">Mode:</string>
+    <string name="usb_device_label">USB Device:</string>
+    <string name="error_label">Error:</string>
+    <string name="status_label">Connection Status</string>
+    <string name="log_title">Connection Log</string>
+    <string name="connected_to_car">Connected to: 2019 Toyota RAV4</string>
+    <string name="not_connected">Not connected to vehicle</string>
+</resources>

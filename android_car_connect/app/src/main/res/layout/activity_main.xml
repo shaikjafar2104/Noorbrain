@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="@color/car_dark_background">
+
+    <!-- Connection Mode -->
+    <TextView
+        android:id="@+id/tvConnectionMode"
+        style="@style/TextHeadingLarge"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Mode: DISCONNECTED"
+        android:background="@drawable/status_background"
+        android:padding="16dp"
+        android:gravity="center" />
+
+    <!-- USB Connected Status -->
+    <TextView
+        android:id="@+id/tvUsbConnected"
+        style="@style/TextBodyLarge"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="USB: Disconnected"
+        android:background="@drawable/status_background"
+        android:padding="16dp"
+        android:layout_marginTop="8dp" />
+
+    <!-- USB Device Details -->
+    <TextView
+        android:id="@+id/tvUsbDeviceDetails"
+        style="@style/TextBodyMedium"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:background="@drawable/detail_background"
+        android:padding="12dp"
+        android:layout_marginTop="4dp" />
+
+    <!-- USB Status -->
+    <TextView
+        android:id="@+id/tvUsbStatus"
+        style="@style/TextBodyLarge"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="No USB device detected"
+        android:textColor="@color/car_primary"
+        android:background="@drawable/status_background"
+        android:padding="16dp"
+        android:layout_marginTop="8dp" />
+
+    <!-- Error Display -->
+    <TextView
+        android:id="@+id/tvError"
+        style="@style/TextBodyMedium"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textColor="@color/car_error"
+        android:background="@drawable/error_background"
+        android:padding="12dp"
+        android:layout_marginTop="8dp"
+        android:visibility="gone" />
+
+    <!-- Buttons Row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="12dp">
+
+        <Button
+            android:id="@+id/btnScanUsb"
+            style="@style/Widget.CarConnect.Button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Scan USB"
+            android:textColor="@color/car_on_primary"
+            android:layout_marginEnd="4dp"
+            android:backgroundTint="@color/car_primary" />
+
+        <Button
+            android:id="@+id/btnClearLog"
+            style="@style/Widget.CarConnect.Button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Clear Log"
+            android:textColor="@color/car_on_primary"
+            android:layout_marginStart="4dp"
+            android:backgroundTint="@color/car_secondary" />
+
+    </LinearLayout>
+
+    <!-- Log Section Header -->
+    <TextView
+        android:id="@+id/tvLogTitle"
+        style="@style/TextHeadingLarge"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Connection Log"
+        android:layout_marginTop="16dp" />
+
+    <!-- Refresh Button -->
+    <Button
+        android:id="@+id/btnRefreshLog"
+        style="@style/Widget.CarConnect.Button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Refresh Log"
+        android:textColor="@color/car_on_primary"
+        android:layout_marginTop="4dp"
+        android:backgroundTint="@color/car_primary_variant"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp" />
+
+    <!-- Log List -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerLogs"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="@color/log_background"
+        android:padding="8dp" />
+
+</LinearLayout>
