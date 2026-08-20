@@ -8,17 +8,21 @@ const TABS={
     title:"Home",
     icon:"⌂"
   },
-  automation:{
-    title:"Automation",
-    icon:"◇"
+  habits:{
+    title:"Habits",
+    icon:"⭐"
   },
-  halo:{
-    title:"HALO",
-    icon:"◉"
+  prayer:{
+    title:"Prayer",
+    icon:"🕌"
   },
-  islamic:{
-    title:"Islamic",
-    icon:"☾"
+  children:{
+    title:"Children",
+    icon:"👶"
+  },
+  aura:{
+    title:"Aura",
+    icon:"🧭"
   },
   more:{
     title:"More",
@@ -940,6 +944,10 @@ function smartLearning(){
 }
 const renderers = {
   home,
+  habits,
+  prayer,
+  children,
+  aura,
   automation,
   halo,
   islamic,
@@ -951,6 +959,76 @@ const renderers = {
   "auto-intercom-settings": openAutoIntercomSettings,
   more
 };
+
+// Dedicated tab renderers for Islamic monitoring features
+function habits() {
+  loadSmartHabits();
+  return `
+    <section class="nb126-page-head">
+      <small>ISLAMIC HABITS</small>
+      <h1>⭐ Islamic Habits</h1>
+      <p>Track your daily Islamic practice streaks and badges.</p>
+    </section>
+    <section class="nb126-card">
+      <h2>Habit Stats</h2>
+      <div id="habit-stats"></div>
+    </section>
+    <section class="nb126-card">
+      <h2>My Habits</h2>
+      <div id="smart-habits"></div>
+    </section>
+  `;
+}
+
+function prayer() {
+  loadPrayerZones();
+  return `
+    <section class="nb126-page-head">
+      <small>PRAYER INTELLIGENCE</small>
+      <h1>🕌 Prayer Zones</h1>
+      <p>Configure prayer spaces with DND and lighting automation.</p>
+    </section>
+    <section class="nb126-card">
+      <h2>Zones</h2>
+      <div id="prayer-zones"></div>
+    </section>
+  `;
+}
+
+function children() {
+  loadChildSafetyZones();
+  loadCategorizedTimeline();
+  return `
+    <section class="nb126-page-head">
+      <small>CHILD SAFETY</small>
+      <h1>👶 Child Safety Zones</h1>
+      <p>Real-time alerts for children in designated areas.</p>
+    </section>
+    <section class="nb126-card">
+      <h2>Child Safety Zones</h2>
+      <div id="child-safety-zones"></div>
+    </section>
+    <section class="nb126-card">
+      <h2>📅 Activity Timeline</h2>
+      <div id="categorized-timeline"></div>
+    </section>
+  `;
+}
+
+function aura() {
+  loadAuraTeenMonitoring();
+  return `
+    <section class="nb126-page-head">
+      <small>AURA TEEN MONITORING</small>
+      <h1>🧭 Aura — Teen Dashboard</h1>
+      <p>Track teen location, curfew status, and safety.</p>
+    </section>
+    <section class="nb126-card">
+      <h2>Teen Dashboard</h2>
+      <div id="aura-teen-monitoring"></div>
+    </section>
+  `;
+}
 
 
 function openAutoIntercomSettings() {
@@ -4135,7 +4213,7 @@ function shell(){
   }, true);
 
   const initialMatch=location.hash.match(
-    /^#nb-(home|automation|halo|islamic|more)$/
+    /^#nb-(home|habits|prayer|children|aura|automation|halo|islamic|more)$/
   );
   navigate(initialMatch?.[1] || "home",false);
 }
@@ -4185,6 +4263,20 @@ function navigate(name,push=true){
   }
   if (name === "shopping-list") {
     loadShoppingList();
+  }
+  if (name === "habits") {
+    loadHabitStats();
+    loadSmartHabits();
+  }
+  if (name === "prayer") {
+    loadPrayerZones();
+  }
+  if (name === "children") {
+    loadChildSafetyZones();
+    loadCategorizedTimeline();
+  }
+  if (name === "aura") {
+    loadAuraTeenMonitoring();
   }
   if (name === "smart-learning") {
     loadSmartLearning();
@@ -4490,6 +4582,37 @@ if(document.readyState==="loading"){
 
 })();
 
+
+function loadHabitStats(){
+  fetch('/api/human-activity-intelligence/habits/stats')
+    .then(r => r.json())
+    .then(d => {
+      var html = '<div style="font-size:13px">';
+      if (d.habits && d.habits.length > 0) {
+        html += '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px">';
+        d.habits.forEach(h => {
+          var badge = h.badge ? h.badge + ' ' : '';
+          var badgeColor = h.badge === 'gold' ? '#FFD700' : h.badge === 'silver' ? '#C0C0C0' : '#CD7F32';
+          html += '<div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:6px 10px">';
+          html += '<strong>' + h.name + '</strong><br>';
+          html += '<span style="color:' + badgeColor + '">' + badge + h.streak + '🔥</span> ';
+          html += '<span style="color:#888;font-size:11px">' + h.category + '</span>';
+          html += '</div>';
+        });
+        html += '</div>';
+        html += '<div style="color:#888;font-size:11px">' + d.active_streaks + ' active streaks</div>';
+      } else {
+        html += '<div style="color:#999">No habits yet</div>';
+      }
+      html += '</div>';
+      var el = document.getElementById('habit-stats');
+      if (el) el.innerHTML = html;
+    })
+    .catch(() => {
+      var el = document.getElementById('habit-stats');
+      if (el) el.innerHTML = '<div style="color:#ef4444">Failed to load stats</div>';
+    });
+}
 
 function loadSmartLearning(){
   fetch('/api/human-activity-intelligence/snapshot')
