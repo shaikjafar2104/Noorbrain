@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#08101d">
+  <title>Aura — Teen Monitoring</title>
+  <link rel="stylesheet" href="/dashboard-static/css/mobile-v2.css?v=20260730-1">
+  <style>
+    body { font-family: system-ui,sans-serif; background:#08101d; color:#e0e0e0; margin:0; padding:16px; }
+    .aura-header { display:flex; align-items:center; gap:12px; margin-bottom:20px; }
+    .aura-header h1 { margin:0; font-size:24px; }
+    .aura-header img { width:40px; height:40px; }
+    .aura-card { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:16px; margin-bottom:12px; }
+    .aura-card h2 { margin:0 0 12px 0; font-size:18px; }
+    .status-badge { display:inline-block; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:bold; }
+    .status-home { background:rgba(76,175,80,0.2); color:#4CAF50; }
+    .status-away { background:rgba(255,152,0,0.2); color:#FF9800; }
+    .status-curfew { background:rgba(231,76,60,0.2); color:#e74c3c; }
+    .btn { display:inline-block; padding:8px 16px; border:none; border-radius:8px; background:rgba(255,255,255,0.1); color:#fff; font-size:13px; cursor:pointer; margin:4px; }
+    .btn-primary { background:rgba(76,175,80,0.2); border:1px solid #4CAF50; }
+    .btn-warning { background:rgba(255,152,0,0.2); border:1px solid #FF9800; }
+    .btn-danger { background:rgba(231,76,60,0.2); border:1px solid #e74c3c; }
+    .timeline-item { padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
+    .timeline-time { color:#888; font-size:11px; }
+    .timeline-event { font-size:13px; }
+    .zone-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:8px; }
+    .zone-card { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:8px; font-size:12px; text-align:center; }
+    .zone-card.danger { border-color:rgba(231,76,60,0.5); background:rgba(231,76,60,0.05); }
+    .zone-card.warn { border-color:rgba(255,152,0,0.5); background:rgba(255,152,0,0.05); }
+    .zone-name { font-weight:bold; font-size:13px; margin-bottom:4px; }
+    .zone-alert { font-size:10px; color:#aaa; }
+  </style>
+</head>
+<body>
+  <div class="aura-header">
+    <img src="/dashboard-static/img/aura-logo.png" fallback="🧭">
+    <h1>🧭 Aura — Teen Monitoring</h1>
+  </div>
+
+  <div class="aura-card">
+    <h2>👧 Sarah Johnson</h2>
+    <div id="teen-status">Loading...</div>
+  </div>
+
+  <div class="aura-card">
+    <h2>📋 Curfew Status</h2>
+    <div id="curfew-status">Loading...</div>
+  </div>
+
+  <div class="aura-card">
+    <h2>🍼 Child Safety Zones</h2>
+    <div id="safety-zones">Loading...</div>
+  </div>
+
+  <div class="aura-card">
+    <h2>📅 Recent Activity</h2>
+    <div id="recent-activity">Loading...</div>
+  </div>
+
+  <script>
+    async function fetchAPI(path) {
+      try {
+        const r = await fetch(path);
+        return await r.json();
+      } catch(e) {
+        return {status:'error', error: e.message};
+      }
+    }
+
+    async function loadTeenStatus() {
+      const d = await fetchAPI('/api/human-activity-intelligence/aura/teen-dashboard/Sarah');
+      const el = document.getElementById('teen-status');
+      if (d.status === 'ok') {
+        const statusClass = d.is_home ? 'status-home' : 'status-away';
+        const statusText = d.is_home ? '🏠 At Home' : '📍 ' + d.current_zone;
+        el.innerHTML = `
+          <p><span class="status-badge ${statusClass}">${statusText}</span></p>
+          <p style="color:#888;font-size:12px;margin:4px 0;">Last seen: ${new Date(d.last_seen_iso).toLocaleString()}</p>
+          <p style="margin:8px 0;">
+            <button class="btn btn-primary" onclick="safetyCheck()">✅ Safety Check-in</button>
+            <button class="btn btn-warning" onclick="location.reload()">🔄 Refresh</button>
+          </p>
+        `;
+      } else {
+        el.innerHTML = '<p style="color:#e74c3c">Failed to load status</p>';
+      }
+    }
+
+    async function loadCurfewStatus() {
+      const d = await fetchAPI('/api/human-activity-intelligence/aura/curfew-status/Sarah');
+      const el = document.getElementById('curfew-status');
+      if (d.status === 'ok') {
+        const badgeClass = d.is_past_curfew && !d.is_home ? 'status-curfew' : d.is_home ? 'status-home' : 'status-away';
+        el.innerHTML = `
+          <p><span class="status-badge ${badgeClass}">${d.status_message}</span></p>
+          <p style="color:#888;font-size:12px;margin:4px 0;">Curfew: ${d.curfew_hour}:00 (${d.is_weekend ? 'Weekend' : 'Weekday'})</p>
+          <p style="color:#888;font-size:12px;">Minutes until curfew: ${d.minutes_until_curfew}</p>
+        `;
+      }
+    }
+
+    async function loadSafetyZones() {
+      const d = await fetchAPI('/api/human-activity-intelligence/child-safety-zones');
+      const el = document.getElementById('safety-zones');
+      if (d.status === 'ok' && d.zones) {
+        let html = '<div class="zone-grid">';
+        d.zones.forEach(z => {
+          const cls = z.alert_type === 'immediate' ? 'danger' : 'warn';
+          html += `<div class="zone-card ${cls}">
+            <div class="zone-name">${z.zone_name}</div>
+            <div class="zone-alert">${z.notification_message || z.alert_type}</div>
+            <div style="font-size:10px;color:#888;margin-top:4px;">${z.enabled ? '✅ Active' : '⚫ Disabled'}</div>
+          </div>`;
+        });
+        html += '</div>';
+        el.innerHTML = html;
+      }
+    }
+
+    async function loadRecentActivity() {
+      const d = await fetchAPI('/api/human-activity-intelligence/timeline/categorized?limit=10');
+      const el = document.getElementById('recent-activity');
+      if (d.status === 'ok' && d.events) {
+        let html = '';
+        d.events.forEach(ev => {
+          const time = new Date(ev.created_at_iso).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+          html += `<div class="timeline-item">
+            <div class="timeline-time">${time}</div>
+            <div class="timeline-event">${ev.category_label || ev.event_type} - ${ev.zone || 'Unknown zone'}</div>
+          </div>`;
+        });
+        el.innerHTML = html || '<p style="color:#888">No recent activity</p>';
+      }
+    }
+
+    async function safetyCheck() {
+      const r = await fetchAPI2('/api/human-activity-intelligence/aura/safety-check/Sarah', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({message: 'I am safe ✅', location: 'Web Dashboard'})
+      });
+      alert(r.message || 'Check-in sent!');
+      loadTeenStatus();
+    }
+
+    async function fetchAPI2(path, opts={}) {
+      const r = await fetch(path, opts);
+      return await r.json();
+    }
+
+    // Initial load
+    loadTeenStatus();
+    loadCurfewStatus();
+    loadSafetyZones();
+    loadRecentActivity();
+  </script>
+</body>
+</html>
