@@ -4576,11 +4576,15 @@ function rejectSuggestion(suggestionId){
   });
   }
 
-  function loadSmartHabits(){
+function loadSmartHabits(){
     fetch('/api/human-activity-intelligence/habits/stats')
     .then(r => r.json())
     .then(d => {
-      let html = '<div style="font-size:14px">';
+      var html = '<div style="font-size:14px">';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
+      html += '<div style="font-weight:bold">My Islamic Habits</div>';
+      html += '<button onclick="addHabitPrompt()" style="font-size:11px;background:rgba(76,175,80,0.2);border:1px solid #4CAF50;border-radius:4px;padding:3px 8px">＋ Add</button>';
+      html += '</div>';
       if (d.habits && d.habits.length > 0) {
         d.habits.forEach(h => {
           var badgeIcons = {'gold':'🏆','silver':'🥈','bronze':'🥉','none':''};
@@ -4589,6 +4593,7 @@ function rejectSuggestion(suggestionId){
           var streakColor = h.streak_current > 0 ? '#4CAF50' : '#999';
           var streakStars = '●'.repeat(Math.min(h.streak_current, 30));
           var dimStars = '○'.repeat(Math.max(0, 3 - streakStars.length));
+          var isDefault = ['habit-morning-adhkar','habit-evening-ayat','habit-quran-reading','habit-prayer-reminder'].indexOf(h.id) >= 0;
         
           html += '<div style="padding:8px;margin-bottom:8px;background:rgba(76,175,80,0.1);border-radius:8px;border:1px solid rgba(255,255,255,0.1)">';
           html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">';
@@ -4602,9 +4607,14 @@ function rejectSuggestion(suggestionId){
             var d2 = new Date(h.last_completed);
             html += '<small style="color:#666">Last done: ' + d2.toLocaleDateString() + '</small>';
           }
-          html += '<br><button onclick="completeHabit(\'' + h.id + '\')" style="margin-top:6px;font-size:12px;background:rgba(76,175,80,0.2);border:1px solid #4CAF50;border-radius:4px;padding:4px 10px">✓ Mark Done</button>';
+          html += '<br>';
+          html += '<button onclick="completeHabit(\'' + h.id + '\')" style="margin-top:6px;font-size:12px;background:rgba(76,175,80,0.2);border:1px solid #4CAF50;border-radius:4px;padding:4px 10px">✓ Mark Done</button>';
           if (h.streak_current > 0) {
             html += ' <button onclick="resetHabit(\'' + h.id + '\')" style="font-size:11px;background:rgba(255,255,255,0.1);border:1px solid #666;border-radius:4px;padding:2px 8px">Reset</button>';
+          }
+          html += ' <button onclick="editHabitPrompt(\'' + h.id + '\')" style="font-size:11px;background:rgba(255,255,255,0.1);border:1px solid #666;border-radius:4px;padding:2px 8px">✎</button>';
+          if (!isDefault) {
+            html += ' <button onclick="deleteHabit(\'' + h.id + '\',\'' + h.name + '\')" style="font-size:11px;background:rgba(231,76,60,0.2);border:1px solid #e74c3c;border-radius:4px;padding:2px 8px">✕</button>';
           }
           html += '</div>';
         });
@@ -4647,5 +4657,107 @@ function rejectSuggestion(suggestionId){
         alert('Streak reset for ' + d.habit.name);
       }
       loadSmartHabits();
+    });
+  }
+
+  function editHabitPrompt(habitId){
+    fetch('/api/human-activity-intelligence/habits/' + habitId)
+    .then(r => r.json())
+    .then(d => {
+      if (d.status !== 'ok') {
+        alert('Habit not found');
+        return;
+      }
+      var h = d.habit;
+      var newName = prompt('Habit name:', h.name);
+      if (newName === null) return;
+      if (!newName.trim()) {
+        alert('Name cannot be empty');
+        return;
+      }
+      var newCategory = prompt('Category (dhikr/quran/prayer/other):', h.category);
+      if (newCategory === null) return;
+      fetch('/api/human-activity-intelligence/habits/upsert', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          id: h.id,
+          name: newName.trim(),
+          category: newCategory.trim(),
+          target_days: h.target_days,
+          trigger_type: h.trigger_type,
+          trigger_value: h.trigger_value,
+          created_at_iso: h.created_at_iso
+        })
+      })
+      .then(r => r.json())
+      .then(d2 => {
+        if (d2.status === 'ok') {
+          alert('Updated!');
+          loadSmartHabits();
+        } else {
+          alert('Failed to update');
+        }
+      });
+    });
+  }
+
+  function deleteHabit(habitId, habitName){
+    if (!confirm('Delete "' + habitName + '"? This cannot be undone.')) return;
+    fetch('/api/human-activity-intelligence/habits/' + habitId, { method: 'DELETE' })
+    .then(r => r.json())
+    .then(d => {
+      if (d.status === 'deleted') {
+        alert('Habit deleted');
+      } else if (d.status === 'error') {
+        alert(d.detail);
+      } else {
+        alert('Habit not found');
+      }
+      loadSmartHabits();
+    });
+  }
+
+  function addHabitPrompt(){
+    var habitId = prompt('Habit ID (lowercase, no spaces):');
+    if (!habitId || !habitId.trim()) return;
+    habitId = habitId.trim().toLowerCase().replace(/\s+/g, '-');
+    if (['habit-morning-adhkar','habit-evening-ayat','habit-quran-reading','habit-prayer-reminder'].includes(habitId)) {
+      alert('Cannot add default habit. Use edit instead.');
+      return;
+    }
+    var name = prompt('Habit name:');
+    if (!name || !name.trim()) return;
+    var category = prompt('Category (dhikr/quran/prayer/other):', 'other');
+    if (!category || !category.trim()) category = 'other';
+    
+    var triggerType = prompt('Trigger type (manual/event_type/zone/activity/zone_activity):', 'manual');
+    triggerType = triggerType ? triggerType.trim() : null;
+    var triggerValue = null;
+    if (triggerType && triggerType !== 'manual') {
+      triggerValue = prompt('Trigger value (e.g., long_sitting):', '');
+      triggerValue = triggerValue ? triggerValue.trim() : null;
+    }
+    
+    fetch('/api/human-activity-intelligence/habits/upsert', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        id: habitId,
+        name: name.trim(),
+        category: category.trim(),
+        target_days: ['mon','tue','wed','thu','fri','sat','sun'],
+        trigger_type: triggerType === 'manual' ? null : triggerType,
+        trigger_value: triggerValue
+      })
+    })
+    .then(r => r.json())
+    .then(d => {
+      if (d.status === 'ok') {
+        alert('Habit added! Tap ✓ Mark Done to start tracking your streak.');
+        loadSmartHabits();
+      } else {
+        alert('Failed to add habit: ' + JSON.stringify(d));
+      }
     });
   }

@@ -975,6 +975,14 @@ class ActivityStore:
             updated = conn.execute("SELECT * FROM habits WHERE id = ?", (habit_id,)).fetchone()
             return self._habit_row_to_dict(updated)
 
+    def delete_habit(self, habit_id: str) -> bool:
+        """Delete a habit. Returns True if deleted, False if not found."""
+        with self._lock:
+            conn = self._ensure_connection()
+            cur = conn.execute("DELETE FROM habits WHERE id = ?", (habit_id,))
+            conn.commit()
+            return cur.rowcount > 0
+
     def upsert_habit(self, habit: dict[str, Any]) -> dict[str, Any]:
         habit_id = str(habit.get("id") or "").strip()
         if not habit_id:

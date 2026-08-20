@@ -631,3 +631,15 @@ async def habit_upsert(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
     }
     result = activity_store.upsert_habit(habit_data)
     return {"status": "ok", "habit": result}
+
+
+@router.delete("/habits/{habit_id}")
+async def habit_delete(habit_id: str) -> dict[str, Any]:
+    """Delete a habit permanently."""
+    if habit_id in ("habit-morning-adhkar", "habit-evening-ayat", 
+                    "habit-quran-reading", "habit-prayer-reminder"):
+        return {"status": "error", "detail": "Cannot delete default habit. Use reset instead."}
+    deleted = activity_store.delete_habit(habit_id)
+    if not deleted:
+        return {"status": "not_found", "habit_id": habit_id}
+    return {"status": "deleted", "habit_id": habit_id}
