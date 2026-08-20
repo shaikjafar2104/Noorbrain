@@ -229,11 +229,23 @@ class ActivityStore:
                     target_days TEXT DEFAULT '["mon","tue","wed","thu","fri","sat","sun"]',
                     trigger_type TEXT,
                     trigger_value TEXT,
+                    trigger_time_start TEXT,
+                    trigger_time_end TEXT,
                     created_at_iso TEXT NOT NULL,
                     last_completed_iso TEXT,
                     streak_current INTEGER DEFAULT 0,
                     streak_longest INTEGER DEFAULT 0,
                     completions_json TEXT DEFAULT '[]'
+                );
+
+                CREATE TABLE IF NOT EXISTS prayer_zones (
+                    zone_name TEXT PRIMARY KEY,
+                    enabled INTEGER NOT NULL DEFAULT 1,
+                    prayer_time_padding_seconds INTEGER DEFAULT 300,
+                    dnd_duration_minutes INTEGER DEFAULT 30,
+                    lighting_scene TEXT,
+                    created_at_iso TEXT NOT NULL,
+                    updated_at_iso TEXT NOT NULL
                 );
 
                 CREATE INDEX IF NOT EXISTS idx_ae_type ON activity_events(event_type);
@@ -261,6 +273,9 @@ class ActivityStore:
             if "trigger_type" not in col_names:
                 conn.execute("ALTER TABLE habits ADD COLUMN trigger_type TEXT")
                 conn.execute("ALTER TABLE habits ADD COLUMN trigger_value TEXT")
+            if "trigger_time_start" not in col_names:
+                conn.execute("ALTER TABLE habits ADD COLUMN trigger_time_start TEXT")
+                conn.execute("ALTER TABLE habits ADD COLUMN trigger_time_end TEXT")
                 conn.commit()
             return
         conn.execute(
@@ -884,6 +899,8 @@ class ActivityStore:
             "target_days": json.loads(row["target_days"] or "[]"),
             "trigger_type": row["trigger_type"] if "trigger_type" in row.keys() else None,
             "trigger_value": row["trigger_value"] if "trigger_value" in row.keys() else None,
+            "trigger_time_start": row["trigger_time_start"] if "trigger_time_start" in row.keys() else None,
+            "trigger_time_end": row["trigger_time_end"] if "trigger_time_end" in row.keys() else None,
             "created_at_iso": row["created_at_iso"],
             "last_completed_iso": row["last_completed_iso"],
             "streak_current": row["streak_current"],
@@ -998,7 +1015,8 @@ class ActivityStore:
                     """
                     UPDATE habits SET
                         name = ?, category = ?, target_days = ?,
-                        trigger_type = ?, trigger_value = ?
+                        trigger_type = ?, trigger_value = ?,
+                        trigger_time_start = ?, trigger_time_end = ?
                     WHERE id = ?
                     """,
                     (
@@ -1007,6 +1025,8 @@ class ActivityStore:
                         json.dumps(habit.get("target_days", ["mon","tue","wed","thu","fri","sat","sun"])),
                         habit.get("trigger_type"),
                         habit.get("trigger_value"),
+                        habit.get("trigger_time_start"),
+                        habit.get("trigger_time_end"),
                         habit_id,
                     ),
                 )
@@ -1015,8 +1035,9 @@ class ActivityStore:
                     """
                     INSERT INTO habits (
                         id, name, category, target_days, trigger_type, trigger_value,
+                        trigger_time_start, trigger_time_end,
                         created_at_iso
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         habit_id,
@@ -1025,6 +1046,8 @@ class ActivityStore:
                         json.dumps(habit.get("target_days", ["mon","tue","wed","thu","fri","sat","sun"])),
                         habit.get("trigger_type"),
                         habit.get("trigger_value"),
+                        habit.get("trigger_time_start"),
+                        habit.get("trigger_time_end"),
                         habit.get("created_at_iso") or now_iso,
                     ),
                 )
@@ -1038,31 +1061,184 @@ class ActivityStore:
         zone = event.get("zone", "")
         room = event.get("room", "")
         activity_type = event.get("activity_type", "") or event.get("metadata", {}).get("activity_type", "")
+        person_id = event.get("person_id", "")
         triggered: list[dict[str, Any]] = []
+
+        now = datetime.now(timezone.utc)
+        now_hour = now.hour
+        now_minute = now.minute
+        week_day = ["mon","tue","wed","thu","fri","sat","sun"][now.weekday()]
 
         with self._lock:
             conn = self._ensure_connection()
             rows = conn.execute(
-                "SELECT * FROM habits WHERE trigger_type IS NOT NULL"
+                "SELECT * FROM habits WHERE trigger_type IS NOT NULL OR trigger_time_start IS NOT NULL"
             ).fetchall()
             for row in rows:
                 t_type = row["trigger_type"]
                 t_val = row["trigger_value"]
+                t_start = row["trigger_time_start"]
+                t_end = row["trigger_time_end"]
                 should_complete = False
 
-                if t_type == "event_type" and event_type == t_val:
-                    should_complete = True
-                elif t_type == "zone" and zone == t_val:
-                    should_complete = True
-                elif t_type == "zone_activity" and zone == t_val and activity_type == "stationary":
-                    should_complete = True
-                elif t_type == "activity" and activity_type == t_val:
-                    should_complete = True
+                # Check time-based trigger
+                if t_start:
+                    try:
+                        start_h, start_m = map(int, t_start.split(":"))
+                        end_h, end_m = map(int, (t_end or "23:59").split(":"))
+                        now_total = now_hour * 60 + now_minute
+                        start_total = start_h * 60 + start_m
+                        end_total = end_h * 60 + end_m
+                        if start_total <= now_total <= end_total:
+                            should_complete = True
+                    except (ValueError, AttributeError):
+                        pass
+
+                # Check event-based trigger
+                if not should_complete:
+                    if t_type == "event_type" and event_type == t_val:
+                        should_complete = True
+                    elif t_type == "zone" and zone == t_val:
+                        should_complete = True
+                    elif t_type == "zone_activity" and zone == t_val and activity_type == "stationary":
+                        should_complete = True
+                    elif t_type == "activity" and activity_type == t_val:
+                        should_complete = True
+
+                # Check target days
+                if should_complete and t_start:
+                    target_days = json.loads(row["target_days"] or "[]")
+                    if week_day not in target_days:
+                        should_complete = False
 
                 if should_complete:
                     completed = self.complete_habit(row["id"])
                     if completed:
                         triggered.append(completed)
+
+        return triggered
+
+    # ------------------------------------------------------------------
+    # Prayer zone configuration
+    # ------------------------------------------------------------------
+
+    def list_prayer_zones(self) -> list[dict[str, Any]]:
+        with self._lock:
+            conn = self._ensure_connection()
+            rows = conn.execute(
+                "SELECT * FROM prayer_zones ORDER BY zone_name"
+            ).fetchall()
+            return [
+                {
+                    "zone_name": r["zone_name"],
+                    "enabled": bool(r["enabled"]),
+                    "prayer_time_padding_seconds": r["prayer_time_padding_seconds"],
+                    "dnd_duration_minutes": r["dnd_duration_minutes"],
+                    "lighting_scene": r["lighting_scene"],
+                    "created_at_iso": r["created_at_iso"],
+                    "updated_at_iso": r["updated_at_iso"],
+                }
+                for r in rows
+            ]
+
+    def upsert_prayer_zone(self, zone_name: str, **kwargs) -> dict[str, Any]:
+        enabled = kwargs.get("enabled", True)
+        padding = int(kwargs.get("prayer_time_padding_seconds", 300))
+        dnd_minutes = int(kwargs.get("dnd_duration_minutes", 30))
+        lighting = kwargs.get("lighting_scene")
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        with self._lock:
+            conn = self._ensure_connection()
+            existing = conn.execute(
+                "SELECT zone_name FROM prayer_zones WHERE zone_name = ?", (zone_name,)
+            ).fetchone()
+            if existing:
+                conn.execute(
+                    """UPDATE prayer_zones SET
+                        enabled = ?, prayer_time_padding_seconds = ?,
+                        dnd_duration_minutes = ?, lighting_scene = ?,
+                        updated_at_iso = ?
+                    WHERE zone_name = ?""",
+                    (1 if enabled else 0, padding, dnd_minutes, lighting, now_iso, zone_name),
+                )
+            else:
+                conn.execute(
+                    """INSERT INTO prayer_zones
+                        (zone_name, enabled, prayer_time_padding_seconds,
+                         dnd_duration_minutes, lighting_scene, created_at_iso, updated_at_iso)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                    (zone_name, 1 if enabled else 0, padding, dnd_minutes, lighting, now_iso, now_iso),
+                )
+            conn.commit()
+            row = conn.execute(
+                "SELECT * FROM prayer_zones WHERE zone_name = ?", (zone_name,)
+            ).fetchone()
+            return {
+                "zone_name": row["zone_name"],
+                "enabled": bool(row["enabled"]),
+                "prayer_time_padding_seconds": row["prayer_time_padding_seconds"],
+                "dnd_duration_minutes": row["dnd_duration_minutes"],
+                "lighting_scene": row["lighting_scene"],
+                "created_at_iso": row["created_at_iso"],
+                "updated_at_iso": row["updated_at_iso"],
+            }
+
+    def delete_prayer_zone(self, zone_name: str) -> bool:
+        with self._lock:
+            conn = self._ensure_connection()
+            cur = conn.execute("DELETE FROM prayer_zones WHERE zone_name = ?", (zone_name,))
+            conn.commit()
+            return cur.rowcount > 0
+
+    def get_prayer_zone(self, zone_name: str) -> dict[str, Any] | None:
+        with self._lock:
+            conn = self._ensure_connection()
+            row = conn.execute(
+                "SELECT * FROM prayer_zones WHERE zone_name = ?", (zone_name,)
+            ).fetchone()
+            if not row:
+                return None
+            return {
+                "zone_name": row["zone_name"],
+                "enabled": bool(row["enabled"]),
+                "prayer_time_padding_seconds": row["prayer_time_padding_seconds"],
+                "dnd_duration_minutes": row["dnd_duration_minutes"],
+                "lighting_scene": row["lighting_scene"],
+                "created_at_iso": row["created_at_iso"],
+                "updated_at_iso": row["updated_at_iso"],
+            }
+
+    def check_prayer_zone_trigger(self, event: dict[str, Any]) -> list[dict[str, Any]]:
+        """Check if an event should trigger prayer zone DND + lighting."""
+        zone = event.get("zone", "")
+        room = event.get("room", "")
+        event_type = event.get("event_type", "")
+        activity_type = event.get("activity_type", "") or event.get("metadata", {}).get("activity_type", "")
+
+        triggered: list[dict[str, Any]] = []
+
+        with self._lock:
+            conn = self._ensure_connection()
+            zones = conn.execute("SELECT * FROM prayer_zones WHERE enabled = 1").fetchall()
+
+            for z in zones:
+                zone_name = z["zone_name"]
+                # Match zone name or room name
+                if zone == zone_name or room == zone_name:
+                    # Trigger on long_stationary or entered_zone for prayer zones
+                    if event_type == "long_stationary" or event_type == "entered_zone":
+                        triggered.append({
+                            "zone_name": zone_name,
+                            "action": "dnd_start",
+                            "dnd_duration_minutes": z["dnd_duration_minutes"],
+                            "lighting_scene": z["lighting_scene"],
+                        })
+                    elif event_type == "disappeared" or event_type == "left_zone":
+                        triggered.append({
+                            "zone_name": zone_name,
+                            "action": "dnd_end",
+                        })
 
         return triggered
 

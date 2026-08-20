@@ -530,6 +530,30 @@ class HumanActivityIntelligence:
                 # Auto-completed habits are noted but not emitted as events
                 # to avoid polluting the activity timeline
 
+            # ---- check prayer zone triggers (DND + lighting) ----
+            for ev in emitted:
+                try:
+                    prayer_triggered = self._store.check_prayer_zone_trigger(ev)
+                except Exception:
+                    prayer_triggered = []
+                # TODO: Integrate with reminder_rules / DND / lighting systems
+                # For now, prayer zone triggers are logged
+                for pt in prayer_triggered:
+                    self._store.add_event({
+                        "event_type": "prayer_zone_" + pt.get("action", "trigger"),
+                        "person_id": ev.get("person_id", "unknown"),
+                        "track_id": ev.get("track_id"),
+                        "zone": pt.get("zone_name", ""),
+                        "room": ev.get("room", ""),
+                        "activity_type": "prayer_zone",
+                        "confidence": 0.8,
+                        "duration_seconds": 0.0,
+                        "metadata": {
+                            "dnd_duration_minutes": pt.get("dnd_duration_minutes"),
+                            "lighting_scene": pt.get("lighting_scene"),
+                        },
+                    })
+
             return emitted
 
     def active_sessions(self) -> list[dict[str, Any]]:

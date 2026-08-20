@@ -908,6 +908,13 @@ function smartLearning(){
       <h2>🌙 Islamic Habits</h2>
       <div id="smart-habits"></div>
     </section>
+
+    <section class="nb126-card">
+      <h2>🧎 Prayer Zones</h2>
+      <div id="prayer-zones">
+        <div style="color:#999">Loading...</div>
+      </div>
+    </section>
   `;
 }
 const renderers = {
@@ -4161,6 +4168,7 @@ function navigate(name,push=true){
   if (name === "smart-learning") {
     loadSmartLearning();
     loadSmartHabits();
+    loadPrayerZones();
   }
 
   logV126("RESULT", {route: name, visible: !!document.querySelector("#nb126Content")});
@@ -4759,5 +4767,84 @@ function loadSmartHabits(){
       } else {
         alert('Failed to add habit: ' + JSON.stringify(d));
       }
+    });
+  }
+
+  function loadPrayerZones(){
+    fetch('/api/human-activity-intelligence/prayer-zones')
+    .then(r => r.json())
+    .then(d => {
+      var html = '<div style="font-size:14px">';
+      if (d.zones && d.zones.length > 0) {
+        d.zones.forEach(z => {
+          var enabledColor = z.enabled ? '#4CAF50' : '#999';
+          html += '<div style="padding:8px;margin-bottom:8px;background:rgba(255,193,7,0.1);border-radius:8px;border:1px solid rgba(255,255,255,0.1)">';
+          html += '<strong>' + z.zone_name + '</strong><br>';
+          html += '<small style="color:' + enabledColor + '">● ' + (z.enabled ? 'Active' : 'Disabled') + '</small><br>';
+          if (z.lighting_scene) {
+            html += '<small style="color:#aaa">Lighting: ' + z.lighting_scene + '</small><br>';
+          }
+          html += '<small style="color:#999">DND: ' + z.dnd_duration_minutes + ' min | Padding: ' + Math.round(z.prayer_time_padding_seconds || 0) + 's</small><br>';
+          html += '<button onclick="togglePrayerZone(\'' + z.zone_name + '\',false)" style="font-size:11px;background:rgba(255,255,255,0.1);border:1px solid #666;border-radius:4px;padding:2px 8px">' + (z.enabled ? 'Disable' : 'Enable') + '</button>';
+          html += ' <button onclick="deletePrayerZone(\'' + z.zone_name + '\')" style="font-size:11px;background:rgba(231,76,60,0.2);border:1px solid #e74c3c;border-radius:4px;padding:2px 8px">✕</button>';
+          html += '</div>';
+        });
+      } else {
+        html += '<div style="color:#999">No prayer zones configured.<br><button onclick="addPrayerZonePrompt()" style="font-size:12px;background:rgba(76,175,80,0.2);border:1px solid #4CAF50;border-radius:4px;padding:4px 10px">＋ Add Prayer Zone</button></div>';
+      }
+      html += '</div>';
+      var el = document.getElementById('prayer-zones');
+      if (el) el.innerHTML = html;
+    })
+    .catch(() => {
+      var el = document.getElementById('prayer-zones');
+      if (el) el.innerHTML = '<div style="color:#ef4444">Failed to load prayer zones</div>';
+    });
+  }
+
+  function addPrayerZonePrompt(){
+    var zoneName = prompt('Enter zone/room name (e.g., "Prayer Room"):', '');
+    if (!zoneName || !zoneName.trim()) return;
+    zoneName = zoneName.trim();
+    var lightingScene = prompt('Lighting scene (optional, e.g., "dim-cool"):') || null;
+    fetch('/api/human-activity-intelligence/prayer-zones/' + encodeURIComponent(zoneName), {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({enabled: true, lighting_scene: lightingScene})
+    })
+    .then(r => r.json())
+    .then(d => {
+      if (d.status === 'ok') {
+        alert('Prayer zone "' + zoneName + '" configured!');
+        loadPrayerZones();
+      } else {
+        alert('Failed: ' + JSON.stringify(d));
+      }
+    });
+  }
+
+  function togglePrayerZone(zoneName, enable){
+    fetch('/api/human-activity-intelligence/prayer-zones/' + encodeURIComponent(zoneName), {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({enabled: enable})
+    })
+    .then(r => r.json())
+    .then(d => {
+      if (d.status === 'ok') {
+        loadPrayerZones();
+      }
+    });
+  }
+
+  function deletePrayerZone(zoneName){
+    if (!confirm('Remove "' + zoneName + '" as prayer zone?')) return;
+    fetch('/api/human-activity-intelligence/prayer-zones/' + encodeURIComponent(zoneName), { method: 'DELETE' })
+    .then(r => r.json())
+    .then(d => {
+      if (d.status === 'deleted') {
+        alert('Prayer zone removed');
+      }
+      loadPrayerZones();
     });
   }

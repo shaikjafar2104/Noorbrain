@@ -507,10 +507,12 @@ async def adaptive_update_settings(payload: dict[str, Any] = Body(...)) -> dict[
 DEFAULT_HABITS = [
     {"id": "habit-morning-adhkar", "name": "Morning Adhkar", "category": "dhikr",
      "target_days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
-     "trigger_type": None, "trigger_value": None},
+     "trigger_type": "time", "trigger_value": None,
+     "trigger_time_start": "05:00", "trigger_time_end": "07:00"},
     {"id": "habit-evening-ayat", "name": "Evening Ayat", "category": "quran",
      "target_days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
-     "trigger_type": None, "trigger_value": None},
+     "trigger_type": "time", "trigger_value": None,
+     "trigger_time_start": "18:00", "trigger_time_end": "20:00"},
     {"id": "habit-quran-reading", "name": "Quran Reading", "category": "quran",
      "target_days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
      "trigger_type": "activity", "trigger_value": "long_sitting"},
@@ -531,11 +533,13 @@ def _ensure_default_habits() -> None:
                 conn.execute(
                     """INSERT OR IGNORE INTO habits (
                         id, name, category, target_days, trigger_type, trigger_value,
+                        trigger_time_start, trigger_time_end,
                         created_at_iso, streak_current, streak_longest, completions_json
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, '[]')""",
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, '[]')""",
                     (h["id"], h["name"], h["category"],
                      json.dumps(h["target_days"]), h.get("trigger_type"),
-                     h.get("trigger_value"), now_iso),
+                     h.get("trigger_value"), h.get("trigger_time_start"),
+                     h.get("trigger_time_end"), now_iso),
                 )
                 conn.commit()
 
@@ -627,6 +631,8 @@ async def habit_upsert(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
         "target_days": payload.get("target_days", ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]),
         "trigger_type": payload.get("trigger_type"),
         "trigger_value": payload.get("trigger_value"),
+        "trigger_time_start": payload.get("trigger_time_start"),
+        "trigger_time_end": payload.get("trigger_time_end"),
         "created_at_iso": payload.get("created_at_iso"),
     }
     result = activity_store.upsert_habit(habit_data)
@@ -643,3 +649,44 @@ async def habit_delete(habit_id: str) -> dict[str, Any]:
     if not deleted:
         return {"status": "not_found", "habit_id": habit_id}
     return {"status": "deleted", "habit_id": habit_id}
+
+
+# ------------------------------------------------------------------
+# Prayer Zone Presence Detection
+# ------------------------------------------------------------------
+
+@router.get("/prayer-zones")
+async def prayer_zones() -> dict[str, Any]:
+    _ensure_default_habits()
+    zones = activity_store.list_prayer_zones()
+    return {"status": "ok", "count": len(zones), "zones": zones}
+
+
+@router.post("/prayer-zones/{zone_name}")
+async def prayer_zone_upsert(zone_name: str, payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    """Configure a prayer zone for DND + lighting automation."""
+    zone = activity_store.upsert_prayer_zone(
+        zone_name,
+        enabled=payload.get("enabled", True),
+        prayer_time_padding_seconds=payload.get("prayer_time_padding_seconds", 300),
+        dnd_duration_minutes=payload.get("dnd_duration_minutes", 30),
+        lighting_scene=payload.get("lighting_scene"),
+    )
+    return {"status": "ok", "zone": zone}
+
+
+@router.delete("/prayer-zones/{zone_name}")
+async def prayer_zone_delete(zone_name: str) -> dict[str, Any]:
+    deleted = activity_store.delete_prayer_zone(zone_name)
+    if not deleted:
+        return {"status": "not_found", "zone_name": zone_name}
+    return {"status": "deleted", "zone_name": zone_name}
+
+
+@router.get("/prayer-zones/{zone_name}/trigger-status")
+async def prayer_zone_trigger_status(zone_name: str) -> dict[str, Any]:
+    """Check if a prayer zone would currently be triggered."""
+    zone = activity_store.get_prayer_zone(zone_name)
+    if not zone:
+        return {"status": "not_found", "zone_name": zone_name}
+    return {"status": "ok", "zone": zone, "currently_active": False}
