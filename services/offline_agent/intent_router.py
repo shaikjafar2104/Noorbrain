@@ -85,6 +85,27 @@ class IntentRouter:
         )):
             return Intent("list_routines", {}, 0.97)
 
+        # Aura Teen Monitoring intents
+        if any(phrase in normalized for phrase in (
+            "where is my teen", "is my teen home", "is my teenager home",
+            "where is my teenager", "teen location", "teenager location",
+            "is my teen at", "where's my teen", "where is my teen",
+        )):
+            match = re.search(r"(teen|teenager|daughter|son|child)", normalized)
+            return Intent("aura_teen_location", {"relation": match.group(1) if match else "teen"}, 0.95)
+
+        if any(phrase in normalized for phrase in (
+            "check in", "check-in", "safety check", "i am safe", "im safe",
+            "i am okay", "safety check in", "ping parents",
+        )):
+            return Intent("aura_safety_check", {}, 0.95)
+
+        if any(phrase in normalized for phrase in (
+            "curfew status", "curfew check", "is curfew", "past curfew",
+            "curfew", "teen curfew",
+        )):
+            return Intent("aura_curfew_status", {}, 0.93)
+
         match = re.search(
             r"(?:turn|switch)\s+(?:the\s+)?(.+?)\s+(on|off)$",
             normalized,

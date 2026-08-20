@@ -929,6 +929,13 @@ function smartLearning(){
         <div style="color:#999">Loading...</div>
       </div>
     </section>
+
+    <section class="nb126-card">
+      <h2>🧭 Aura — Teen Monitoring</h2>
+      <div id="aura-teen-monitoring">
+        <div style="color:#999">Loading...</div>
+      </div>
+    </section>
   `;
 }
 const renderers = {
@@ -4185,6 +4192,7 @@ function navigate(name,push=true){
     loadPrayerZones();
     loadCategorizedTimeline();
     loadChildSafetyZones();
+    loadAuraTeenMonitoring();
   }
 
   logV126("RESULT", {route: name, visible: !!document.querySelector("#nb126Content")});
@@ -5002,6 +5010,78 @@ function loadSmartHabits(){
     .then(r => r.json())
     .then(d => {
       if (d.status === 'ok') {
+        loadChildSafetyZones();
+      }
+    });
+  }
+
+  function loadAuraTeenMonitoring(){
+    var teenName = 'Sarah'; // Default teen name, can be configurable
+    fetch('/api/human-activity-intelligence/aura/teen-dashboard/' + encodeURIComponent(teenName))
+    .then(r => r.json())
+    .then(d => {
+      var html = '<div style="font-size:13px">';
+      html += '<div style="margin-bottom:10px">';
+      html += '<h3 style="margin:0">👧 ' + d.teen_name + '</h3>';
+      var statusColor = d.is_home ? '#4CAF50' : '#FF9800';
+      var statusText = d.is_home ? '🏠 At Home' : '📍 ' + d.current_zone;
+      html += '<span style="color:' + statusColor + ';font-size:12px">' + statusText + '</span><br>';
+      html += '<span style="color:#888;font-size:10px">Last seen: ' + new Date(d.last_seen_iso).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) + '</span>';
+      html += '</div>';
+      // Curfew check button
+      html += '<button onclick="checkCurfewStatus()" style="font-size:11px;background:rgba(255,152,0,0.2);border:1px solid #FF9800;border-radius:4px;padding:4px 10px;">📋 Curfew Status</button><br><br>';
+      // Safety check-in button
+      html += '<button onclick="sendSafetyCheck()" style="font-size:11px;background:rgba(76,175,80,0.2);border:1px solid #4CAF50;border-radius:4px;padding:4px 10px;">✅ Safety Check-in</button>';
+      html += '</div>';
+      var el = document.getElementById('aura-teen-monitoring');
+      if (el) el.innerHTML = html;
+    })
+    .catch(() => {
+      var el = document.getElementById('aura-teen-monitoring');
+      if (el) el.innerHTML = '<div style="color:#ef4444">Failed to load Aura</div>';
+    });
+  }
+
+  function sendSafetyCheck(){
+    var msg = prompt('Safety check-in message (press OK for default "I am safe"):', 'I am safe');
+    if (msg === null) return; // User cancelled
+    msg = msg || 'I am safe';
+    fetch('/api/human-activity-intelligence/aura/safety-check/Sarah', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({message: msg, location: 'Manual Check-in'})
+    })
+    .then(r => r.json())
+    .then(d => {
+      if (d.status === 'ok') {
+        alert(d.message);
+        loadAuraTeenMonitoring();
+      } else {
+        alert('Check-in failed. Try again.');
+      }
+    });
+  }
+
+  function checkCurfewStatus(){
+    fetch('/api/human-activity-intelligence/aura/curfew-status/Sarah')
+    .then(r => r.json())
+    .then(d => {
+      var msg = 'Curfew Status:\\n\\n';
+      msg += 'Teen: ' + d.teen_name + '\\n';
+      msg += 'Current: ' + d.status_message + '\\n';
+      msg += 'Curfew: ' + d.curfew_hour + ':00 (' + (d.is_weekend ? 'Weekend' : 'Weekday') + ')\\n';
+      msg += 'Minutes until curfew: ' + d.minutes_until_curfew + '\\n';
+      msg += 'At home: ' + (d.is_home ? 'Yes' : 'No');
+      alert(msg);
+    });
+  }
+
+  function deleteChildZone(zoneName){
+    if (!confirm('Remove "' + zoneName + '" as child safety zone?')) return;
+    fetch('/api/human-activity-intelligence/child-safety-zones/' + encodeURIComponent(zoneName), { method: 'DELETE' })
+    .then(r => r.json())
+    .then(d => {
+      if (d.status === 'deleted') {
         loadChildSafetyZones();
       }
     });

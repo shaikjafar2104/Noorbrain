@@ -39,9 +39,9 @@
     "raspberry-pi-halo": {
       "context": {
         "last_intent": "conversation",
-        "last_user_text": ""
+        "last_user_text": "'s listening"
       },
-      "updated_at": "2026-08-20T01:48:24.913807+00:00"
+      "updated_at": "2026-08-20T04:53:52.544481+00:00"
     },
     "speed-final-test": {
       "context": {

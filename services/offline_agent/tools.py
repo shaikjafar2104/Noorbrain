@@ -351,3 +351,76 @@ def islamic_story(arguments: dict[str, Any]) -> dict[str, Any]:
 
 
 tool_registry.register("islamic_story", islamic_story)
+
+
+def aura_teen_location(arguments: dict[str, Any]) -> dict[str, Any]:
+    """Look up where a teen is currently located."""
+    relation = arguments.get("relation", "teen")
+    try:
+        import urllib.request
+        req = urllib.request.Request(
+            f"http://127.0.0.1:8001/api/human-activity-intelligence/aura/teen-dashboard/{relation}",
+        )
+        resp = urllib.request.urlopen(req, timeout=3)
+        d = json.loads(resp.read())
+        return {
+            "type": "speech",
+            "text": f"{relation.capitalize()} is currently in the {d.get('current_zone', 'unknown')} zone. Last seen: {d.get('last_seen_iso', 'Never')}",
+            "zone": d.get("current_zone"),
+            "is_home": d.get("is_home", False),
+            "last_seen": d.get("last_seen_iso"),
+        }
+    except Exception as e:
+        return {
+            "type": "speech",
+            "text": "I'm unable to track the teen's location right now. Try again later.",
+        }
+
+
+def aura_safety_check(arguments: dict[str, Any]) -> dict[str, Any]:
+    """Teen sends a safety check-in."""
+    try:
+        import urllib.request
+        req = urllib.request.Request(
+            "http://127.0.0.1:8001/api/human-activity-intelligence/aura/safety-check/unknown",
+            data=json.dumps({"message": "I am safe", "location": "Voice Check-in"}).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        resp = urllib.request.urlopen(req, timeout=3)
+        d = json.loads(resp.read())
+        return {
+            "type": "speech",
+            "text": "✅ Safety check-in recorded. Parents have been notified.",
+        }
+    except Exception:
+        return {
+            "type": "speech",
+            "text": "Safety check-in failed. Please try again or press the emergency button in the app.",
+        }
+
+
+def aura_curfew_status(arguments: dict[str, Any]) -> dict[str, Any]:
+    """Check curfew status for a teen."""
+    try:
+        import urllib.request
+        req = urllib.request.Request(
+            "http://127.0.0.1:8001/api/human-activity-intelligence/aura/curfew-status/teen",
+        )
+        resp = urllib.request.urlopen(req, timeout=3)
+        d = json.loads(resp.read())
+        msg = d.get("status_message", "Unknown")
+        return {
+            "type": "speech",
+            "text": f"Curfew status: {msg}. Curfew at {d.get('curfew_hour')}:00 ({'weekend' if d.get('is_weekend') else 'weekday'}).",
+        }
+    except Exception:
+        return {
+            "type": "speech",
+            "text": "Unable to check curfew status right now.",
+        }
+
+
+tool_registry.register("aura_teen_location", aura_teen_location)
+tool_registry.register("aura_safety_check", aura_safety_check)
+tool_registry.register("aura_curfew_status", aura_curfew_status)

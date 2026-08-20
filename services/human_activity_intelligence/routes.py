@@ -910,3 +910,126 @@ async def child_safety_zone_delete(zone_name: str) -> dict[str, Any]:
     if not deleted:
         return {"status": "not_found", "zone_name": zone_name}
     return {"status": "deleted", "zone_name": zone_name}
+
+
+# ------------------------------------------------------------------
+# Aura Teen Monitoring API
+# ------------------------------------------------------------------
+
+@router.get("/aura/teen-dashboard/{teen_name}")
+async def teen_dashboard(teen_name: str) -> dict[str, Any]:
+    """Get full teen dashboard data: current location, recent activity, curfew status."""
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    recent = activity_store.list_events(limit=50)
+    # Filter events related to this teen
+    teen_events = [e for e in recent if e.get("person_id", "").startswith(teen_name.lower())
+                   or e.get("metadata", {}).get("person_name", "").lower() == teen_name.lower()
+                   or e.get("metadata", {}).get("person_type") == "teen"]
+
+    last_event = teen_events[0] if teen_events else None
+
+    return {
+        "status": "ok",
+        "teen_name": teen_name,
+        "current_zone": last_event.get("zone", "Unknown") if last_event else "Unknown",
+        "last_seen_iso": last_event.get("created_at_iso", "Never") if last_event else "Never",
+        "current_status": "active" if last_event else "unknown",
+        "events": teen_events[:20],
+        "is_home": any(e.get("zone", "").lower() in ("home", "house", "bedroom") for e in teen_events[:5]),
+        "timestamp": now.isoformat(),
+    }
+
+
+@router.get("/aura/teen-presence")
+async def teen_presence(zone: str = Query(default=""), person_type: str = Query(default="teen")) -> dict[str, Any]:
+    """Check if any teen is present in a given zone."""
+    events = activity_store.list_events(limit=20)
+    teens_in_zone = []
+    for ev in events:
+        if ev.get("metadata", {}).get("person_type") == person_type:
+            if not zone or ev.get("zone", "").lower() == zone.lower():
+                teens_in_zone.append(ev)
+    return {
+        "status": "ok",
+        "presence_detected": len(teens_in_zone) > 0,
+        "count": len(teens_in_zone),
+        "events": teens_in_zone[:5],
+    }
+
+
+@router.get("/aura/curfew-status/{teen_name}")
+async def curfew_status(teen_name: str) -> dict[str, Any]:
+    """Check curfew status for a teen."""
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    hour = now.hour
+
+    # Default curfew rules (can be extended to per-teen config)
+    weekday_curfew = 21  # 9 PM
+    weekend_curfew = 22  # 10 PM
+
+    is_weekend = now.weekday() >= 5
+    curfew_hour = weekend_curfew if is_weekend else weekday_curfew
+    is_past_curfew = hour >= curfew_hour
+
+    # Check if teen is home
+    try:
+        dashboard = await teen_dashboard(teen_name)
+        is_home = dashboard.get("is_home", False)
+    except Exception:
+        is_home = False
+
+    return {
+        "status": "ok",
+        "teen_name": teen_name,
+        "current_time": now.isoformat(),
+        "is_weekend": is_weekend,
+        "curfew_hour": curfew_hour,
+        "is_past_curfew": is_past_curfew,
+        "is_home": is_home,
+        "status_message": "At home ✅" if is_home and not is_past_curfew else
+                          "Past curfew ⚠️" if is_past_curfew and not is_home else
+                          "Curfew check OK",
+        "minutes_until_curfew": max(0, (curfew_hour - hour) * 60 - now.minute) if not is_past_curfew else 0,
+    }
+
+
+@router.get("/aura/emergency-alerts")
+async def emergency_alerts() -> dict[str, Any]:
+    """List recent emergency alerts and safety events."""
+    events = activity_store.list_events(limit=50)
+    alerts = [e for e in events if e.get("event_type", "").startswith("child_safety")
+              or e.get("metadata", {}).get("alert_type") == "immediate"]
+    return {
+        "status": "ok",
+        "count": len(alerts),
+        "alerts": alerts[:10],
+    }
+
+
+@router.post("/aura/safety-check/{teen_name}")
+async def safety_check_in(teen_name: str, payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    """Teen sends a safety check-in ping to parents."""
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    message = payload.get("message", "I'm safe ✅")
+    location = payload.get("location", "Unknown")
+
+    activity_store.add_event({
+        "event_type": "safety_check_in",
+        "person_id": teen_name.lower(),
+        "track_id": f"safety-{int(now.timestamp() * 1000)}",
+        "zone": location,
+        "room": location,
+        "session_id": "manual",
+        "confidence": 1.0,
+        "duration_seconds": 0.0,
+        "metadata": {
+            "person_type": "teen",
+            "person_name": teen_name,
+            "message": message,
+            "check_in": True,
+        },
+    })
+    return {"status": "ok", "message": f"Check-in received from {teen_name}", "timestamp": now.isoformat()}
