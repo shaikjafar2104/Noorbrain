@@ -1,14 +1,12 @@
 package com.noorbrain.carconnect.core
 
 import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import android.hardware.usb.UsbAccessory
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
-import android.os.Parcelable
 import android.util.Log
 import androidx.core.content.getSystemService
+import com.noorbrain.carconnect.CarConnectApp
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -210,6 +208,15 @@ class ConnectionStateManager(private val context: Context) {
     /** Clear the last error. */
     fun clearError() {
         currentState = currentState.copy(lastError = null)
+    }
+
+    /** Log that a bridge device was found during BLE discovery. */
+    fun logBridgeFound(name: String, address: String, rssi: Int) {
+        stateLogger.log(
+            ConnectionStateLogger.State.BRIDGE_DETECTED,
+            "Bridge found: $name ($address), RSSI=$rssi"
+        )
+        currentState = currentState.copy(bridgeActive = true)
     }
 
     /** Scan for any existing USB devices on startup. */

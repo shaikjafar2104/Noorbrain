@@ -922,6 +922,13 @@ function smartLearning(){
         <div style="color:#999">Loading...</div>
       </div>
     </section>
+
+    <section class="nb126-card">
+      <h2>🍼 Child Safety Zones</h2>
+      <div id="child-safety-zones">
+        <div style="color:#999">Loading...</div>
+      </div>
+    </section>
   `;
 }
 const renderers = {
@@ -4177,6 +4184,7 @@ function navigate(name,push=true){
     loadSmartHabits();
     loadPrayerZones();
     loadCategorizedTimeline();
+    loadChildSafetyZones();
   }
 
   logV126("RESULT", {route: name, visible: !!document.querySelector("#nb126Content")});
@@ -4899,5 +4907,96 @@ function loadSmartHabits(){
     .catch(() => {
       var el = document.getElementById('categorized-timeline');
       if (el) el.innerHTML = '<div style="color:#ef4444">Failed to load timeline</div>';
+    });
+  }
+
+  function loadChildSafetyZones(){
+    fetch('/api/human-activity-intelligence/child-safety-zones')
+    .then(r => r.json())
+    .then(d => {
+      var html = '<div style="font-size:14px">';
+      if (d.zones && d.zones.length > 0) {
+        d.zones.forEach(z => {
+          var alertColor = z.alert_type === 'immediate' ? '#e74c3c' : '#FF9800';
+          html += '<div style="padding:8px;margin-bottom:8px;background:rgba(' + (z.alert_type === 'immediate' ? '231,76,60' : '255,152,0') + ',0.1);border:1px solid ' + alertColor + ';border-radius:8px">';
+          html += '<strong>' + z.zone_name + '</strong> ';
+          html += '<span style="font-size:10px;color:' + alertColor + ';background:' + alertColor + '1A;padding:1px 6px;border-radius:3px">' + (z.enabled ? 'ACTIVE' : 'OFF') + '</span><br>';
+          if (z.notification_message) {
+            html += '<small style="color:#ccc">' + z.notification_message + '</small><br>';
+          }
+          var alertLabel = z.alert_type === 'immediate' ? '🚨 Immediate' : '🔔 Gentle';
+          html += '<small style="color:' + alertColor + '">' + alertLabel + '</small>';
+          if (z.dnd_duration_minutes > 0) html += ' | DND: ' + z.dnd_duration_minutes + 'min';
+          if (z.lighting_scene) html += ' | Light: ' + z.lighting_scene;
+          if (z.requires_acknowledgment) html += ' | 📋 Ack required';
+          html += '<br>';
+          html += '<small style="color:#888">Updated: ' + new Date(z.updated_at_iso).toLocaleString() + '</small>';
+          html += '<br><button onclick="toggleChildZone(\'' + z.zone_name + '\',' + (z.enabled ? 'false' : 'true') + ')" style="font-size:11px;background:rgba(255,255,255,0.1);border:1px solid #666;border-radius:4px;padding:2px 8px">' + (z.enabled ? 'Disable' : 'Enable') + '</button>';
+          html += ' <button onclick="deleteChildZone(\'' + z.zone_name + '\')" style="font-size:11px;background:rgba(231,76,60,0.2);border:1px solid #e74c3c;border-radius:4px;padding:2px 8px">✕</button>';
+          html += '</div>';
+        });
+      } else {
+        html += '<div style="color:#999">No child safety zones configured.<br><button onclick="addChildZonePrompt()" style="font-size:12px;background:rgba(76,175,80,0.2);border:1px solid #4CAF50;border-radius:4px;padding:4px 10px">＋ Add Zone</button></div>';
+      }
+      html += '</div>';
+      var el = document.getElementById('child-safety-zones');
+      if (el) el.innerHTML = html;
+    })
+    .catch(() => {
+      var el = document.getElementById('child-safety-zones');
+      if (el) el.innerHTML = '<div style="color:#ef4444">Failed to load zones</div>';
+    });
+  }
+
+  function addChildZonePrompt(){
+    var zoneName = prompt('Enter zone/room name (e.g., "Nursery", "Stairs"):');
+    if (!zoneName || !zoneName.trim()) return;
+    zoneName = zoneName.trim();
+    var alertType = prompt('Alert type (immediate/notify):', 'notify');
+    if (!alertType) alertType = 'notify';
+    var message = prompt('Alert message:', 'Child detected in ' + zoneName);
+    var dnd = prompt('DND duration (minutes, 0 = no DND):', '5');
+    var lighting = prompt('Lighting scene (optional):', '');
+    fetch('/api/human-activity-intelligence/child-safety-zones/' + encodeURIComponent(zoneName), {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        enabled: true,
+        alert_type: alertType,
+        notification_message: message || null,
+        dnd_duration_minutes: parseInt(dnd || '5'),
+        lighting_scene: lighting || null,
+        requires_acknowledgment: alertType === 'immediate'
+      })
+    })
+    .then(r => r.json())
+    .then(d => {
+      if (d.status === 'ok') {
+        alert('Child safety zone "' + zoneName + '" configured!');
+        loadChildSafetyZones();
+      } else {
+        alert('Failed: ' + JSON.stringify(d));
+      }
+    });
+  }
+
+  function toggleChildZone(zoneName, enable){
+    fetch('/api/human-activity-intelligence/child-safety-zones/' + encodeURIComponent(zoneName), {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        enabled: enable,
+        alert_type: enable ? 'notify' : 'notify',
+        notification_message: null,
+        dnd_duration_minutes: 5,
+        lighting_scene: null,
+        requires_acknowledgment: false
+      })
+    })
+    .then(r => r.json())
+    .then(d => {
+      if (d.status === 'ok') {
+        loadChildSafetyZones();
+      }
     });
   }

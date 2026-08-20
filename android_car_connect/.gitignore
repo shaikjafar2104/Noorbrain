@@ -1,0 +1,14 @@
+# Android build outputs
+*.apk
+*.ap_
+*.aab
+bin/
+gen/
+.gradle/
+/local.properties
+/.idea/
+.DS_Store
+/build/
+/app/build/
+# Local configuration file
+local.properties

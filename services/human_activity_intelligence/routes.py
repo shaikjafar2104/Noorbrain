@@ -854,3 +854,59 @@ async def search_stories(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
                 "categories": story["categories"],
             })
     return {"status": "ok", "count": len(results), "results": results}
+
+
+# ------------------------------------------------------------------
+# Child Safety Zones (Extension of Prayer Zone infrastructure)
+# ------------------------------------------------------------------
+
+# Default child safety zones
+DEFAULT_CHILD_SAFETY_ZONES = [
+    {"zone_name": "Nursery", "enabled": True, "alert_type": "notify",
+     "notification_message": "Child detected in nursery zone", "dnd_duration_minutes": 5,
+     "lighting_scene": "warm-dim", "requires_acknowledgment": True},
+    {"zone_name": "Kitchen", "enabled": True, "alert_type": "immediate",
+     "notification_message": "⚠️ Child in kitchen! Please supervise immediately.", "dnd_duration_minutes": 0,
+     "lighting_scene": None, "requires_acknowledgment": True},
+    {"zone_name": "Stairs", "enabled": True, "alert_type": "immediate",
+     "notification_message": "⚠️ Child near stairs! Please ensure safety gates are closed.", "dnd_duration_minutes": 0,
+     "lighting_scene": "bright", "requires_acknowledgment": True},
+]
+
+
+def _ensure_default_child_zones() -> None:
+    existing = activity_store.list_child_safety_zones()
+    existing_names = {z["zone_name"] for z in existing}
+    for z in DEFAULT_CHILD_SAFETY_ZONES:
+        if z["zone_name"] not in existing_names:
+            activity_store.upsert_child_safety_zone(**z)
+
+
+@router.get("/child-safety-zones")
+async def child_safety_zones() -> dict[str, Any]:
+    _ensure_default_child_zones()
+    zones = activity_store.list_child_safety_zones()
+    return {"status": "ok", "count": len(zones), "zones": zones}
+
+
+@router.post("/child-safety-zones/{zone_name}")
+async def child_safety_zone_upsert(zone_name: str, payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    """Configure a child safety zone."""
+    zone = activity_store.upsert_child_safety_zone(
+        zone_name,
+        enabled=payload.get("enabled", True),
+        alert_type=payload.get("alert_type", "notify"),
+        notification_message=payload.get("notification_message"),
+        dnd_duration_minutes=payload.get("dnd_duration_minutes", 5),
+        lighting_scene=payload.get("lighting_scene"),
+        requires_acknowledgment=payload.get("requires_acknowledgment", False),
+    )
+    return {"status": "ok", "zone": zone}
+
+
+@router.delete("/child-safety-zones/{zone_name}")
+async def child_safety_zone_delete(zone_name: str) -> dict[str, Any]:
+    deleted = activity_store.delete_child_safety_zone(zone_name)
+    if not deleted:
+        return {"status": "not_found", "zone_name": zone_name}
+    return {"status": "deleted", "zone_name": zone_name}

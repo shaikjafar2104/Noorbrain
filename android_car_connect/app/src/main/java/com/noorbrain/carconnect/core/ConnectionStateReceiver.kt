@@ -4,29 +4,34 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
-import android.os.Build
+import android.os.BatteryManager
 import android.util.Log
-import android.hardware.usb.UsbManager
+import com.noorbrain.carconnect.CarConnectApp
 
 /**
  * ConnectionStateReceiver
  *
  * A lightweight BroadcastReceiver that monitors general connectivity state
  * changes (USB, network) and logs them. This is used for Phase 2+ monitoring.
+ *
+ * Note: Some USB constants (ACTION_USB_STATE, USB_CONNECTED) are @hide in
+ * the Android SDK and must be referenced via their string literals.
  */
 class ConnectionStateReceiver : BroadcastReceiver() {
 
     companion object {
         private const val TAG = "ConnectionStateReceiver"
 
+        // These are @hide constants in UsbManager — use string literals
+        private const val ACTION_USB_STATE = "android.hardware.usb.action.USB_STATE"
+        private const val USB_CONNECTED = "connected"
+
         fun getIntentFilter(): IntentFilter {
             return IntentFilter().apply {
                 addAction(Intent.ACTION_MEDIA_MOUNTED)
                 addAction(Intent.ACTION_MEDIA_UNMOUNTED)
                 addAction(Intent.ACTION_BATTERY_CHANGED)
-                addAction(UsbManager.ACTION_USB_STATE)
+                addAction(ACTION_USB_STATE)
             }
         }
     }
@@ -36,8 +41,8 @@ class ConnectionStateReceiver : BroadcastReceiver() {
         val logger = getConnectionStateLogger(context)
 
         when (action) {
-            UsbManager.ACTION_USB_STATE -> {
-                val connected = intent.getBooleanExtra(UsbManager.USB_CONNECTED, false)
+            ACTION_USB_STATE -> {
+                val connected = intent.getBooleanExtra(USB_CONNECTED, false)
                 if (connected) {
                     logger.log(ConnectionStateLogger.State.CONNECTION_ESTABLISHED, "USB state: connected")
                 } else {

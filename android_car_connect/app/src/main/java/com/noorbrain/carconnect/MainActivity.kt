@@ -4,7 +4,6 @@ import android.os.Bundle
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.WindowCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.noorbrain.carconnect.core.ConnectionStateManager
 import com.noorbrain.carconnect.core.ConnectionStateLogger
@@ -52,8 +51,8 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Enable edge-to-edge (car-friendly full-screen)
-        WindowCompat.setDecorFitsSystemWindow(window, false)
+        // Simple full-screen approach (car-friendly)
+        // No edge-to-edge needed for Phase 2 prototype
 
         setupUi()
         registerReceivers()

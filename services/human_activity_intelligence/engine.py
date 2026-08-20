@@ -554,6 +554,32 @@ class HumanActivityIntelligence:
                         },
                     })
 
+            # ---- check child safety zone triggers ----
+            for ev in emitted:
+                try:
+                    child_safety_triggered = self._store.check_child_safety_trigger(ev)
+                except Exception:
+                    child_safety_triggered = []
+                for cst in child_safety_triggered:
+                    self._store.add_event({
+                        "event_type": "child_safety_" + cst.get("action", "alert"),
+                        "person_id": cst.get("person_id", "child"),
+                        "track_id": ev.get("track_id"),
+                        "zone": cst.get("zone_name", ""),
+                        "room": ev.get("room", ""),
+                        "activity_type": "child_safety",
+                        "confidence": 0.9,
+                        "duration_seconds": 0.0,
+                        "metadata": {
+                            "alert_type": cst.get("alert_type", "notify"),
+                            "notification_message": cst.get("notification_message"),
+                            "dnd_duration_minutes": cst.get("dnd_duration_minutes"),
+                            "lighting_scene": cst.get("lighting_scene"),
+                            "requires_acknowledgment": cst.get("requires_acknowledgment"),
+                            "person_count": cst.get("person_count"),
+                        },
+                    })
+
             return emitted
 
     def active_sessions(self) -> list[dict[str, Any]]:

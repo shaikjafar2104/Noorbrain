@@ -255,6 +255,18 @@ class ActivityStore:
                 CREATE INDEX IF NOT EXISTS idx_as_session ON activity_sessions(session_id);
                 CREATE INDEX IF NOT EXISTS idx_as_person ON activity_sessions(person_id);
                 CREATE INDEX IF NOT EXISTS idx_rp_person ON learned_patterns(person_id);
+
+                CREATE TABLE IF NOT EXISTS child_safety_zones (
+                    zone_name TEXT PRIMARY KEY,
+                    enabled INTEGER NOT NULL DEFAULT 1,
+                    alert_type TEXT DEFAULT 'notify',
+                    notification_message TEXT,
+                    dnd_duration_minutes INTEGER DEFAULT 5,
+                    lighting_scene TEXT,
+                    requires_acknowledgment INTEGER DEFAULT 0,
+                    created_at_iso TEXT NOT NULL,
+                    updated_at_iso TEXT NOT NULL
+                );
                 CREATE INDEX IF NOT EXISTS idx_rs_status ON rule_suggestions(status);
                 """
             )
@@ -1333,6 +1345,148 @@ class ActivityStore:
                         triggered.append({
                             "zone_name": zone_name,
                             "action": "dnd_end",
+                        })
+
+        return triggered
+
+    # ------------------------------------------------------------------
+    # Child Safety Zones
+    # ------------------------------------------------------------------
+
+    def list_child_safety_zones(self) -> list[dict[str, Any]]:
+        with self._lock:
+            conn = self._ensure_connection()
+            rows = conn.execute(
+                "SELECT * FROM child_safety_zones ORDER BY zone_name"
+            ).fetchall()
+            return [
+                {
+                    "zone_name": r["zone_name"],
+                    "enabled": bool(r["enabled"]),
+                    "alert_type": r["alert_type"],
+                    "notification_message": r["notification_message"],
+                    "dnd_duration_minutes": r["dnd_duration_minutes"],
+                    "lighting_scene": r["lighting_scene"],
+                    "requires_acknowledgment": bool(r["requires_acknowledgment"]),
+                    "created_at_iso": r["created_at_iso"],
+                    "updated_at_iso": r["updated_at_iso"],
+                }
+                for r in rows
+            ]
+
+    def upsert_child_safety_zone(self, zone_name: str, **kwargs) -> dict[str, Any]:
+        enabled = kwargs.get("enabled", True)
+        alert_type = kwargs.get("alert_type", "notify")
+        message = kwargs.get("notification_message")
+        dnd_minutes = int(kwargs.get("dnd_duration_minutes", 5))
+        lighting = kwargs.get("lighting_scene")
+        requires_ack = kwargs.get("requires_acknowledgment", False)
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        with self._lock:
+            conn = self._ensure_connection()
+            existing = conn.execute(
+                "SELECT zone_name FROM child_safety_zones WHERE zone_name = ?", (zone_name,)
+            ).fetchone()
+            if existing:
+                conn.execute(
+                    """UPDATE child_safety_zones SET
+                        enabled = ?, alert_type = ?, notification_message = ?,
+                        dnd_duration_minutes = ?, lighting_scene = ?,
+                        requires_acknowledgment = ?, updated_at_iso = ?
+                    WHERE zone_name = ?""",
+                    (1 if enabled else 0, alert_type, message, dnd_minutes, lighting,
+                     1 if requires_ack else 0, now_iso, zone_name),
+                )
+            else:
+                conn.execute(
+                    """INSERT INTO child_safety_zones
+                        (zone_name, enabled, alert_type, notification_message,
+                         dnd_duration_minutes, lighting_scene, requires_acknowledgment,
+                         created_at_iso, updated_at_iso)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (zone_name, 1 if enabled else 0, alert_type, message, dnd_minutes,
+                     lighting, 1 if requires_ack else 0, now_iso, now_iso),
+                )
+            conn.commit()
+            row = conn.execute(
+                "SELECT * FROM child_safety_zones WHERE zone_name = ?", (zone_name,)
+            ).fetchone()
+            return {
+                "zone_name": row["zone_name"],
+                "enabled": bool(row["enabled"]),
+                "alert_type": row["alert_type"],
+                "notification_message": row["notification_message"],
+                "dnd_duration_minutes": row["dnd_duration_minutes"],
+                "lighting_scene": row["lighting_scene"],
+                "requires_acknowledgment": bool(row["requires_acknowledgment"]),
+                "created_at_iso": row["created_at_iso"],
+                "updated_at_iso": row["updated_at_iso"],
+            }
+
+    def delete_child_safety_zone(self, zone_name: str) -> bool:
+        with self._lock:
+            conn = self._ensure_connection()
+            cur = conn.execute("DELETE FROM child_safety_zones WHERE zone_name = ?", (zone_name,))
+            conn.commit()
+            return cur.rowcount > 0
+
+    def get_child_safety_zone(self, zone_name: str) -> dict[str, Any] | None:
+        with self._lock:
+            conn = self._ensure_connection()
+            row = conn.execute(
+                "SELECT * FROM child_safety_zones WHERE zone_name = ?", (zone_name,)
+            ).fetchone()
+            if not row:
+                return None
+            return {
+                "zone_name": row["zone_name"],
+                "enabled": bool(row["enabled"]),
+                "alert_type": row["alert_type"],
+                "notification_message": row["notification_message"],
+                "dnd_duration_minutes": row["dnd_duration_minutes"],
+                "lighting_scene": row["lighting_scene"],
+                "requires_acknowledgment": bool(row["requires_acknowledgment"]),
+                "created_at_iso": row["created_at_iso"],
+                "updated_at_iso": row["updated_at_iso"],
+            }
+
+    def check_child_safety_trigger(self, event: dict[str, Any]) -> list[dict[str, Any]]:
+        """Check if an event triggers child safety alerts."""
+        zone = event.get("zone", "")
+        room = event.get("room", "")
+        event_type = event.get("event_type", "")
+        activity_type = event.get("activity_type", "") or event.get("metadata", {}).get("activity_type", "")
+        person_id = event.get("person_id", "")
+        person_count = event.get("person_count", 0) or event.get("metadata", {}).get("person_count", 0)
+
+        triggered: list[dict[str, Any]] = []
+
+        with self._lock:
+            conn = self._ensure_connection()
+            zones = conn.execute("SELECT * FROM child_safety_zones WHERE enabled = 1").fetchall()
+
+            for z in zones:
+                zone_name = z["zone_name"]
+                # Match zone name or room name
+                if zone == zone_name or room == zone_name:
+                    # Alert on zone entry
+                    if event_type in ("entered_zone", "appeared", "long_stationary"):
+                        triggered.append({
+                            "zone_name": zone_name,
+                            "action": "child_zone_alert",
+                            "alert_type": z["alert_type"],
+                            "notification_message": z["notification_message"] or f"Child detected in {zone_name}",
+                            "dnd_duration_minutes": z["dnd_duration_minutes"],
+                            "lighting_scene": z["lighting_scene"],
+                            "requires_acknowledgment": bool(z["requires_acknowledgment"]),
+                            "person_id": person_id,
+                            "person_count": person_count,
+                        })
+                    elif event_type == "left_zone" or event_type == "disappeared":
+                        triggered.append({
+                            "zone_name": zone_name,
+                            "action": "child_zone_clear",
                         })
 
         return triggered
