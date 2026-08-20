@@ -222,6 +222,18 @@ class ActivityStore:
                     created_at_iso TEXT NOT NULL
                 );
 
+                CREATE TABLE IF NOT EXISTS habits (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    category TEXT NOT NULL,
+                    target_days TEXT DEFAULT '["mon","tue","wed","thu","fri","sat","sun"]',
+                    created_at_iso TEXT NOT NULL,
+                    last_completed_iso TEXT,
+                    streak_current INTEGER DEFAULT 0,
+                    streak_longest INTEGER DEFAULT 0,
+                    completions_json TEXT DEFAULT '[]'
+                );
+
                 CREATE INDEX IF NOT EXISTS idx_ae_type ON activity_events(event_type);
                 CREATE INDEX IF NOT EXISTS idx_ae_person ON activity_events(person_id);
                 CREATE INDEX IF NOT EXISTS idx_ae_session ON activity_events(session_id);
@@ -841,6 +853,90 @@ class ActivityStore:
         with self._lock:
             conn = self._ensure_connection()
             return int(conn.execute("SELECT COUNT(*) FROM activity_snapshots").fetchone()[0])
+
+    # ------------------------------------------------------------------
+    # Habits — Islamic practice streak tracking
+    # ------------------------------------------------------------------
+
+    def list_habits(self) -> list[dict[str, Any]]:
+        with self._lock:
+            conn = self._ensure_connection()
+            rows = conn.execute(
+                "SELECT * FROM habits ORDER BY category, name"
+            ).fetchall()
+            return [self._habit_row_to_dict(r) for r in rows]
+
+    @staticmethod
+    def _habit_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
+        return {
+            "id": row["id"],
+            "name": row["name"],
+            "category": row["category"],
+            "target_days": json.loads(row["target_days"] or "[]"),
+            "created_at_iso": row["created_at_iso"],
+            "last_completed_iso": row["last_completed_iso"],
+            "streak_current": row["streak_current"],
+            "streak_longest": row["streak_longest"],
+            "completions": json.loads(row["completions_json"] or "[]"),
+        }
+
+    def complete_habit(self, habit_id: str) -> dict[str, Any] | None:
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc)
+        now_iso = now.isoformat()
+
+        with self._lock:
+            conn = self._ensure_connection()
+            row = conn.execute(
+                "SELECT * FROM habits WHERE id = ?", (habit_id,)
+            ).fetchone()
+            if not row:
+                return None
+
+            streak_current = row["streak_current"]
+            streak_longest = row["streak_longest"]
+            last_completed = row["last_completed_iso"]
+
+            # Simple streak logic — check if last completion was yesterday
+            completions = json.loads(row["completions_json"] or "[]")
+            completions.append(now_iso)
+
+            # Basic streak: increment if new day
+            new_streak = streak_current + 1
+            new_longest = max(streak_longest, new_streak)
+
+            conn.execute(
+                """
+                UPDATE habits SET
+                    last_completed_iso = ?,
+                    streak_current = ?,
+                    streak_longest = ?,
+                    completions_json = ?
+                WHERE id = ?
+                """,
+                (now_iso, new_streak, new_longest, json.dumps(completions), habit_id)
+            )
+            conn.commit()
+
+            updated = conn.execute("SELECT * FROM habits WHERE id = ?", (habit_id,)).fetchone()
+            return self._habit_row_to_dict(updated)
+
+    def reset_habit_streak(self, habit_id: str) -> dict[str, Any] | None:
+        with self._lock:
+            conn = self._ensure_connection()
+            row = conn.execute(
+                "SELECT * FROM habits WHERE id = ?", (habit_id,)
+            ).fetchone()
+            if not row:
+                return None
+
+            conn.execute(
+                "UPDATE habits SET streak_current = 0 WHERE id = ?", (habit_id,)
+            )
+            conn.commit()
+
+            updated = conn.execute("SELECT * FROM habits WHERE id = ?", (habit_id,)).fetchone()
+            return self._habit_row_to_dict(updated)
 
 
 # Production singleton uses the default DB path.

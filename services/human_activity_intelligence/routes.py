@@ -1,6 +1,7 @@
 """Human Activity Intelligence — FastAPI routes."""
 from __future__ import annotations
 
+import json
 import threading
 from datetime import datetime, timezone
 from typing import Any
@@ -497,3 +498,96 @@ async def adaptive_update_settings(payload: dict[str, Any] = Body(...)) -> dict[
         return {"status": "error", "detail": "key required"}
     activity_store.set_setting(key, value)
     return {"status": "updated", "key": key, "value": value}
+
+
+# ------------------------------------------------------------------
+# Habits — Islamic practice streak tracking
+# ------------------------------------------------------------------
+
+DEFAULT_HABITS = [
+    {"id": "habit-morning-adhkar", "name": "Morning Adhkar", "category": "dhikr",
+     "target_days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]},
+    {"id": "habit-evening-ayat", "name": "Evening Ayat", "category": "quran",
+     "target_days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]},
+    {"id": "habit-quran-reading", "name": "Quran Reading", "category": "quran",
+     "target_days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]},
+]
+
+
+def _ensure_default_habits() -> None:
+    existing = activity_store.list_habits()
+    existing_ids = {h["id"] for h in existing}
+    for h in DEFAULT_HABITS:
+        if h["id"] not in existing_ids:
+            now_iso = _utc_now_iso()
+            with activity_store._lock:
+                conn = activity_store._ensure_connection()
+                conn.execute(
+                    """INSERT OR IGNORE INTO habits (
+                        id, name, category, target_days, created_at_iso,
+                        streak_current, streak_longest, completions_json
+                    ) VALUES (?, ?, ?, ?, ?, 0, 0, '[]')""",
+                    (h["id"], h["name"], h["category"],
+                     json.dumps(h["target_days"]), now_iso),
+                )
+                conn.commit()
+
+
+@router.get("/habits")
+async def habits() -> dict[str, Any]:
+    _ensure_default_habits()
+    items = activity_store.list_habits()
+    return {"status": "ok", "count": len(items), "habits": items}
+
+
+@router.get("/habits/stats")
+async def habit_stats() -> dict[str, Any]:
+    """Return streak stats for the Islamic Habit Streak Tracker."""
+    _ensure_default_habits()
+    habits = activity_store.list_habits()
+    total = len(habits)
+    active_streaks = sum(1 for h in habits if h["streak_current"] > 0)
+    return {
+        "status": "ok",
+        "total_habits": total,
+        "active_streaks": active_streaks,
+        "habits": [
+            {
+                "id": h["id"],
+                "name": h["name"],
+                "category": h["category"],
+                "streak_current": h["streak_current"],
+                "streak_longest": h["streak_longest"],
+                "last_completed": h["last_completed_iso"],
+            }
+            for h in habits
+        ],
+    }
+
+
+@router.get("/habits/{habit_id}")
+async def habit_detail(habit_id: str) -> dict[str, Any]:
+    _ensure_default_habits()
+    items = activity_store.list_habits()
+    for h in items:
+        if h["id"] == habit_id:
+            return {"status": "ok", "habit": h}
+    return {"status": "not_found", "habit_id": habit_id}
+
+
+@router.post("/habits/{habit_id}/complete")
+async def habit_complete(habit_id: str) -> dict[str, Any]:
+    _ensure_default_habits()
+    result = activity_store.complete_habit(habit_id)
+    if result is None:
+        return {"status": "not_found", "habit_id": habit_id}
+    return {"status": "completed", "habit": result}
+
+
+@router.post("/habits/{habit_id}/reset")
+async def habit_reset(habit_id: str) -> dict[str, Any]:
+    _ensure_default_habits()
+    result = activity_store.reset_habit_streak(habit_id)
+    if result is None:
+        return {"status": "not_found", "habit_id": habit_id}
+    return {"status": "reset", "habit": result}

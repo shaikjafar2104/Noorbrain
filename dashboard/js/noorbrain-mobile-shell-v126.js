@@ -903,9 +903,13 @@ function smartLearning(){
       <h2>Settings</h2>
       <div id="ha-settings"></div>
     </section>
+
+    <section class="nb126-card">
+      <h2>🌙 Islamic Habits</h2>
+      <div id="smart-habits"></div>
+    </section>
   `;
 }
-
 const renderers = {
   home,
   automation,
@@ -4156,6 +4160,7 @@ function navigate(name,push=true){
   }
   if (name === "smart-learning") {
     loadSmartLearning();
+    loadSmartHabits();
   }
 
   logV126("RESULT", {route: name, visible: !!document.querySelector("#nb126Content")});
@@ -4564,9 +4569,55 @@ function approveSuggestion(suggestionId){
 
 function rejectSuggestion(suggestionId){
   fetch('/api/human-activity-intelligence/suggestions/' + suggestionId + '/reject', { method: 'POST' })
-    .then(r => r.json())
-    .then(d => {
-      alert("Suggestion rejected. Won't propose again for 72 hours.");
-      loadSmartLearning();
+  .then(r => r.json())
+  .then(d => {
+  alert("Suggestion rejected. Won't propose again for 72 hours.");
+  loadSmartLearning();
+  });
+  }
+
+  function loadSmartHabits(){
+  fetch('/api/human-activity-intelligence/habits')
+  .then(r => r.json())
+  .then(d => {
+  let html = '<div style="font-size:14px">';
+  if (d.habits && d.habits.length > 0) {
+    d.habits.forEach(h => {
+      html += '<div style="padding:8px;margin-bottom:8px;background:rgba(76,175,80,0.15);border-radius:8px">';
+      html += '<strong>' + h.name + '</strong> <small style="color:#aaa">(' + h.category + ')</small><br>';
+      var streakColor = h.streak_current > 0 ? '#4CAF50' : '#999';
+      html += '<span style="color:' + streakColor + ';font-size:20px">●●●</span> ';
+      html += 'Current: <strong style="color:' + streakColor + '">' + h.streak_current + '</strong> | ';
+      html += 'Best: <strong>' + h.streak_longest + '</strong><br>';
+      if (h.last_completed_iso) {
+        var d2 = new Date(h.last_completed_iso);
+        html += '<small style="color:#999">Last: ' + d2.toLocaleDateString() + '</small>';
+      }
+      html += '<br><button onclick="completeHabit(\'' + h.id + '\')" style="margin-top:4px;font-size:12px">✓ Mark Done</button>';
+      html += '</div>';
     });
-}
+  } else {
+    html += '<div style="color:#999">No habits configured. Add Islamic practices to track streaks.</div>';
+  }
+  html += '</div>';
+  var el = document.getElementById('smart-habits');
+  if (el) el.innerHTML = html;
+  })
+  .catch(() => {
+  var el = document.getElementById('smart-habits');
+  if (el) el.innerHTML = '<div style="color:#ef4444">Failed to load habits</div>';
+  });
+  }
+
+  function completeHabit(habitId){
+  fetch('/api/human-activity-intelligence/habits/' + habitId + '/complete', { method: 'POST' })
+  .then(r => r.json())
+  .then(d => {
+  if (d.status === 'completed') {
+    alert(d.habit.name + ' streak: ' + d.habit.streak_current);
+  } else {
+    alert('Failed to complete habit');
+  }
+  loadSmartHabits();
+  });
+  }
