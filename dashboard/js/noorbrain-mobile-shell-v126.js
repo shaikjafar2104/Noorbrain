@@ -4893,6 +4893,12 @@ function loadSmartHabits(){
           html += '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + color + ';margin-right:6px"></span>';
           html += '<strong>' + ev.category_label + '</strong> ';
           html += '<span style="color:#999;font-size:11px">(' + ev.event_type + ')</span>';
+          // Add person type badge
+          if (ev.person_type && ev.person_type !== 'adult') {
+            var ptColor = ev.person_type === 'baby' ? '#FF6F00' : ev.person_type === 'child' ? '#FF9800' : '#F44336';
+            var ptLabel = ev.person_type === 'baby' ? '👶 Baby' : ev.person_type === 'child' ? '🧒 Child' : '🧑 Teen';
+            html += '<span style="font-size:10px;color:' + ptColor + ';background:' + ptColor + '1A;padding:1px 4px;border-radius:3px;margin-left:4px">' + ptLabel + '</span>';
+          }
           if (ev.zone) html += ' <span style="color:#aaa">' + ev.zone + '</span>';
           if (time) html += ' <span style="color:#666;float:right">' + time + '</span>';
           html += '</div>';

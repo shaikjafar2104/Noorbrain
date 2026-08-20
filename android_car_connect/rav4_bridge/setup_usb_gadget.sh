@@ -1,84 +1,128 @@
 #!/bin/bash
 #
-# USB Gadget Setup Script for NoorBrain CarConnect Bridge
-# Raspberry Pi Zero 2W — configures the Pi as a USB gadget
-# that emulates an Android phone to the 2019 RAV4 infotainment system.
+# NoorBrain CarConnect Bridge — USB Gadget Setup
+# Raspberry Pi Zero 2W configuration
 #
-# This script must be run at boot (add to /etc/rc.local or systemd).
+# This script configures the Pi as a USB gadget that emulates
+# an Android phone to the 2019 Toyota RAV4's USB port.
 #
-# Prerequisites:
-#   - Raspberry Pi Zero 2W running Raspberry Pi OS Lite (64-bit)
-#   - Kernel with CONFIGFS and g_ffs modules enabled
-#   - dtoverlay=dwc2 in /boot/config.txt
-#
-# ⚠️ EXPERIMENTAL — not tested on actual 2019 RAV4 hardware
+# The bridge accepts a wireless connection from your phone (Wi-Fi Direct)
+# and forwards it to the car as if the phone were directly connected via USB.
 
 set -e
 
-echo "Setting up USB gadget mode for NoorBrain CarConnect Bridge..."
+echo "=== NoorBrain CarConnect Bridge Setup ==="
 
-# 1. Load required kernel modules
-modprobe libcomposite
-modprobe g_ffs  # FunctionFS for Android Auto
-
-# 2. Mount configfs
-CONFIGFS_DIR="/sys/kernel/config"
-if ! mountpoint -q "$CONFIGFS_DIR"; then
-    mount -t configfs none "$CONFIGFS_DIR"
+# Step 1: Enable USB gadget mode in config.txt
+echo ""
+echo "[1/5] Configuring /boot/config.txt..."
+if ! grep -q "dtoverlay=dwc2" /boot/config.txt; then
+    echo "dtoverlay=dwc2" >> /boot/config.txt
+fi
+# Also increase USB current limit
+if ! grep -q "max_usb_current=1" /boot/config.txt; then
+    echo "max_usb_current=1" >> /boot/config.txt
 fi
 
-# 3. Create USB gadget directory
-GADGET_DIR="$CONFIGFS_DIR/usb_gadget/carconnect"
-mkdir -p "$GADGET_DIR"
-cd "$GADGET_DIR"
+# Step 2: Enable SSH and configure networking
+echo ""
+echo "[2/5] Configuring network..."
+# The bridge needs to act as a Wi-Fi Direct group owner
+# Install hostapd and dnsmasq for Wi-Fi hotspot fallback
+sudo apt-get update -qq
+sudo apt-get install -y -qq hostapd dnsmasq dnsmasq-base
 
-# 4. Configure USB vendor/product IDs
-# Using Google VID (0x18D9) and a standard Android Auto PID
-echo 0x18D9 > idVendor
-echo 0x4025 > idProduct
-echo 0x0100 > bcdDevice
-echo 0x0200 > bcdUSB
+# Configure dnsmasq for DHCP (used in fallback AP mode)
+sudo tee /etc/dnsmasq.d/carconnect.conf > /dev/null << 'EOF'
+interface=wlan0
+dhcp-range=192.168.49.100,192.168.49.200,12h
+dhcp-option=3,192.168.49.1
+dhcp-option=6,8.8.8.8
+EOF
 
-# 5. Set device class (vendor-specific for AOA 2.0)
-echo 0x00 > bDeviceClass
-echo 0x00 > bDeviceSubClass
-echo 0x00 > bDeviceProtocol
+# Step 3: Create USB gadget using configfs
+echo ""
+echo "[3/5] Configuring USB gadget..."
 
-# 6. Set strings (manufacturer, product, serial)
-mkdir -p strings/0x409
-echo "NoorBrain" > strings/0x409/manufacturer
-echo "CarConnect-Bridge" > strings/0x409/product
-echo "CNB000000001" > strings/0x409/serialnumber
+# Mount configfs
+sudo mkdir -p /sys/kernel/config
+sudo mount -t configfs none /sys/kernel/config 2>/dev/null || true
 
-# 7. Create configurations
-mkdir -p configs/c.1/strings/0x409
-echo "RAV4 Bridge Config" > configs/c.1/strings/0x409/configuration
-echo 250 > configs/c.1/MaxPower
+# Create gadget
+GADGET=/sys/kernel/config/usb_gadget/carconnect
+sudo mkdir -p $GADGET
+cd $GADGET
 
-# 8. Create FunctionFS function for Android Auto
-mkdir -p functions/ffs.usb0
+# Use Google VID (same as Android phones)
+echo 0x18D9 | sudo tee idVendor
+# Product ID for Android Auto / AOA 2.0
+echo 0x4025 | sudo tee idProduct
+echo 0x0100 | sudo tee bcdDevice
+echo 0x0200 | sudo tee bcdUSB
 
-# Bind the function to the configuration
-ln -sf functions/ffs.usb0 configs/c.1/
+# Device class (set to 0 for per-interface)
+echo 0x00 | sudo tee bDeviceClass
+echo 0x00 | sudo tee bDeviceSubClass
+echo 0x00 | sudo tee bDeviceProtocol
 
-# 9. Enable the gadget (bind to UDC)
-# Find the UDC name
-ls /sys/class/udc > UDC
+# Strings
+sudo mkdir -p strings/0x409
+echo "NoorBrain" | sudo tee strings/0x409/manufacturer
+echo "CarConnect-Bridge" | sudo tee strings/0x409/product
+echo "CNB000000001" | sudo tee strings/0x409/serialnumber
 
-echo "USB gadget configured as Android phone (VID=0x18D9, PID=0x4025)"
+# Configuration
+sudo mkdir -p configs/c.1/strings/0x409
+echo "RAV4 Bridge Config" | sudo tee configs/c.1/strings/0x409/configuration
+echo 250 | sudo tee configs/c.1/MaxPower
 
-# 10. Mount FunctionFS for user-space access
-mkdir -p /dev/ffs.usb0
-mount -t functionfs -o uid=0,gid=0 allow_monotonic=1 \
-    ffs.usb0 /dev/ffs.usb0 2>/dev/null || \
-    echo "Warning: Could not mount FunctionFS (may already be mounted)"
+# FunctionFS for Android Auto protocol
+sudo mkdir -p functions/ffs.android
+sudo ln -sf functions/ffs.android configs/c.1/
 
-echo "USB gadget setup complete. The Pi will now appear as an Android phone to the RAV4."
+# Bind to UDC (USB Device Controller)
+echo "Binding to UDC..."
+ls /sys/class/udc/ | head -1 | sudo tee UDC
 
-# 11. Start the bridge proxy server
-echo "Starting bridge proxy server..."
-if [ -f /home/pi/NoorBrain/android_car_connect/rav4_bridge/bridge_server.py ]; then
-    python3 /home/pi/NoorBrain/android_car_connect/rav4_bridge/bridge_server.py &
-fi
+# Step 4: Mount FunctionFS for user-space access
+echo ""
+echo "[4/5] Mounting FunctionFS..."
+sudo mkdir -p /dev/ffs.android
+sudo mount -t functionfs android /dev/ffs.android 2>/dev/null || {
+    # Try alternate approach
+    sudo mount -t functionfs -o uid=0,gid=0 /dev/ffs.android
+}
 
-echo "Done. Bridge is ready."
+echo "USB gadget configured!"
+echo "The Pi will appear as an Android phone to the RAV4."
+
+# Step 5: Create systemd service for the bridge
+echo ""
+echo "[5/5] Creating bridge service..."
+sudo tee /etc/systemd/system/carconnect-bridge.service > /dev/null << 'EOF'
+[Unit]
+Description=NoorBrain CarConnect Bridge Server
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /home/pi/NoorBrain/android_car_connect/rav4_bridge/bridge_server.py --listen-port 5353 --usb-device /dev/ffs.android
+Restart=always
+RestartSec=5
+User=pi
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable carconnect-bridge.service
+
+echo ""
+echo "=== Setup Complete ==="
+echo "To start the bridge: sudo systemctl start carconnect-bridge"
+echo "To check status: sudo systemctl status carconnect-bridge"
+echo "To view logs: journalctl -u carconnect-bridge -f"
+echo ""
+echo "IMPORTANT: Connect the Pi to the RAV4's USB-A port using a USB OTG adapter."
+echo "The Pi Zero 2W's micro USB port serves as the device port."

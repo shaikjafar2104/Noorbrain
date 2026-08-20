@@ -6,14 +6,12 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.*
 import android.content.Context
-import android.content.Intent
 import android.net.wifi.WifiConfiguration
 import android.net.wifi.WifiManager
 import android.net.wifi.p2p.WifiP2pConfig
-import android.net.wifi.p2p.WifiP2pDevice
 import android.net.wifi.p2p.WifiP2pManager
 import android.os.Looper
-import android.os.Parcelable
+import android.os.ParcelUuid
 import android.util.Log
 import androidx.core.content.getSystemService
 import com.noorbrain.carconnect.core.ConnectionStateManager
@@ -59,7 +57,7 @@ class WirelessConnectionManager(
     private val bluetoothManager = context.getSystemService<BluetoothManager>()
     private val bluetoothAdapter: BluetoothAdapter? = bluetoothManager?.adapter
 
-    private val wifiManager: WifiManager = context.applicationContext.getSystemService()
+    private val wifiManager: WifiManager = context.applicationContext.getSystemService()!!
     private val wifiP2pManager = context.getSystemService<WifiP2pManager>()
 
     private val executor = Executors.newCachedThreadPool()
@@ -135,21 +133,21 @@ class WirelessConnectionManager(
     /** BLE scan callback — detects bridge devices. */
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
-            val device = result.device
-            val name = result.device.name ?: "Unnamed"
+            val btDevice = result.device
+            val name = btDevice.name ?: "Unnamed"
             val rssi = result.rssi
 
             if (name.startsWith(BRIDGE_NAME_PREFIX)) {
                 val bridge = BridgeDeviceInfo(
                     deviceName = name,
-                    deviceAddress = device.address,
+                    deviceAddress = btDevice.address,
                     rssi = rssi
                 )
                 discoveredBridges[name] = bridge
 
                 logger.log(ConnectionStateLogger.State.BT_DISCOVERY_FOUND,
-                    "Found bridge: $name (${device.address}), RSSI=$rssi")
-                stateManager.logBridgeFound(name, device.address, rssi)
+                    "Found bridge: $name (${btDevice.address}), RSSI=$rssi")
+                stateManager.logBridgeFound(name, btDevice.address, rssi)
             }
         }
 
@@ -182,7 +180,7 @@ class WirelessConnectionManager(
         logger.log(ConnectionStateLogger.State.WIFI_CONNECTING,
             "Connecting via Wi-Fi Direct to: ${bridge.deviceName}")
 
-        val channel = wifiP2pManager?.initialize(context, Looper.getMainLooper())
+        val channel = wifiP2pManager?.initialize(context, Looper.getMainLooper(), null)
         if (channel == null) {
             logger.log(ConnectionStateLogger.State.ERROR, "Failed to initialize Wi-Fi P2P channel")
             stateManager.setError("Wi-Fi Direct initialization failed")
@@ -190,11 +188,7 @@ class WirelessConnectionManager(
         }
 
         val config = WifiP2pConfig().apply {
-            device = WifiP2pDevice().apply {
-                this.address = bridge.deviceAddress
-                this.device = bridge.deviceName
-            }
-            wps = WpsSetup.PROMPT
+            deviceAddress = bridge.deviceAddress
         }
 
         wifiP2pManager?.connect(channel, config, object : WifiP2pManager.ActionListener {
@@ -263,8 +257,7 @@ class WirelessConnectionManager(
                 "Disconnecting from bridge: ${connectedBridge!!.deviceName}")
 
             if (wifiP2pManager != null) {
-                val mainLooper = Looper.getMainLooper()
-                val channel = wifiP2pManager?.initialize(context, mainLooper)
+                val channel = wifiP2pManager?.initialize(context, Looper.getMainLooper(), null)
                 channel?.let {
                     wifiP2pManager?.removeGroup(it, object : WifiP2pManager.ActionListener {
                         override fun onSuccess() {
@@ -297,10 +290,4 @@ class WirelessConnectionManager(
         stopBleDiscovery()
         disconnect()
     }
-}
-
-// WpsSetup enum for Wi-Fi Protected Setup
-private enum class WpsSetup {
-    PROMPT,
-    PIN
 }

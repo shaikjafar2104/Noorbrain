@@ -408,6 +408,8 @@ class ActivityStore:
           - long_sitting + reading zone → reading_quran
           - person_appeared morning → morning_routine
           - quran_reading habit trigger → reading_quran
+          - baby + nursery zone → baby_sleep / baby_activity
+          - child/teen + kitchen/stairs zone → child_safety_zone
         """
         raw = self.list_events(limit=limit)
         categorized = []
@@ -417,6 +419,8 @@ class ActivityStore:
             ev_with_cat["category"] = cat
             ev_with_cat["category_label"] = self._category_label(cat)
             ev_with_cat["category_color"] = self._category_color(cat)
+            # Add person type detection
+            ev_with_cat["person_type"] = self._detect_person_type(ev)
             categorized.append(ev_with_cat)
         return categorized
 
@@ -464,7 +468,36 @@ class ActivityStore:
             except (ValueError, TypeError):
                 pass
 
+        # Baby in nursery - sleep monitoring
+        person_type = ev.get("metadata", {}).get("person_type", "")
+        if person_type == "baby" or ("nursery" in zone and "nursery" in room):
+            if etype == "long_stationary":
+                return "baby_sleep"
+            if etype in ("appeared", "entered_zone"):
+                return "baby_activity"
+
+        # Child safety - kitchen/stairs
+        if "kitchen" in zone or "stairs" in zone or "kitchen" in room or "stairs" in room:
+            if person_type in ("child", "teen") and etype in ("entered_zone", "appeared"):
+                return "child_safety_zone"
+
         return "other"
+
+    @staticmethod
+    def _detect_person_type(ev: dict[str, Any]) -> str:
+        """Detect whether a person event relates to an adult, baby, or child/teen."""
+        metadata = ev.get("metadata") or {}
+        person_type = metadata.get("person_type") or ev.get("person_type")
+        if person_type in ("baby", "child", "teen"):
+            return person_type
+        zone = (ev.get("zone") or "").lower()
+        room = (ev.get("room") or "").lower()
+        # Heuristic: if in nursery/crib, likely baby
+        if "nursery" in zone or "crib" in zone or "nursery" in room:
+            metadata_str = json.dumps(metadata).lower()
+            if "baby" in metadata_str:
+                return "baby"
+        return "adult"
 
     @staticmethod
     def _category_label(cat: str) -> str:
@@ -475,6 +508,9 @@ class ActivityStore:
             "cooking": "Cooking",
             "reading_quran": "Quran Reading",
             "morning_routine": "Morning Routine",
+            "baby_sleep": "👶 Baby Sleeping",
+            "baby_activity": "👶 Baby Active",
+            "child_safety_zone": "🚨 Child Safety Alert",
             "other": "General Activity",
         }
         return labels.get(cat, "Activity")
@@ -488,6 +524,9 @@ class ActivityStore:
             "cooking": "#FF9800",          # amber
             "reading_quran": "#2196F3",   # blue
             "morning_routine": "#00BCD4", # cyan
+            "baby_sleep": "#FF6F00",       # orange (baby sleep)
+            "baby_activity": "#FF9800",    # light orange (baby active)
+            "child_safety_zone": "#F44336", # red (safety alert)
             "other": "#9E9E9E",            # gray
         }
         return colors.get(cat, "#9E9E9E")
