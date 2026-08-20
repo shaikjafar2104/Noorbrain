@@ -506,11 +506,17 @@ async def adaptive_update_settings(payload: dict[str, Any] = Body(...)) -> dict[
 
 DEFAULT_HABITS = [
     {"id": "habit-morning-adhkar", "name": "Morning Adhkar", "category": "dhikr",
-     "target_days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]},
+     "target_days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+     "trigger_type": None, "trigger_value": None},
     {"id": "habit-evening-ayat", "name": "Evening Ayat", "category": "quran",
-     "target_days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]},
+     "target_days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+     "trigger_type": None, "trigger_value": None},
     {"id": "habit-quran-reading", "name": "Quran Reading", "category": "quran",
-     "target_days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]},
+     "target_days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+     "trigger_type": "activity", "trigger_value": "long_sitting"},
+    {"id": "habit-prayer-reminder", "name": "Prayer Posture Check", "category": "prayer",
+     "target_days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+     "trigger_type": "activity", "trigger_value": "sit_to_stand"},
 ]
 
 
@@ -524,11 +530,12 @@ def _ensure_default_habits() -> None:
                 conn = activity_store._ensure_connection()
                 conn.execute(
                     """INSERT OR IGNORE INTO habits (
-                        id, name, category, target_days, created_at_iso,
-                        streak_current, streak_longest, completions_json
-                    ) VALUES (?, ?, ?, ?, ?, 0, 0, '[]')""",
+                        id, name, category, target_days, trigger_type, trigger_value,
+                        created_at_iso, streak_current, streak_longest, completions_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, '[]')""",
                     (h["id"], h["name"], h["category"],
-                     json.dumps(h["target_days"]), now_iso),
+                     json.dumps(h["target_days"]), h.get("trigger_type"),
+                     h.get("trigger_value"), now_iso),
                 )
                 conn.commit()
 
@@ -559,10 +566,24 @@ async def habit_stats() -> dict[str, Any]:
                 "streak_current": h["streak_current"],
                 "streak_longest": h["streak_longest"],
                 "last_completed": h["last_completed_iso"],
+                "badge": _habit_badge(h),
             }
             for h in habits
         ],
     }
+
+
+def _habit_badge(habit: dict[str, Any]) -> str:
+    """Return badge name based on streak length."""
+    streak = habit.get("streak_current", 0)
+    longest = habit.get("streak_longest", 0)
+    if streak >= 30 or longest >= 30:
+        return "gold"
+    if streak >= 14 or longest >= 14:
+        return "silver"
+    if streak >= 7 or longest >= 7:
+        return "bronze"
+    return "none"
 
 
 @router.get("/habits/{habit_id}")
@@ -591,3 +612,22 @@ async def habit_reset(habit_id: str) -> dict[str, Any]:
     if result is None:
         return {"status": "not_found", "habit_id": habit_id}
     return {"status": "reset", "habit": result}
+
+
+@router.post("/habits/upsert")
+async def habit_upsert(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    """Create or update a habit with trigger configuration."""
+    habit_id = str(payload.get("id") or "").strip()
+    if not habit_id:
+        return {"status": "error", "detail": "habit id required"}
+    habit_data = {
+        "id": habit_id,
+        "name": payload.get("name", "Untitled Habit"),
+        "category": payload.get("category", "other"),
+        "target_days": payload.get("target_days", ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]),
+        "trigger_type": payload.get("trigger_type"),
+        "trigger_value": payload.get("trigger_value"),
+        "created_at_iso": payload.get("created_at_iso"),
+    }
+    result = activity_store.upsert_habit(habit_data)
+    return {"status": "ok", "habit": result}

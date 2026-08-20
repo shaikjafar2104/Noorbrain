@@ -11,6 +11,13 @@
       "cooldown_seconds": 3600,
       "speak": false,
       "media_id": "islamic-4d898c1f06da18d53c013844",
+      "action_type": "media",
+      "target_node": null,
+      "days": [],
+      "time_start": null,
+      "time_end": null,
+      "require_target_online": true,
+      "last_triggered": null,
       "created_at": 1786512441.6694078
     },
     {
@@ -23,6 +30,13 @@
       "cooldown_seconds": 3600,
       "speak": false,
       "media_id": "islamic-9d9abc3c2da5a6e147d51074",
+      "action_type": "media",
+      "target_node": null,
+      "days": [],
+      "time_start": null,
+      "time_end": null,
+      "require_target_online": true,
+      "last_triggered": null,
       "created_at": 1786512441.6717036
     },
     {
@@ -35,6 +49,13 @@
       "cooldown_seconds": 7200,
       "speak": false,
       "media_id": "islamic-87001676c06ddbfb702e802a",
+      "action_type": "media",
+      "target_node": null,
+      "days": [],
+      "time_start": null,
+      "time_end": null,
+      "require_target_online": true,
+      "last_triggered": null,
       "created_at": 1786512441.673898
     },
     {
@@ -47,7 +68,41 @@
       "cooldown_seconds": 21600,
       "speak": false,
       "media_id": "islamic-633bdd12a294030fd468f73e",
+      "action_type": "media",
+      "target_node": null,
+      "days": [],
+      "time_start": null,
+      "time_end": null,
+      "require_target_online": true,
+      "last_triggered": null,
       "created_at": 1786512441.6758718
+    },
+    {
+      "id": "513acb7d-a9f9-4fd2-b097-972e5dcaac23",
+      "name": "Entered_Zone in Kitchen",
+      "enabled": true,
+      "trigger": "entered_zone",
+      "zone": "Kitchen",
+      "message": "entered_zone detected.",
+      "cooldown_seconds": 1800,
+      "speak": true,
+      "media_id": null,
+      "action_type": "notification",
+      "target_node": null,
+      "days": [
+        "mon",
+        "tue",
+        "wed",
+        "thu",
+        "fri",
+        "sat",
+        "sun"
+      ],
+      "time_start": null,
+      "time_end": null,
+      "require_target_online": true,
+      "last_triggered": null,
+      "created_at": 1787111027.4781046
     }
   ]
 }

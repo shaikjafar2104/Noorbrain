@@ -8,6 +8,13 @@
       },
       "updated_at": "2026-08-12T05:14:40.772927+00:00"
     },
+    "android-v126-0rbccmyf": {
+      "context": {
+        "last_intent": "conversation",
+        "last_user_text": "what time is it?"
+      },
+      "updated_at": "2026-08-20T00:45:26.254690+00:00"
+    },
     "debug-conversation": {
       "context": {
         "last_intent": "conversation",
@@ -32,9 +39,9 @@
     "raspberry-pi-halo": {
       "context": {
         "last_intent": "conversation",
-        "last_user_text": "key voice assistant"
+        "last_user_text": ""
       },
-      "updated_at": "2026-08-13T20:32:07.262321+00:00"
+      "updated_at": "2026-08-20T01:48:24.913807+00:00"
     },
     "speed-final-test": {
       "context": {

@@ -520,6 +520,15 @@ class HumanActivityIntelligence:
             # ---- persist emitted events to injected store ----
             for ev in emitted:
                 self._store.add_event(ev)
+            
+            # ---- check habit triggers (auto-complete habits) ----
+            for ev in emitted:
+                try:
+                    triggered = self._store.check_habit_trigger(ev)
+                except Exception:
+                    triggered = []
+                # Auto-completed habits are noted but not emitted as events
+                # to avoid polluting the activity timeline
 
             return emitted
 

@@ -20,7 +20,7 @@ import os
 import sqlite3
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -227,6 +227,8 @@ class ActivityStore:
                     name TEXT NOT NULL,
                     category TEXT NOT NULL,
                     target_days TEXT DEFAULT '["mon","tue","wed","thu","fri","sat","sun"]',
+                    trigger_type TEXT,
+                    trigger_value TEXT,
                     created_at_iso TEXT NOT NULL,
                     last_completed_iso TEXT,
                     streak_current INTEGER DEFAULT 0,
@@ -253,6 +255,13 @@ class ActivityStore:
         cur = conn.execute("SELECT COALESCE(MAX(version), 0) FROM schema_migrations")
         current = int(cur.fetchone()[0])
         if current >= 1:
+            # Check if we need to add trigger columns (migration)
+            cols = conn.execute("PRAGMA table_info(habits)").fetchall()
+            col_names = [c[1] for c in cols]
+            if "trigger_type" not in col_names:
+                conn.execute("ALTER TABLE habits ADD COLUMN trigger_type TEXT")
+                conn.execute("ALTER TABLE habits ADD COLUMN trigger_value TEXT")
+                conn.commit()
             return
         conn.execute(
             "INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)",
@@ -873,6 +882,8 @@ class ActivityStore:
             "name": row["name"],
             "category": row["category"],
             "target_days": json.loads(row["target_days"] or "[]"),
+            "trigger_type": row["trigger_type"] if "trigger_type" in row.keys() else None,
+            "trigger_value": row["trigger_value"] if "trigger_value" in row.keys() else None,
             "created_at_iso": row["created_at_iso"],
             "last_completed_iso": row["last_completed_iso"],
             "streak_current": row["streak_current"],
@@ -881,7 +892,6 @@ class ActivityStore:
         }
 
     def complete_habit(self, habit_id: str) -> dict[str, Any] | None:
-        from datetime import datetime, timezone
         now = datetime.now(timezone.utc)
         now_iso = now.isoformat()
 
@@ -895,15 +905,42 @@ class ActivityStore:
 
             streak_current = row["streak_current"]
             streak_longest = row["streak_longest"]
-            last_completed = row["last_completed_iso"]
+            last_completed_iso = row["last_completed_iso"]
+            target_days = json.loads(row["target_days"] or "[]")
 
-            # Simple streak logic — check if last completion was yesterday
+            # Islam-aware streak logic — use Hijri date if available
+            # Falls back to Gregorian day-based logic if Hijri not available
+            today = now.date().isoformat()
             completions = json.loads(row["completions_json"] or "[]")
-            completions.append(now_iso)
+            
+            # Check if we need to reset streak (habit was missed)
+            if last_completed_iso:
+                try:
+                    last_date = datetime.fromisoformat(last_completed_iso).date()
+                    days_since = (now.date() - last_date).days
+                    
+                    # Check if yesterday's habit was supposed to be done
+                    yesterday = (now - timedelta(days=1)).date()
+                    yesterday_str = yesterday.isoformat()
+                    day_of_week = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"][yesterday.weekday()]
+                    
+                    if days_since > 1 and day_of_week in target_days:
+                        # Missed yesterday — reset streak
+                        new_streak = 0
+                    elif days_since >= 1:
+                        # Different day — increment streak
+                        new_streak = streak_current + 1
+                    else:
+                        # Same day — don't increment, just update timestamp
+                        new_streak = streak_current
+                except Exception:
+                    new_streak = streak_current + 1
+            else:
+                # First completion
+                new_streak = 1
 
-            # Basic streak: increment if new day
-            new_streak = streak_current + 1
             new_longest = max(streak_longest, new_streak)
+            completions.append(now_iso)
 
             conn.execute(
                 """
@@ -937,6 +974,89 @@ class ActivityStore:
 
             updated = conn.execute("SELECT * FROM habits WHERE id = ?", (habit_id,)).fetchone()
             return self._habit_row_to_dict(updated)
+
+    def upsert_habit(self, habit: dict[str, Any]) -> dict[str, Any]:
+        habit_id = str(habit.get("id") or "").strip()
+        if not habit_id:
+            raise ValueError("habit id required")
+        now_iso = datetime.now(timezone.utc).isoformat()
+        with self._lock:
+            conn = self._ensure_connection()
+            existing = conn.execute(
+                "SELECT * FROM habits WHERE id = ?", (habit_id,)
+            ).fetchone()
+            if existing:
+                conn.execute(
+                    """
+                    UPDATE habits SET
+                        name = ?, category = ?, target_days = ?,
+                        trigger_type = ?, trigger_value = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        habit.get("name", existing["name"]),
+                        habit.get("category", existing["category"]),
+                        json.dumps(habit.get("target_days", ["mon","tue","wed","thu","fri","sat","sun"])),
+                        habit.get("trigger_type"),
+                        habit.get("trigger_value"),
+                        habit_id,
+                    ),
+                )
+            else:
+                conn.execute(
+                    """
+                    INSERT INTO habits (
+                        id, name, category, target_days, trigger_type, trigger_value,
+                        created_at_iso
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        habit_id,
+                        habit.get("name", ""),
+                        habit.get("category", ""),
+                        json.dumps(habit.get("target_days", ["mon","tue","wed","thu","fri","sat","sun"])),
+                        habit.get("trigger_type"),
+                        habit.get("trigger_value"),
+                        habit.get("created_at_iso") or now_iso,
+                    ),
+                )
+            conn.commit()
+            row = conn.execute("SELECT * FROM habits WHERE id = ?", (habit_id,)).fetchone()
+            return self._habit_row_to_dict(row)
+
+    def check_habit_trigger(self, event: dict[str, Any]) -> list[dict[str, Any]]:
+        """Check if a HAI event should auto-complete a habit."""
+        event_type = event.get("event_type", "")
+        zone = event.get("zone", "")
+        room = event.get("room", "")
+        activity_type = event.get("activity_type", "") or event.get("metadata", {}).get("activity_type", "")
+        triggered: list[dict[str, Any]] = []
+
+        with self._lock:
+            conn = self._ensure_connection()
+            rows = conn.execute(
+                "SELECT * FROM habits WHERE trigger_type IS NOT NULL"
+            ).fetchall()
+            for row in rows:
+                t_type = row["trigger_type"]
+                t_val = row["trigger_value"]
+                should_complete = False
+
+                if t_type == "event_type" and event_type == t_val:
+                    should_complete = True
+                elif t_type == "zone" and zone == t_val:
+                    should_complete = True
+                elif t_type == "zone_activity" and zone == t_val and activity_type == "stationary":
+                    should_complete = True
+                elif t_type == "activity" and activity_type == t_val:
+                    should_complete = True
+
+                if should_complete:
+                    completed = self.complete_habit(row["id"])
+                    if completed:
+                        triggered.append(completed)
+
+        return triggered
 
 
 # Production singleton uses the default DB path.

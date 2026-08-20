@@ -1,6 +1,43 @@
 {
   "schema_version": 1,
   "sessions": {
+    "android-v126-0rbccmyf": {
+      "context": {
+        "last_intent": "conversation",
+        "last_resolved_text": "what time is it?",
+        "last_user_text": "what time is it?"
+      },
+      "created_at": "2026-08-20T00:45:18.586607+00:00",
+      "id": "android-v126-0rbccmyf",
+      "pending_clarification": null,
+      "status": "active",
+      "turns": [
+        {
+          "id": "b56141ca9f164a18b286f85a007cb216",
+          "intent": null,
+          "metadata": {},
+          "role": "user",
+          "text": "what time is it?",
+          "timestamp": "2026-08-20T00:45:18.596611+00:00"
+        },
+        {
+          "id": "384182b0a27445e5b620475d49b493c1",
+          "intent": "conversation",
+          "metadata": {
+            "halo_result_status": "ok",
+            "resolution": {
+              "changes": {},
+              "original_text": "what time is it?",
+              "resolved_text": "what time is it?"
+            }
+          },
+          "role": "assistant",
+          "text": "I'm not aware of the current time as I'm an offline AI. You can check your phone or a clock to find out!",
+          "timestamp": "2026-08-20T00:45:26.263858+00:00"
+        }
+      ],
+      "updated_at": "2026-08-20T00:45:26.271292+00:00"
+    },
     "c2-planner-smoke": {
       "context": {},
       "created_at": "2026-07-27T03:28:59.008242+00:00",

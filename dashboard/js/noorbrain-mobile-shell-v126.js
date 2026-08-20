@@ -4577,47 +4577,75 @@ function rejectSuggestion(suggestionId){
   }
 
   function loadSmartHabits(){
-  fetch('/api/human-activity-intelligence/habits')
-  .then(r => r.json())
-  .then(d => {
-  let html = '<div style="font-size:14px">';
-  if (d.habits && d.habits.length > 0) {
-    d.habits.forEach(h => {
-      html += '<div style="padding:8px;margin-bottom:8px;background:rgba(76,175,80,0.15);border-radius:8px">';
-      html += '<strong>' + h.name + '</strong> <small style="color:#aaa">(' + h.category + ')</small><br>';
-      var streakColor = h.streak_current > 0 ? '#4CAF50' : '#999';
-      html += '<span style="color:' + streakColor + ';font-size:20px">●●●</span> ';
-      html += 'Current: <strong style="color:' + streakColor + '">' + h.streak_current + '</strong> | ';
-      html += 'Best: <strong>' + h.streak_longest + '</strong><br>';
-      if (h.last_completed_iso) {
-        var d2 = new Date(h.last_completed_iso);
-        html += '<small style="color:#999">Last: ' + d2.toLocaleDateString() + '</small>';
+    fetch('/api/human-activity-intelligence/habits/stats')
+    .then(r => r.json())
+    .then(d => {
+      let html = '<div style="font-size:14px">';
+      if (d.habits && d.habits.length > 0) {
+        d.habits.forEach(h => {
+          var badgeIcons = {'gold':'🏆','silver':'🥈','bronze':'🥉','none':''};
+          var badge = h.badge || 'none';
+          var badgeIcon = badgeIcons[badge] || '';
+          var streakColor = h.streak_current > 0 ? '#4CAF50' : '#999';
+          var streakStars = '●'.repeat(Math.min(h.streak_current, 30));
+          var dimStars = '○'.repeat(Math.max(0, 3 - streakStars.length));
+        
+          html += '<div style="padding:8px;margin-bottom:8px;background:rgba(76,175,80,0.1);border-radius:8px;border:1px solid rgba(255,255,255,0.1)">';
+          html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">';
+          html += '<strong>' + h.name + '</strong>';
+          if (badgeIcon) html += '<span style="font-size:18px" title="' + badge + ' badge">' + badgeIcon + '</span>';
+          html += '</div>';
+          html += '<small style="color:#aaa">Category: ' + h.category + '</small><br>';
+          html += '<div style="font-family:monospace;font-size:16px;color:' + streakColor + '">' + streakStars + dimStars + '</div>';
+          html += '<small style="color:#999">Current: <strong>' + h.streak_current + '</strong> days | Best: <strong>' + h.streak_longest + '</strong> days</small><br>';
+          if (h.last_completed) {
+            var d2 = new Date(h.last_completed);
+            html += '<small style="color:#666">Last done: ' + d2.toLocaleDateString() + '</small>';
+          }
+          html += '<br><button onclick="completeHabit(\'' + h.id + '\')" style="margin-top:6px;font-size:12px;background:rgba(76,175,80,0.2);border:1px solid #4CAF50;border-radius:4px;padding:4px 10px">✓ Mark Done</button>';
+          if (h.streak_current > 0) {
+            html += ' <button onclick="resetHabit(\'' + h.id + '\')" style="font-size:11px;background:rgba(255,255,255,0.1);border:1px solid #666;border-radius:4px;padding:2px 8px">Reset</button>';
+          }
+          html += '</div>';
+        });
+      } else {
+        html += '<div style="color:#999">No habits configured. Add Islamic practices to track streaks.</div>';
       }
-      html += '<br><button onclick="completeHabit(\'' + h.id + '\')" style="margin-top:4px;font-size:12px">✓ Mark Done</button>';
       html += '</div>';
+      var el = document.getElementById('smart-habits');
+      if (el) el.innerHTML = html;
+    })
+    .catch(() => {
+      var el = document.getElementById('smart-habits');
+      if (el) el.innerHTML = '<div style="color:#ef4444">Failed to load habits</div>';
     });
-  } else {
-    html += '<div style="color:#999">No habits configured. Add Islamic practices to track streaks.</div>';
-  }
-  html += '</div>';
-  var el = document.getElementById('smart-habits');
-  if (el) el.innerHTML = html;
-  })
-  .catch(() => {
-  var el = document.getElementById('smart-habits');
-  if (el) el.innerHTML = '<div style="color:#ef4444">Failed to load habits</div>';
-  });
   }
 
   function completeHabit(habitId){
-  fetch('/api/human-activity-intelligence/habits/' + habitId + '/complete', { method: 'POST' })
-  .then(r => r.json())
-  .then(d => {
-  if (d.status === 'completed') {
-    alert(d.habit.name + ' streak: ' + d.habit.streak_current);
-  } else {
-    alert('Failed to complete habit');
+    fetch('/api/human-activity-intelligence/habits/' + habitId + '/complete', { method: 'POST' })
+    .then(r => r.json())
+    .then(d => {
+      if (d.status === 'completed') {
+        var msg = d.habit.name + ': streak ' + d.habit.streak_current + '!';
+        if (d.habit.badge && d.habit.badge !== 'none') {
+          msg += ' 🏆 ' + d.habit.badge.toUpperCase() + ' badge!';
+        }
+        alert(msg);
+      } else {
+        alert('Failed to complete habit');
+      }
+      loadSmartHabits();
+    });
   }
-  loadSmartHabits();
-  });
+
+  function resetHabit(habitId){
+    if (!confirm('Reset streak for this habit?')) return;
+    fetch('/api/human-activity-intelligence/habits/' + habitId + '/reset', { method: 'POST' })
+    .then(r => r.json())
+    .then(d => {
+      if (d.status === 'reset') {
+        alert('Streak reset for ' + d.habit.name);
+      }
+      loadSmartHabits();
+    });
   }
