@@ -842,11 +842,32 @@ async def search_stories(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
     """Search stories by keyword (for HALO story mode queries)."""
     query = str(payload.get("query", "")).strip().lower()
     results = []
+    # Common spelling variants for Islamic names
+    SPELLING_VARIANTS = {
+        "yousuf": ["yusuf"],
+        "yusuf": ["yousuf"],
+        "yousef": ["yusuf", "yousuf"],
+        "musab": ["musa", "moses"],
+        "moosa": ["musa", "moses"],
+        "isa": ["isa", "jesus"],
+        "yahya": ["yahya", "john"],
+        "dawud": ["dawud", "david"],
+        "sulaiman": ["sulaiman", "solomon"],
+        "ibrahim": ["ibrahim", "abraham"],
+        "yunus": ["yunus", "jonah"],
+        "ayub": ["ayub", "job"],
+        "adam": ["adam"],
+    }
+    search_terms = [query]
+    if query in SPELLING_VARIANTS:
+        search_terms.extend(SPELLING_VARIANTS[query])
+
     for key, story in ISLAMIC_STORIES.items():
         title = story["title"].lower()
         summary = story["summary"].lower()
         cats = " ".join(story.get("categories", []))
-        if query in title or query in summary or query in key or query in cats:
+        # Check all search terms (including variants)
+        if any(term in title or term in summary or term in key or term in cats for term in search_terms):
             results.append({
                 "id": key,
                 "title": story["title"],
