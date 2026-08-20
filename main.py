@@ -543,6 +543,13 @@ def dashboard_ui():
     return FileResponse(DASHBOARD_DIR / "index.html")
 
 
+@app.get("/dashboard/aura", include_in_schema=False)
+@app.get("/dashboard/aura/", include_in_schema=False)
+@app.get("/dashboard/aura/{path:path}", include_in_schema=False)
+def aura_ui(path: str = ""):
+    return FileResponse(DASHBOARD_DIR / "aura" / "index.html")
+
+
 
 # ---------------------------------------------------------
 # Event API
