@@ -241,7 +241,7 @@
   }
 
   function navigate(tab){
-    const target={home:".nbv2-hero",devices:"#nbv2Devices",halo:"#nbv2Halo",camera:"#nbv2CameraSection",more:"#nbv2Modules"}[tab];
+    const target={home:".nbv2-hero",devices:"#nbv2Devices",family:"#nbv2Family",halo:"#nbv2Halo",camera:"#nbv2CameraSection",more:"#nbv2Modules"}[tab];
     document.querySelector(target)?.scrollIntoView({behavior:"smooth",block:"start"});
     document.querySelectorAll(".nbv2-nav button").forEach(b=>b.classList.toggle("active",b.dataset.tab===tab));
     document.querySelector("#nbv2PageTitle").textContent=tab[0].toUpperCase()+tab.slice(1);

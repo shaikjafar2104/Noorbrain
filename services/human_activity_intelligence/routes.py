@@ -1,4 +1,4 @@
-"""Human Activity Intelligence — FastAPI routes."""
+"""Human Activity Intelligence — FastAPI routes (clean rewrite)."""
 from __future__ import annotations
 
 import json
@@ -69,7 +69,7 @@ ISLAMIC_STORIES: dict[str, dict[str, Any]] = {
     },
     "salah-guide": {
         "title": "The Guide to Salah (Prayer)",
-        "summary": "Prayer is one of the five pillars of Islam. The Prophet Muhammad ﷣said: 'The first matter for which a servant will be brought to account on the Day of Judgment is his prayer.'",
+        "summary": "Prayer is one of the five pillars of Islam. The Prophet Muhammad ﷺ said: 'The first matter for which a servant will be brought to account on the Day of Judgment is his prayer.'",
         "categories": ["worship", "guide"],
         "surah_reference": "Surah Al-Baqarah (Quran 2:183-187)",
     },
@@ -93,7 +93,7 @@ ISLAMIC_STORIES: dict[str, dict[str, Any]] = {
     },
 }
 
-# Initialize default settings if not present
+# Initialize default settings
 def _ensure_default_settings():
     defaults = {
         "learning_enabled": "true",
@@ -114,15 +114,11 @@ def _ensure_default_settings():
 
 _ensure_default_settings()
 
-# Backward-compatibility alias: routes written before engine refactor may call
-# human_activity_intelligence.drainage(); map to the authoritative drain_events().
 if not hasattr(human_activity_intelligence, "drainage"):
     human_activity_intelligence.drainage = human_activity_intelligence.drain_events  # type: ignore[attr-defined]
 
-
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
-
 
 # ------------------------------------------------------------------
 # Health
@@ -136,9 +132,7 @@ async def health() -> dict[str, Any]:
         "version": "1.0.0",
         "session_count": activity_store.session_count(),
         "event_count": activity_store.event_count(),
-        "snapshot_enabled": activity_store.get_setting("snapshot_enabled") in {"1", "true", "yes"},
     }
-
 
 # ------------------------------------------------------------------
 # Settings
@@ -146,11 +140,7 @@ async def health() -> dict[str, Any]:
 
 @router.get("/settings")
 async def settings() -> dict[str, Any]:
-    return {
-        "status": "ok",
-        "settings": activity_store.get_all_settings(),
-    }
-
+    return {"status": "ok", "settings": activity_store.get_all_settings()}
 
 @router.post("/settings")
 async def update_settings(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
@@ -161,47 +151,26 @@ async def update_settings(payload: dict[str, Any] = Body(...)) -> dict[str, Any]
     activity_store.set_setting(key, value)
     return {"status": "updated", "key": key, "value": value}
 
-
 # ------------------------------------------------------------------
-# Observe — one person observation
+# Observe
 # ------------------------------------------------------------------
 
 @router.post("/observe")
 async def observe(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
     person_id = str(payload.get("person_id") or "").strip()
-    track_id = payload.get("track_id")
-    zone = str(payload.get("zone") or "").strip()
-    room = str(payload.get("room") or zone).strip()
-    box = payload.get("box")
-    motion_delta = float(payload.get("motion_delta", 0.0))
-    frame_epoch = payload.get("frame_epoch")
-    observed_objects = payload.get("observed_objects")
-
     if not person_id:
         return {"status": "error", "detail": "person_id required"}
-
     events = human_activity_intelligence.observe(
         person_id=person_id,
-        track_id=track_id,
-        zone=zone,
-        room=room,
-        box=box,
-        motion_delta=motion_delta,
-        frame_epoch=frame_epoch,
-        observed_objects=observed_objects,
+        track_id=payload.get("track_id"),
+        zone=str(payload.get("zone") or "").strip(),
+        room=str(payload.get("room") or payload.get("zone") or "").strip(),
+        box=payload.get("box"),
+        motion_delta=float(payload.get("motion_delta", 0.0)),
+        frame_epoch=payload.get("frame_epoch"),
+        observed_objects=payload.get("observed_objects"),
     )
-
-    return {
-        "status": "ok",
-        "person_id": person_id,
-        "event_count": len(events),
-        "events": events,
-    }
-
-
-# ------------------------------------------------------------------
-# Observe batch — from the vision loop
-# ------------------------------------------------------------------
+    return {"status": "ok", "person_id": person_id, "event_count": len(events), "events": events}
 
 @router.post("/observe-batch")
 async def observe_batch(payload: list[dict[str, Any]] = Body(...)) -> dict[str, Any]:
@@ -221,16 +190,10 @@ async def observe_batch(payload: list[dict[str, Any]] = Body(...)) -> dict[str, 
             observed_objects=item.get("observed_objects"),
         )
         all_events.extend(evts)
-    return {
-        "status": "ok",
-        "total_observed": len(payload),
-        "event_count": len(all_events),
-        "events": all_events,
-    }
-
+    return {"status": "ok", "total_observed": len(payload), "event_count": len(all_events), "events": all_events}
 
 # ------------------------------------------------------------------
-# Events — history
+# Events
 # ------------------------------------------------------------------
 
 @router.get("/events")
@@ -241,30 +204,17 @@ async def events(
     limit: int = Query(default=100, ge=1, le=2000),
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, Any]:
-    items = activity_store.list_events(
-        event_type=event_type,
-        person_id=person_id,
-        session_id=session_id,
-        limit=limit,
-        offset=offset,
-    )
-    return {
-        "status": "ok",
-        "count": len(items),
-        "events": items,
-    }
-
+    items = activity_store.list_events(event_type=event_type, person_id=person_id, session_id=session_id, limit=limit, offset=offset)
+    return {"status": "ok", "count": len(items), "events": items}
 
 @router.get("/events/recent")
 async def recent_events(limit: int = Query(default=50, ge=1, le=500)) -> dict[str, Any]:
     items = activity_store.recent_events(limit=limit)
     return {"status": "ok", "count": len(items), "events": items}
 
-
 @router.get("/events/count")
 async def event_count() -> dict[str, Any]:
     return {"status": "ok", "count": activity_store.event_count()}
-
 
 # ------------------------------------------------------------------
 # Sessions
@@ -277,20 +227,13 @@ async def sessions(
     active: bool | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=500),
 ) -> dict[str, Any]:
-    items = activity_store.list_sessions(
-        person_id=person_id,
-        activity_type=activity_type,
-        active=active,
-        limit=limit,
-    )
+    items = activity_store.list_sessions(person_id=person_id, activity_type=activity_type, active=active, limit=limit)
     return {"status": "ok", "count": len(items), "sessions": items}
-
 
 @router.get("/sessions/active")
 async def active_sessions() -> dict[str, Any]:
     items = activity_store.active_sessions()
     return {"status": "ok", "count": len(items), "sessions": items}
-
 
 @router.get("/sessions/{session_id}")
 async def session_detail(session_id: str) -> dict[str, Any]:
@@ -299,49 +242,36 @@ async def session_detail(session_id: str) -> dict[str, Any]:
         return {"status": "not_found", "session_id": session_id}
     return {"status": "ok", "session": items[0]}
 
-
 # ------------------------------------------------------------------
 # Patterns
 # ------------------------------------------------------------------
 
 @router.get("/patterns")
-async def patterns(
-    person_id: str | None = Query(default=None),
-    limit: int = Query(default=100, ge=1, le=500),
-) -> dict[str, Any]:
+async def patterns(person_id: str | None = Query(default=None), limit: int = Query(default=100, ge=1, le=500)) -> dict[str, Any]:
     items = activity_store.list_patterns(person_id=person_id, limit=limit)
     return {"status": "ok", "count": len(items), "patterns": items}
-
 
 @router.get("/patterns/count")
 async def pattern_count() -> dict[str, Any]:
     return {"status": "ok", "count": activity_store.pattern_count()}
 
-
 @router.post("/patterns/rebuild")
 async def rebuild_patterns(payload: dict[str, Any] = Body(default={})) -> dict[str, Any]:
     from .pattern_learner import rebuild_patterns as _rebuild
-
     return _rebuild(payload)
-
 
 # ------------------------------------------------------------------
 # Rule suggestions
 # ------------------------------------------------------------------
 
 @router.get("/suggestions")
-async def suggestions(
-    status: str | None = Query(default=None),
-    limit: int = Query(default=100, ge=1, le=500),
-) -> dict[str, Any]:
+async def suggestions(status: str | None = Query(default=None), limit: int = Query(default=100, ge=1, le=500)) -> dict[str, Any]:
     items = activity_store.list_suggestions(status=status, limit=limit)
     return {"status": "ok", "count": len(items), "suggestions": items}
-
 
 @router.get("/suggestions/count")
 async def suggestion_count() -> dict[str, Any]:
     return {"status": "ok", "count": activity_store.suggestion_count()}
-
 
 @router.get("/suggestions/{suggestion_id}")
 async def suggestion_detail(suggestion_id: str) -> dict[str, Any]:
@@ -350,14 +280,12 @@ async def suggestion_detail(suggestion_id: str) -> dict[str, Any]:
         return {"status": "not_found", "suggestion_id": suggestion_id}
     return {"status": "ok", "suggestion": item}
 
-
 @router.post("/suggestions/{suggestion_id}/dismiss")
 async def dismiss_suggestion(suggestion_id: str) -> dict[str, Any]:
     result = activity_store.dismiss_suggestion(suggestion_id)
     if result is None:
         return {"status": "not_found", "suggestion_id": suggestion_id}
     return {"status": "dismissed", "suggestion": result}
-
 
 @router.post("/suggestions/{suggestion_id}/snooze")
 async def snooze_suggestion(suggestion_id: str, minutes: int = Query(default=30, ge=1, le=1440)) -> dict[str, Any]:
@@ -366,7 +294,6 @@ async def snooze_suggestion(suggestion_id: str, minutes: int = Query(default=30,
         return {"status": "not_found", "suggestion_id": suggestion_id}
     return {"status": "snoozed", "suggestion": result}
 
-
 @router.post("/suggestions/{suggestion_id}/never-suggest")
 async def never_suggest(suggestion_id: str) -> dict[str, Any]:
     result = activity_store.never_suggest(suggestion_id)
@@ -374,14 +301,12 @@ async def never_suggest(suggestion_id: str) -> dict[str, Any]:
         return {"status": "not_found", "suggestion_id": suggestion_id}
     return {"status": "never_suggest", "suggestion": result}
 
-
 @router.post("/suggestions/{suggestion_id}/approve")
 async def approve_suggestion(suggestion_id: str) -> dict[str, Any]:
     result = activity_store.approve_suggestion(suggestion_id)
     if result is None:
         return {"status": "not_found", "suggestion_id": suggestion_id}
     return {"status": "approved", "suggestion": result}
-
 
 # ------------------------------------------------------------------
 # Snapshots
@@ -392,106 +317,18 @@ async def snapshots(limit: int = Query(default=20, ge=1, le=100)) -> dict[str, A
     items = activity_store.list_snapshots(limit=limit)
     return {"status": "ok", "count": len(items), "snapshots": items}
 
-
 @router.get("/snapshots/count")
 async def snapshot_count() -> dict[str, Any]:
     return {"status": "ok", "count": activity_store.snapshot_count()}
-
 
 @router.post("/snapshots")
 async def snapshot_now() -> dict[str, Any]:
     snapshot = human_activity_intelligence.snapshot()
     saved = activity_store.save_snapshot(snapshot)
-    return {
-        "status": "ok",
-        "snapshot": snapshot,
-        "saved": saved is not None,
-        "snapshot_enabled": activity_store.get_setting("snapshot_enabled") in {"1", "true", "yes"},
-    }
-
+    return {"status": "ok", "snapshot": snapshot, "saved": saved is not None}
 
 # ------------------------------------------------------------------
-# Background drain → rule pipeline (threading.Event based)
-# ------------------------------------------------------------------
-
-_drain_stop = threading.Event()
-_drain_started = threading.Event()
-_drain_lock = threading.Lock()
-
-
-async def start_background_drain(interval_seconds: float = 2.0) -> dict[str, Any]:
-    with _drain_lock:
-        if _drain_started.is_set():
-            return {"status": "already_running"}
-        _drain_stop.clear()
-        _drain_started.set()
-
-        def _run() -> None:
-            while not _drain_stop.wait(interval_seconds):
-                try:
-                    events = human_activity_intelligence.drain_events()
-                    if events:
-                        from services.reminder_rules import reminder_rules
-
-                        for ev in events:
-                            try:
-                                reminder_rules.handle_event(ev)
-                            except Exception:
-                                pass
-                except Exception:
-                    pass
-
-        thread = threading.Thread(target=_run, daemon=True, name="HAI-drain")
-        thread.start()
-        return {"status": "started", "interval_seconds": interval_seconds}
-
-
-async def stop_background_drain(timeout: float = 5.0) -> dict[str, Any]:
-    with _drain_lock:
-        _drain_stop.set()
-        _drain_started.clear()
-    return {"status": "stopped"}
-
-
-# ------------------------------------------------------------------
-# Snapshot scheduler (threading.Event based)
-# ------------------------------------------------------------------
-
-_snapshot_stop = threading.Event()
-_snapshot_started = threading.Event()
-_snapshot_lock = threading.Lock()
-
-
-async def start_snapshot_scheduler(interval_seconds: float = 300.0) -> dict[str, Any]:
-    with _snapshot_lock:
-        if _snapshot_started.is_set():
-            return {"status": "already_running"}
-        _snapshot_stop.clear()
-        _snapshot_started.set()
-
-        def _run() -> None:
-            while not _snapshot_stop.wait(max(60.0, interval_seconds)):
-                try:
-                    if activity_store.get_setting("snapshot_enabled") in {"1", "true", "yes"}:
-                        snapshot = human_activity_intelligence.snapshot()
-                        activity_store.save_snapshot(snapshot)
-                except Exception:
-                    pass
-
-        thread = threading.Thread(target=_run, daemon=True, name="HAI-snapshot")
-        thread.start()
-        return {"status": "started", "interval_seconds": interval_seconds}
-
-
-async def stop_snapshot_scheduler(timeout: float = 5.0) -> dict[str, Any]:
-    with _snapshot_lock:
-        _snapshot_stop.set()
-        _snapshot_started.clear()
-    return {"status": "stopped"}
-
-
-# ------------------------------------------------------------------
-# Adaptive Rule Intelligence — pattern learning and approvals
+# Adaptive Rules
 # ------------------------------------------------------------------
 
 @router.get("/adaptive-rules/health")
@@ -512,61 +349,35 @@ async def adaptive_status() -> dict[str, Any]:
 
 @router.get("/adaptive-rules/activity")
 async def adaptive_activity() -> dict[str, Any]:
-    """Live human activity snapshot."""
     return human_activity_intelligence.snapshot()
 
 @router.get("/adaptive-rules/timeline")
-async def adaptive_timeline(
-    limit: int = Query(default=100, ge=1, le=500),
-) -> dict[str, Any]:
+async def adaptive_timeline(limit: int = Query(default=100, ge=1, le=500)) -> dict[str, Any]:
     items = activity_store.recent_events(limit=limit)
     return {"status": "ok", "count": len(items), "events": items}
 
-
 @router.get("/timeline/categorized")
-async def timeline_categorized(
-    limit: int = Query(default=100, ge=1, le=500),
-) -> dict[str, Any]:
-    """Return semantically categorized activity timeline.
-
-    Categories: prayer, prayer_prep, cooking, reading_quran,
-    sleep_preparation, morning_routine, other
-    """
+async def timeline_categorized(limit: int = Query(default=100, ge=1, le=500)) -> dict[str, Any]:
     items = activity_store.categorized_timeline(limit=limit)
     category_summary = {}
     for ev in items:
         cat = ev["category"]
         category_summary[cat] = category_summary.get(cat, 0) + 1
-    return {
-        "status": "ok",
-        "count": len(items),
-        "category_summary": category_summary,
-        "events": items,
-    }
+    return {"status": "ok", "count": len(items), "category_summary": category_summary, "events": items}
 
 @router.get("/adaptive-rules/patterns")
-async def adaptive_patterns(
-    person_id: str | None = Query(default=None),
-    limit: int = Query(default=100, ge=1, le=500),
-) -> dict[str, Any]:
+async def adaptive_patterns(person_id: str | None = Query(default=None), limit: int = Query(default=100, ge=1, le=500)) -> dict[str, Any]:
     return adaptive_rule_intelligence.patterns(person_id=person_id, limit=limit)
 
 @router.get("/adaptive-rules/proposals")
-async def adaptive_proposals(
-    status: str | None = Query(default=None),
-    limit: int = Query(default=100, ge=1, le=500),
-) -> dict[str, Any]:
+async def adaptive_proposals(status: str | None = Query(default=None), limit: int = Query(default=100, ge=1, le=500)) -> dict[str, Any]:
     return adaptive_rule_intelligence.suggestions(status=status, limit=limit)
 
 @router.post("/adaptive-rules/patterns/rebuild")
 async def adaptive_rebuild(payload: dict[str, Any] | None = Body(default=None)) -> dict[str, Any]:
     result = adaptive_rule_intelligence.rebuild_patterns()
     sug_result = adaptive_rule_intelligence.generate_suggestions()
-    return {
-        "status": "ok",
-        "patterns": result,
-        "suggestions": sug_result,
-    }
+    return {"status": "ok", "patterns": result, "suggestions": sug_result}
 
 @router.post("/adaptive-rules/proposals/{proposal_id}/approve")
 async def adaptive_approve(proposal_id: str) -> dict[str, Any]:
@@ -577,11 +388,7 @@ async def adaptive_reject(proposal_id: str) -> dict[str, Any]:
     return adaptive_rule_intelligence.reject_suggestion(proposal_id)
 
 @router.patch("/adaptive-rules/proposals/{proposal_id}")
-async def adaptive_patch_proposal(
-    proposal_id: str,
-    payload: dict[str, Any] = Body(...),
-) -> dict[str, Any]:
-    """Edit a proposal (message, cooldown, zone, etc.)."""
+async def adaptive_patch_proposal(proposal_id: str, payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
     result = activity_store.update_suggestion(proposal_id, payload)
     if result is None:
         return {"status": "error", "detail": "proposal not found"}
@@ -599,7 +406,6 @@ async def adaptive_update_settings(payload: dict[str, Any] = Body(...)) -> dict[
         return {"status": "error", "detail": "key required"}
     activity_store.set_setting(key, value)
     return {"status": "updated", "key": key, "value": value}
-
 
 # ------------------------------------------------------------------
 # Habits — Islamic practice streak tracking
@@ -622,7 +428,6 @@ DEFAULT_HABITS = [
      "trigger_type": "activity", "trigger_value": "sit_to_stand"},
 ]
 
-
 def _ensure_default_habits() -> None:
     existing = activity_store.list_habits()
     existing_ids = {h["id"] for h in existing}
@@ -644,6 +449,16 @@ def _ensure_default_habits() -> None:
                 )
                 conn.commit()
 
+def _habit_badge(habit: dict[str, Any]) -> str:
+    streak = habit.get("streak_current", 0)
+    longest = habit.get("streak_longest", 0)
+    if streak >= 30 or longest >= 30:
+        return "gold"
+    if streak >= 14 or longest >= 14:
+        return "silver"
+    if streak >= 7 or longest >= 7:
+        return "bronze"
+    return "none"
 
 @router.get("/habits")
 async def habits() -> dict[str, Any]:
@@ -651,10 +466,8 @@ async def habits() -> dict[str, Any]:
     items = activity_store.list_habits()
     return {"status": "ok", "count": len(items), "habits": items}
 
-
 @router.get("/habits/stats")
 async def habit_stats() -> dict[str, Any]:
-    """Return streak stats for the Islamic Habit Streak Tracker."""
     _ensure_default_habits()
     habits = activity_store.list_habits()
     total = len(habits)
@@ -677,20 +490,6 @@ async def habit_stats() -> dict[str, Any]:
         ],
     }
 
-
-def _habit_badge(habit: dict[str, Any]) -> str:
-    """Return badge name based on streak length."""
-    streak = habit.get("streak_current", 0)
-    longest = habit.get("streak_longest", 0)
-    if streak >= 30 or longest >= 30:
-        return "gold"
-    if streak >= 14 or longest >= 14:
-        return "silver"
-    if streak >= 7 or longest >= 7:
-        return "bronze"
-    return "none"
-
-
 @router.get("/habits/{habit_id}")
 async def habit_detail(habit_id: str) -> dict[str, Any]:
     _ensure_default_habits()
@@ -700,7 +499,6 @@ async def habit_detail(habit_id: str) -> dict[str, Any]:
             return {"status": "ok", "habit": h}
     return {"status": "not_found", "habit_id": habit_id}
 
-
 @router.post("/habits/{habit_id}/complete")
 async def habit_complete(habit_id: str) -> dict[str, Any]:
     _ensure_default_habits()
@@ -708,7 +506,6 @@ async def habit_complete(habit_id: str) -> dict[str, Any]:
     if result is None:
         return {"status": "not_found", "habit_id": habit_id}
     return {"status": "completed", "habit": result}
-
 
 @router.post("/habits/{habit_id}/reset")
 async def habit_reset(habit_id: str) -> dict[str, Any]:
@@ -718,10 +515,8 @@ async def habit_reset(habit_id: str) -> dict[str, Any]:
         return {"status": "not_found", "habit_id": habit_id}
     return {"status": "reset", "habit": result}
 
-
 @router.post("/habits/upsert")
 async def habit_upsert(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
-    """Create or update a habit with trigger configuration."""
     habit_id = str(payload.get("id") or "").strip()
     if not habit_id:
         return {"status": "error", "detail": "habit id required"}
@@ -739,18 +534,15 @@ async def habit_upsert(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
     result = activity_store.upsert_habit(habit_data)
     return {"status": "ok", "habit": result}
 
-
 @router.delete("/habits/{habit_id}")
 async def habit_delete(habit_id: str) -> dict[str, Any]:
-    """Delete a habit permanently."""
-    if habit_id in ("habit-morning-adhkar", "habit-evening-ayat", 
+    if habit_id in ("habit-morning-adhkar", "habit-evening-ayat",
                     "habit-quran-reading", "habit-prayer-reminder"):
         return {"status": "error", "detail": "Cannot delete default habit. Use reset instead."}
     deleted = activity_store.delete_habit(habit_id)
     if not deleted:
         return {"status": "not_found", "habit_id": habit_id}
     return {"status": "deleted", "habit_id": habit_id}
-
 
 # ------------------------------------------------------------------
 # Prayer Zone Presence Detection
@@ -762,10 +554,8 @@ async def prayer_zones() -> dict[str, Any]:
     zones = activity_store.list_prayer_zones()
     return {"status": "ok", "count": len(zones), "zones": zones}
 
-
 @router.post("/prayer-zones/{zone_name}")
 async def prayer_zone_upsert(zone_name: str, payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
-    """Configure a prayer zone for DND + lighting automation."""
     zone = activity_store.upsert_prayer_zone(
         zone_name,
         enabled=payload.get("enabled", True),
@@ -775,7 +565,6 @@ async def prayer_zone_upsert(zone_name: str, payload: dict[str, Any] = Body(...)
     )
     return {"status": "ok", "zone": zone}
 
-
 @router.delete("/prayer-zones/{zone_name}")
 async def prayer_zone_delete(zone_name: str) -> dict[str, Any]:
     deleted = activity_store.delete_prayer_zone(zone_name)
@@ -783,18 +572,15 @@ async def prayer_zone_delete(zone_name: str) -> dict[str, Any]:
         return {"status": "not_found", "zone_name": zone_name}
     return {"status": "deleted", "zone_name": zone_name}
 
-
 @router.get("/prayer-zones/{zone_name}/trigger-status")
 async def prayer_zone_trigger_status(zone_name: str) -> dict[str, Any]:
-    """Check if a prayer zone would currently be triggered."""
     zone = activity_store.get_prayer_zone(zone_name)
     if not zone:
         return {"status": "not_found", "zone_name": zone_name}
     return {"status": "ok", "zone": zone, "currently_active": False}
 
-
 # ------------------------------------------------------------------
-# Islamic Stories — Feature 3: HALO Islamic Story Mode
+# Islamic Stories
 # ------------------------------------------------------------------
 
 @router.get("/stories")
@@ -802,7 +588,6 @@ async def list_stories(
     category: str | None = Query(default=None),
     search: str | None = Query(default=None),
 ) -> dict[str, Any]:
-    """List available Islamic stories, optionally filtered by category or search term."""
     items = []
     for key, story in ISLAMIC_STORIES.items():
         cats = story.get("categories", [])
@@ -820,13 +605,10 @@ async def list_stories(
         })
     return {"status": "ok", "count": len(items), "stories": items}
 
-
 @router.get("/stories/{story_id}")
 async def get_story(story_id: str) -> dict[str, Any]:
-    """Get full story content by ID."""
     story = ISLAMIC_STORIES.get(story_id)
     if not story:
-        # Fuzzy search by topic
         for key, s in ISLAMIC_STORIES.items():
             if story_id.lower() in key.lower() or story_id.lower() in s["title"].lower():
                 story = s
@@ -836,13 +618,10 @@ async def get_story(story_id: str) -> dict[str, Any]:
         return {"status": "not_found", "story_id": story_id}
     return {"status": "ok", "id": story_id, "story": story}
 
-
 @router.post("/stories/search")
 async def search_stories(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
-    """Search stories by keyword (for HALO story mode queries)."""
     query = str(payload.get("query", "")).strip().lower()
     results = []
-    # Common spelling variants for Islamic names
     SPELLING_VARIANTS = {
         "yousuf": ["yusuf"],
         "yusuf": ["yousuf"],
@@ -866,7 +645,6 @@ async def search_stories(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
         title = story["title"].lower()
         summary = story["summary"].lower()
         cats = " ".join(story.get("categories", []))
-        # Check all search terms (including variants)
         if any(term in title or term in summary or term in key or term in cats for term in search_terms):
             results.append({
                 "id": key,
@@ -876,24 +654,21 @@ async def search_stories(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
             })
     return {"status": "ok", "count": len(results), "results": results}
 
-
 # ------------------------------------------------------------------
-# Child Safety Zones (Extension of Prayer Zone infrastructure)
+# Child Safety Zones
 # ------------------------------------------------------------------
 
-# Default child safety zones
 DEFAULT_CHILD_SAFETY_ZONES = [
     {"zone_name": "Nursery", "enabled": True, "alert_type": "notify",
      "notification_message": "Child detected in nursery zone", "dnd_duration_minutes": 5,
      "lighting_scene": "warm-dim", "requires_acknowledgment": True},
     {"zone_name": "Kitchen", "enabled": True, "alert_type": "immediate",
-     "notification_message": "⚠️ Child in kitchen! Please supervise immediately.", "dnd_duration_minutes": 0,
+     "notification_message": "Child in kitchen! Please supervise immediately.", "dnd_duration_minutes": 0,
      "lighting_scene": None, "requires_acknowledgment": True},
     {"zone_name": "Stairs", "enabled": True, "alert_type": "immediate",
-     "notification_message": "⚠️ Child near stairs! Please ensure safety gates are closed.", "dnd_duration_minutes": 0,
+     "notification_message": "Child near stairs! Please ensure safety gates are closed.", "dnd_duration_minutes": 0,
      "lighting_scene": "bright", "requires_acknowledgment": True},
 ]
-
 
 def _ensure_default_child_zones() -> None:
     existing = activity_store.list_child_safety_zones()
@@ -902,17 +677,14 @@ def _ensure_default_child_zones() -> None:
         if z["zone_name"] not in existing_names:
             activity_store.upsert_child_safety_zone(**z)
 
-
 @router.get("/child-safety-zones")
 async def child_safety_zones() -> dict[str, Any]:
     _ensure_default_child_zones()
     zones = activity_store.list_child_safety_zones()
     return {"status": "ok", "count": len(zones), "zones": zones}
 
-
 @router.post("/child-safety-zones/{zone_name}")
 async def child_safety_zone_upsert(zone_name: str, payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
-    """Configure a child safety zone."""
     zone = activity_store.upsert_child_safety_zone(
         zone_name,
         enabled=payload.get("enabled", True),
@@ -924,7 +696,6 @@ async def child_safety_zone_upsert(zone_name: str, payload: dict[str, Any] = Bod
     )
     return {"status": "ok", "zone": zone}
 
-
 @router.delete("/child-safety-zones/{zone_name}")
 async def child_safety_zone_delete(zone_name: str) -> dict[str, Any]:
     deleted = activity_store.delete_child_safety_zone(zone_name)
@@ -932,24 +703,18 @@ async def child_safety_zone_delete(zone_name: str) -> dict[str, Any]:
         return {"status": "not_found", "zone_name": zone_name}
     return {"status": "deleted", "zone_name": zone_name}
 
-
 # ------------------------------------------------------------------
-# Aura Teen Monitoring API
+# Aura Teen Monitoring
 # ------------------------------------------------------------------
 
 @router.get("/aura/teen-dashboard/{teen_name}")
 async def teen_dashboard(teen_name: str) -> dict[str, Any]:
-    """Get full teen dashboard data: current location, recent activity, curfew status."""
-    from datetime import datetime, timezone
     now = datetime.now(timezone.utc)
     recent = activity_store.list_events(limit=50)
-    # Filter events related to this teen
     teen_events = [e for e in recent if e.get("person_id", "").startswith(teen_name.lower())
                    or e.get("metadata", {}).get("person_name", "").lower() == teen_name.lower()
                    or e.get("metadata", {}).get("person_type") == "teen"]
-
     last_event = teen_events[0] if teen_events else None
-
     return {
         "status": "ok",
         "teen_name": teen_name,
@@ -961,46 +726,27 @@ async def teen_dashboard(teen_name: str) -> dict[str, Any]:
         "timestamp": now.isoformat(),
     }
 
-
 @router.get("/aura/teen-presence")
 async def teen_presence(zone: str = Query(default=""), person_type: str = Query(default="teen")) -> dict[str, Any]:
-    """Check if any teen is present in a given zone."""
     events = activity_store.list_events(limit=20)
-    teens_in_zone = []
-    for ev in events:
-        if ev.get("metadata", {}).get("person_type") == person_type:
-            if not zone or ev.get("zone", "").lower() == zone.lower():
-                teens_in_zone.append(ev)
-    return {
-        "status": "ok",
-        "presence_detected": len(teens_in_zone) > 0,
-        "count": len(teens_in_zone),
-        "events": teens_in_zone[:5],
-    }
-
+    teens_in_zone = [ev for ev in events if ev.get("metadata", {}).get("person_type") == person_type
+                     and (not zone or ev.get("zone", "").lower() == zone.lower())]
+    return {"status": "ok", "presence_detected": len(teens_in_zone) > 0, "count": len(teens_in_zone), "events": teens_in_zone[:5]}
 
 @router.get("/aura/curfew-status/{teen_name}")
 async def curfew_status(teen_name: str) -> dict[str, Any]:
-    """Check curfew status for a teen."""
-    from datetime import datetime, timezone
     now = datetime.now(timezone.utc)
     hour = now.hour
-
-    # Default curfew rules (can be extended to per-teen config)
-    weekday_curfew = 21  # 9 PM
-    weekend_curfew = 22  # 10 PM
-
+    weekday_curfew = 21
+    weekend_curfew = 22
     is_weekend = now.weekday() >= 5
     curfew_hour = weekend_curfew if is_weekend else weekday_curfew
     is_past_curfew = hour >= curfew_hour
-
-    # Check if teen is home
     try:
         dashboard = await teen_dashboard(teen_name)
         is_home = dashboard.get("is_home", False)
     except Exception:
         is_home = False
-
     return {
         "status": "ok",
         "teen_name": teen_name,
@@ -1009,40 +755,29 @@ async def curfew_status(teen_name: str) -> dict[str, Any]:
         "curfew_hour": curfew_hour,
         "is_past_curfew": is_past_curfew,
         "is_home": is_home,
-        "status_message": "At home ✅" if is_home and not is_past_curfew else
-                          "Past curfew ⚠️" if is_past_curfew and not is_home else
-                          "Curfew check OK",
+        "status_message": "At home" if is_home and not is_past_curfew else
+                          "Past curfew" if is_past_curfew and not is_home else "Curfew check OK",
         "minutes_until_curfew": max(0, (curfew_hour - hour) * 60 - now.minute) if not is_past_curfew else 0,
     }
 
-
 @router.get("/aura/emergency-alerts")
 async def emergency_alerts() -> dict[str, Any]:
-    """List recent emergency alerts and safety events."""
     events = activity_store.list_events(limit=50)
     alerts = [e for e in events if e.get("event_type", "").startswith("child_safety")
               or e.get("metadata", {}).get("alert_type") == "immediate"]
-    return {
-        "status": "ok",
-        "count": len(alerts),
-        "alerts": alerts[:10],
-    }
-
+    return {"status": "ok", "count": len(alerts), "alerts": alerts[:10]}
 
 @router.post("/aura/safety-check/{teen_name}")
 async def safety_check_in(teen_name: str, payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
-    """Teen sends a safety check-in ping to parents."""
     from datetime import datetime, timezone
     now = datetime.now(timezone.utc)
-    message = payload.get("message", "I'm safe ✅")
+    message = payload.get("message", "I'm safe")
     location = payload.get("location", "Unknown")
-
     activity_store.add_event({
         "event_type": "safety_check_in",
         "person_id": teen_name.lower(),
         "track_id": f"safety-{int(now.timestamp() * 1000)}",
         "zone": location,
-        "room": location,
         "session_id": "manual",
         "confidence": 1.0,
         "duration_seconds": 0.0,
@@ -1054,3 +789,143 @@ async def safety_check_in(teen_name: str, payload: dict[str, Any] = Body(...)) -
         },
     })
     return {"status": "ok", "message": f"Check-in received from {teen_name}", "timestamp": now.isoformat()}
+
+# ------------------------------------------------------------------
+# Family Safety API (Mobile App)
+# ------------------------------------------------------------------
+
+FAMILY_CHILDREN_DEFAULT = [
+    {"name": "Sarah", "age": 14, "status": "online", "avatar": "🧑"},
+    {"name": "Ahmed", "age": 10, "status": "offline", "avatar": "👦"},
+]
+
+SCREEN_TIME_DEFAULT = {
+    "total": "3h 20m",
+    "limit": "4h 00m",
+    "apps": [
+        {"name": "TikTok", "time": "45m", "icon": "🎵"},
+        {"name": "YouTube", "time": "1h 15m", "icon": "📺"},
+        {"name": "Roblox", "time": "40m", "icon": "🎮"},
+        {"name": "Home Learning", "time": "40m", "icon": "📚"},
+    ],
+    "today_limit_remaining": "40m",
+}
+
+LOCATION_DEFAULT: dict[str, Any] = {
+    "latitude": 51.5074,
+    "longitude": -0.1278,
+    "accuracy": 10,
+    "address": "London, UK",
+    "zones": ["Home", "School", "Library"],
+    "timestamp": None,
+    "provider": "browser",
+}
+
+WEB_FILTER_DEFAULT = {
+    "enabled": True,
+    "blocked_categories": ["adult", "gambling", "violence", "drugs", "weapons"],
+    "allowed_sites": [],
+    "blocked_sites": [],
+    "safe_search": True,
+    "last_updated": None,
+}
+
+CHECK_IN_DEFAULT: dict[str, Any] = {
+    "last_check_in": None,
+    "status": "awaiting",
+    "message": None,
+}
+
+FAMILY_ALERTS: list[dict[str, Any]] = []
+
+
+@router.get("/family/children")
+async def get_family_children() -> dict[str, Any]:
+    return {"status": "ok", "children": FAMILY_CHILDREN_DEFAULT}
+
+
+@router.get("/family/screentime")
+async def get_screen_time() -> dict[str, Any]:
+    return {"status": "ok", **SCREEN_TIME_DEFAULT}
+
+
+@router.get("/family/location")
+async def get_family_location() -> dict[str, Any]:
+    return {"status": "ok", **LOCATION_DEFAULT}
+
+
+@router.post("/family/location")
+async def update_family_location(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    """Update a family member's location (called from mobile app)."""
+    global LOCATION_DEFAULT
+    if payload.get("latitude"):
+        LOCATION_DEFAULT["latitude"] = payload["latitude"]
+    if payload.get("longitude"):
+        LOCATION_DEFAULT["longitude"] = payload["longitude"]
+    if payload.get("accuracy"):
+        LOCATION_DEFAULT["accuracy"] = payload["accuracy"]
+    LOCATION_DEFAULT["timestamp"] = datetime.now(timezone.utc).isoformat()
+    LOCATION_DEFAULT["address"] = f"Lat: {LOCATION_DEFAULT['latitude']:.4f}, Lng: {LOCATION_DEFAULT['longitude']:.4f}"
+    return {"status": "ok", "message": "Location updated"}
+
+
+@router.get("/family/alerts")
+async def get_family_alerts() -> dict[str, Any]:
+    return {"status": "ok", "alerts": FAMILY_ALERTS, "count": len(FAMILY_ALERTS)}
+
+
+@router.get("/family/webfilter")
+async def get_web_filter() -> dict[str, Any]:
+    return {"status": "ok", **WEB_FILTER_DEFAULT}
+
+
+@router.post("/family/webfilter")
+async def update_web_filter(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    """Update web filter configuration."""
+    global WEB_FILTER_DEFAULT
+    if "enabled" in payload:
+        WEB_FILTER_DEFAULT["enabled"] = payload["enabled"]
+    if "blocked_categories" in payload:
+        WEB_FILTER_DEFAULT["blocked_categories"] = payload["blocked_categories"]
+    if "allowed_sites" in payload:
+        WEB_FILTER_DEFAULT["allowed_sites"] = payload["allowed_sites"]
+    if "safe_search" in payload:
+        WEB_FILTER_DEFAULT["safe_search"] = payload["safe_search"]
+    WEB_FILTER_DEFAULT["last_updated"] = datetime.now(timezone.utc).isoformat()
+    return {"status": "ok", "message": "Web filter updated", **WEB_FILTER_DEFAULT}
+
+
+@router.get("/family/checkin")
+async def get_check_in() -> dict[str, Any]:
+    return {"status": "ok", **CHECK_IN_DEFAULT}
+
+
+@router.post("/family/checkin")
+async def update_check_in(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    """Family member checks in as safe."""
+    global CHECK_IN_DEFAULT
+    CHECK_IN_DEFAULT["last_check_in"] = datetime.now(timezone.utc).isoformat()
+    CHECK_IN_DEFAULT["status"] = "safe"
+    CHECK_IN_DEFAULT["message"] = payload.get("message", "I am safe")
+    FAMILY_ALERTS.append({
+        "type": "checkin",
+        "message": f"Safety check-in: {CHECK_IN_DEFAULT['message']}",
+        "timestamp": CHECK_IN_DEFAULT["last_check_in"],
+        "status": "resolved",
+    })
+    return {"status": "ok", "message": "Check-in recorded", **CHECK_IN_DEFAULT}
+
+
+@router.post("/family/emergency")
+async def trigger_emergency(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    """Trigger emergency alert to all family members."""
+    alert = {
+        "type": "emergency",
+        "message": payload.get("message", "Emergency! Need help!"),
+        "location": payload.get("location"),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "status": "active",
+        "priority": "critical",
+    }
+    FAMILY_ALERTS.insert(0, alert)
+    return {"status": "ok", "message": "Emergency alert sent", "alert": alert}
