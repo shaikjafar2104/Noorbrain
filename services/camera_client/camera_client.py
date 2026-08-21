@@ -24,7 +24,7 @@ class CameraClient:
 
     def __init__(self):
         config = load_config()
-        camera_node = config.get("camera_node", {})
+        camera_node = config.get("camera_node") or {}
 
         self.base_url = camera_node.get(
             "url",
