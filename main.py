@@ -137,8 +137,11 @@ async def startup():
     logger.info("=" * 60)
 
     try:
-        camera_client.start()
-        logger.info("Camera client started")
+        # DISABLED: Pi camera (192.168.2.29:8000) is offline, causing retry storms
+        # if camera_client.base_url and camera_client.base_url != "http://127.0.0.1:8000":
+        #     camera_client.start()
+        #     logger.info("Camera client started")
+        logger.info("Camera client DISABLED (Pi offline)")
     except Exception:
         logger.exception("Camera client startup failed")
 

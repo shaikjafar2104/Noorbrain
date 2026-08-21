@@ -115,8 +115,9 @@ class VisionEngine:
         logger.info("Starting Vision Engine")
         logger.info("=" * 60)
 
-        if not camera_client.running:
-            camera_client.start()
+        # DISABLED: Pi camera offline
+        # if not camera_client.running:
+        #     camera_client.start()
 
         self.running = True
 

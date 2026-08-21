@@ -6,7 +6,8 @@ server:
   port: 8001
 
 camera_node:
-  url: http://192.168.2.29:8000
+  # Pi camera is currently offline - uncomment when Pi is back online
+  # url: http://192.168.2.29:8000
 
 system:
   log_level: INFO
