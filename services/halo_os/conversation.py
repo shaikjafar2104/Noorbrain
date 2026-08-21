@@ -67,10 +67,10 @@ class ConversationEngine:
                 "context": context_memory.get(session_id)["context"],
             }
 
-        if intent.name == "islamic_story":
-            from services.offline_agent.tool_registry import tool_registry
-            from services.offline_agent import tools as _tools  # noqa: F401
+        from services.offline_agent.tool_registry import tool_registry
+        from services.offline_agent import tools as _tools  # noqa: F401
 
+        if intent.name == "islamic_story":
             result = tool_registry.execute(
                 "islamic_story",
                 intent.arguments,
@@ -90,9 +90,6 @@ class ConversationEngine:
             }
 
         if intent.name == "device_action":
-            from services.offline_agent.tool_registry import tool_registry
-            from services.offline_agent import tools as _tools  # noqa: F401
-
             if not confirm:
                 return {
                     "status": "needs_confirmation",
