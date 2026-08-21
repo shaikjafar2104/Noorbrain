@@ -39,9 +39,9 @@
     "raspberry-pi-halo": {
       "context": {
         "last_intent": "conversation",
-        "last_user_text": ""
+        "last_user_text": "spark is serious send the largest military airport in the north"
       },
-      "updated_at": "2026-08-20T23:23:43.614126+00:00"
+      "updated_at": "2026-08-21T00:57:07.332513+00:00"
     },
     "speed-final-test": {
       "context": {

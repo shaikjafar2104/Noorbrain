@@ -190,6 +190,24 @@ class IntentEngine:
                 {"query": " ".join(query.split())},
             )
 
+        # Islamic Story Mode: "tell me story of prophet yousuf"
+        story_match = re.search(
+            r"(?:tell me|tell|give me|kahaani sunao|sunao|kahani|history)\s+(?:a\s+)?story(?: about)?\s+(.+)",
+            normalized,
+        )
+        if not story_match:
+            story_match = re.search(r"story(?: of)?\s+(.+)", normalized)
+        if story_match:
+            topic = story_match.group(1).strip(" ?.")
+            if topic.startswith("of "):
+                topic = topic[3:].strip()
+            if topic and len(topic) > 2:
+                return IntentResult(
+                    "islamic_story",
+                    0.95,
+                    {"topic": topic},
+                )
+
         return IntentResult(
             "conversation",
             0.40,

@@ -67,6 +67,28 @@ class ConversationEngine:
                 "context": context_memory.get(session_id)["context"],
             }
 
+        if intent.name == "islamic_story":
+            from services.offline_agent.tool_registry import tool_registry
+            from services.offline_agent import tools as _tools  # noqa: F401
+
+            result = tool_registry.execute(
+                "islamic_story",
+                intent.arguments,
+            )
+            context_memory.update(
+                session_id,
+                {"last_intent": intent.name, "last_user_text": text},
+            )
+            reply = result.get("text", result.get("reply", "Here is an Islamic story for you."))
+            return {
+                "status": "ok",
+                "reply": reply,
+                "intent": intent.name,
+                "confidence": intent.confidence,
+                "result": result,
+                "context": context_memory.get(session_id)["context"],
+            }
+
         if intent.name == "device_action":
             from services.offline_agent.tool_registry import tool_registry
             from services.offline_agent import tools as _tools  # noqa: F401
